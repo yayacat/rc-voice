@@ -10,7 +10,15 @@ import {
   Trash,
 } from "lucide-react";
 
-const ChannelViewer = ({ channels, callBack }) => {
+const ChannelViewer = ({
+  channels,
+  users,
+  server,
+  handleAddChannel,
+  handleEditChannel,
+  handleDeleteChannel,
+}) => {
+  console.log(channels);
   const [expandedSections, setExpandedSections] = useState(
     channels.reduce((acc, channel) => {
       if (channel.id) acc[channel.id] = true;
@@ -23,15 +31,22 @@ const ChannelViewer = ({ channels, callBack }) => {
     y: 0,
     channel: null,
   });
+  const [contextMenu2, setContextMenu2] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+  });
   const [addingChannel, setAddingChannel] = useState({
     visible: false,
-    channel: null,
+    parentId: null,
+    isCategory: false,
   });
   const [newChannel, setNewChannel] = useState({
     name: "",
     permission: "public",
     id: "",
     isLobby: false,
+    users: [],
   });
   const [editingChannel, setEditingChannel] = useState({
     visible: false,
@@ -42,53 +57,8 @@ const ChannelViewer = ({ channels, callBack }) => {
     permission: "public",
     id: "",
     isLobby: false,
+    users: [],
   });
-
-  // Handle event
-  const toggleSection = (section) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
-  };
-  const openContextMenu = (e, id) => {
-    e.preventDefault();
-    const allChannels = channels.reduce((acc, item) => {
-      if (item.channels) {
-        return acc.concat(item.channels);
-      }
-      return acc.concat(item);
-    }, []);
-    const channel = allChannels.find((_) => _.id === id);
-    setContextMenu({
-      visible: true,
-      x: e.pageX,
-      y: e.pageY,
-      channel: channel,
-    });
-  };
-  const handleAddChannel = (id = null) => {
-    // REWRITE THIS //
-    if (!newChannel.name.trim()) {
-      // warn
-    }
-    callBack((prev) => {
-      if (id) {
-        // Adding to existing category
-      } else {
-        // Creating new channel
-      }
-    });
-  };
-  const handleEditChannel = (id = null) => {
-    // REWRITE THIS //
-    callBack((prev) => {
-      if (id) {
-      } else {
-      }
-    });
-  };
-  const handleDeleteChannel = (id = null) => {};
 
   const getPermissionStyle = (permission) => {
     switch (permission) {
@@ -101,44 +71,100 @@ const ChannelViewer = ({ channels, callBack }) => {
     }
   };
 
-  const createChannel = (channel, id = null) => {
-    const renderUsers = (users) => {
-      if (!users || users.length === 0) return null;
-      return (
-        <div className="ml-6">
-          {users.map((user) => (
-            <div
-              key={user.id}
-              className="flex p-1 items-center justify-between hover:bg-gray-100 group select-none"
-            >
-              <div className="flex items-center flex-1 min-w-0">
-                <div
-                  className={`w-3.5 h-3.5 rounded-sm flex items-center justify-center mr-1`}
-                >
-                  <img
-                    src={`/channel/UserIcons${user.gender}_${user.permission}_14x16.png`}
-                    alt={user.name}
-                    className="select-none"
-                  />
-                </div>
-                <span className="truncate">{user.name}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      );
-    };
-
+  const renderCategory = (category) => {
     return (
-      <div key={channel.id}>
+      <div key={category.id} className="mb">
         <div
-          className="flex p-1 items-center justify-between hover:bg-gray-100 group select-none"
-          onContextMenu={(e) => openContextMenu(e, channel.id)}
-          onClick={() => toggleSection(channel.id)}
+          className="flex p-1 pl-3 items-center justify-between hover:bg-gray-100 group select-none"
+          onClick={() =>
+            setExpandedSections((prev) => ({
+              ...prev,
+              [category.id]: !prev[category.id],
+            }))
+          }
+          onContextMenu={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            setContextMenu({
+              visible: true,
+              x: e.pageX,
+              y: e.pageY,
+              channel: category,
+            });
+          }}
         >
           <div className="flex items-center flex-1 min-w-0">
             <div
-              className={`w-3.5 h-3.5 rounded-sm flex items-center justify-center outline outline-1 outline-gray-200 mr-1 ${getPermissionStyle(
+              className={`min-w-3.5 min-h-3.5 rounded-sm flex items-center justify-center outline outline-1 outline-gray-200 mr-1 ${getPermissionStyle(
+                category.permission
+              )}`}
+            >
+              {category.permission === "readonly" ? (
+                <Dot size={12} />
+              ) : expandedSections[category.id] ? (
+                <Minus size={12} />
+              ) : (
+                <Plus size={12} />
+              )}
+            </div>
+            <span className="truncate">{category.name}</span>
+          </div>
+          {category.permission !== "readonly" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setAddingChannel({
+                  visible: true,
+                  parentId: category.id,
+                  isCategory: false,
+                });
+              }}
+              className="opacity-0 group-hover:opacity-100 hover:bg-gray-200 p-1 rounded"
+            >
+              <Plus size={14} />
+            </button>
+          )}
+        </div>
+
+        {expandedSections[category.id] && (
+          <div className="ml-6">
+            {channels
+              .filter((_) => _.parentId === category.id)
+              .map((subChannel) =>
+                subChannel.isCategory
+                  ? renderCategory(subChannel)
+                  : renderChannel(subChannel)
+              )}
+          </div>
+        )}
+      </div>
+    );
+  };
+  const renderChannel = (channel) => {
+    return (
+      <div key={channel.id}>
+        <div
+          className="flex p-1 pl-3 items-center justify-between hover:bg-gray-100 group select-none"
+          onClick={() =>
+            setExpandedSections((prev) => ({
+              ...prev,
+              [channel.id]: !prev[channel.id],
+            }))
+          }
+          onContextMenu={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            setContextMenu({
+              visible: true,
+              x: e.pageX,
+              y: e.pageY,
+              channel: channel,
+            });
+          }}
+        >
+          <div className="flex items-center flex-1 min-w-0">
+            <div
+              className={`min-w-3.5 min-h-3.5 rounded-sm flex items-center justify-center outline outline-1 outline-gray-200 mr-1 ${getPermissionStyle(
                 channel.permission
               )}`}
             >
@@ -162,17 +188,57 @@ const ChannelViewer = ({ channels, callBack }) => {
               className="opacity-0 group-hover:opacity-100 hover:bg-gray-200 p-1 rounded"
               onClick={(e) => {
                 e.stopPropagation();
-                openContextMenu(e, channel.id);
+                e.preventDefault();
+                setContextMenu({
+                  visible: true,
+                  x: e.pageX,
+                  y: e.pageY,
+                  channel: channel,
+                });
               }}
             >
               <MoreVertical size={14} />
             </button>
           )}
         </div>
-        {expandedSections[channel.id] && renderUsers(channel.users)}
+        {expandedSections[channel.id] && channel.users.length > 0 && (
+          <div className="ml-6">
+            {channel.users.map((userId) => renderUser(userId))}
+          </div>
+        )}
       </div>
     );
   };
+  const renderUser = (userId) => {
+    return (
+      <div
+        key={userId}
+        className="flex p-1 pl-3 items-center justify-between hover:bg-gray-100 group select-none"
+      >
+        <div className="flex items-center flex-1 min-w-0">
+          <div
+            className={`min-w-3.5 min-h-3.5 rounded-sm flex items-center justify-center mr-1`}
+          >
+            <img
+              src={`/channel/UserIcons${users[userId].gender}_${
+                users[userId].permissions[server.id]
+              }_14x16.png`}
+              alt={users[userId].name}
+              className="select-none"
+            />
+          </div>
+          <span className="truncate">{users[userId].name}</span>
+        </div>
+      </div>
+    );
+  };
+
+  window.addEventListener("click", (e) => {
+    if (contextMenu.visible)
+      setContextMenu((prev) => ({ ...prev, visible: false }));
+    if (contextMenu2.visible)
+      setContextMenu2((prev) => ({ ...prev, visible: false }));
+  });
 
   return (
     <>
@@ -209,65 +275,125 @@ const ChannelViewer = ({ channels, callBack }) => {
         </div>
       )}
 
+      {/* Context Menu2 */}
+      {contextMenu2.visible && (
+        <div
+          className="fixed bg-white shadow-lg rounded border py-1 z-50"
+          style={{ top: contextMenu2.y, left: contextMenu2.x }}
+        >
+          <button
+            className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center"
+            onClick={() => {
+              setContextMenu2((prev) => ({ ...prev, visible: false }));
+              setAddingChannel({
+                visible: true,
+                parentId: null,
+                isCategory: false,
+              });
+            }}
+          >
+            <Plus size={14} className="mr-2" />
+            新增頻道
+          </button>
+          <button
+            className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center"
+            onClick={() => {
+              setContextMenu2((prev) => ({ ...prev, visible: false }));
+              setAddingChannel({
+                visible: true,
+                parentId: null,
+                isCategory: true,
+              });
+            }}
+          >
+            <Plus size={14} className="mr-2" />
+            新增類別
+          </button>
+        </div>
+      )}
+
       {/* Add Channel Modal */}
       {addingChannel.visible && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white p-4 rounded-lg w-80">
-            <h3 className="text-lg font-bold mb-4">新增頻道</h3>
-            <input
-              type="text"
-              value={newChannel.name}
-              onChange={(e) =>
-                setNewChannel((prev) => ({ ...prev, name: e.target.value }))
-              }
-              className="w-full p-2 border rounded mb-4"
-              placeholder="頻道名稱"
-            />
-            <select
-              value={newChannel.permission}
-              onChange={(e) =>
-                setNewChannel((prev) => ({
-                  ...prev,
-                  permission: e.target.value,
-                }))
-              }
-              className="w-full p-2 border rounded mb-4"
+            <h3 className="text-lg font-bold mb-4">{`新增${
+              addingChannel.isCategory ? "類別" : "頻道"
+            }`}</h3>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setAddingChannel((prev) => ({ ...prev, visible: false }));
+                addingChannel.isCategory
+                  ? handleAddChannel({
+                      ...newChannel,
+                      parentId: addingChannel.parentId,
+                      isCategory: addingChannel.isCategory,
+                    })
+                  : handleAddChannel({
+                      ...newChannel,
+                      parentId: addingChannel.parentId,
+                      isCategory: addingChannel.isCategory,
+                    });
+                setNewChannel({
+                  name: "",
+                  permission: "public",
+                  id: "",
+                  isLobby: false,
+                  users: [],
+                });
+              }}
             >
-              <option value="public">公開</option>
-              <option value="private">私人</option>
-              <option value="readonly">唯讀</option>
-            </select>
-            <div className="flex justify-end space-x-2">
-              <button
-                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
-                onClick={() => {
-                  setAddingChannel((prev) => ({ ...prev, visible: false }));
-                  setNewChannel({
-                    name: "",
-                    permission: "public",
-                    id: "",
-                    isLobby: false,
-                  });
-                }}
+              <input
+                type="text"
+                value={newChannel.name}
+                onChange={(e) =>
+                  setNewChannel((prev) => ({ ...prev, name: e.target.value }))
+                }
+                className="w-full p-2 border rounded mb-4"
+                placeholder={`${
+                  addingChannel.isCategory ? "類別" : "頻道"
+                }名稱`}
+                required
+              />
+              <select
+                value={newChannel.permission}
+                onChange={(e) =>
+                  setNewChannel((prev) => ({
+                    ...prev,
+                    permission: e.target.value,
+                  }))
+                }
+                className="w-full p-2 border rounded mb-4"
               >
-                取消
-              </button>
-              <button
-                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-                onClick={() => {
-                  setAddingChannel((prev) => ({ ...prev, visible: false }));
-                  handleAddChannel(addingChannel.channel.id);
-                  setNewChannel({
-                    name: "",
-                    permission: "public",
-                    id: "",
-                    isLobby: false,
-                  });
-                }}
-              >
-                確定
-              </button>
-            </div>
+                <option value="public">公開</option>
+                <option value="private">會員</option>
+                <option value="readonly">唯讀</option>
+              </select>
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+                  onClick={() => {
+                    setAddingChannel((prev) => ({ ...prev, visible: false }));
+                    setNewChannel({
+                      name: "",
+                      permission: "public",
+                      id: "",
+                      isLobby: false,
+                      users: [],
+                    });
+                  }}
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  確定
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -279,7 +405,7 @@ const ChannelViewer = ({ channels, callBack }) => {
             <h3 className="text-lg font-bold mb-4">編輯頻道</h3>
             <input
               type="text"
-              value={editingChannel.channel.name}
+              value={editChannel.name}
               onChange={(e) =>
                 setEditChannel((prev) => ({ ...prev, name: e.target.value }))
               }
@@ -294,7 +420,8 @@ const ChannelViewer = ({ channels, callBack }) => {
                     name: "",
                     permission: "public",
                     id: "",
-                    isLobby: "",
+                    isLobby: false,
+                    users: [],
                   });
                 }}
               >
@@ -304,12 +431,13 @@ const ChannelViewer = ({ channels, callBack }) => {
                 className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
                 onClick={() => {
                   setEditingChannel((prev) => ({ ...prev, visible: false }));
-                  handleEditChannel(editingChannel.channel.id);
+                  handleEditChannel(editingChannel.channel.id, editChannel);
                   setEditChannel({
                     name: "",
                     permission: "public",
                     id: "",
-                    isLobby: "",
+                    isLobby: false,
+                    users: [],
                   });
                 }}
               >
@@ -320,60 +448,35 @@ const ChannelViewer = ({ channels, callBack }) => {
         </div>
       )}
 
-      {[...channels].map((channel, index) => {
-        if (channel.channels) {
-          // Render category
-          return (
-            <div key={channel.id} className="mb">
-              <div
-                className="flex p-1 items-center justify-between hover:bg-gray-100 group select-none whitespace-nowrap overflow-hidden"
-                onClick={() => toggleSection(channel.id)}
-              >
-                <div className="flex items-center">
-                  <div
-                    className={`w-3.5 h-3.5 rounded-sm flex items-center justify-center outline outline-1 outline-gray-200 mr-1 ${getPermissionStyle(
-                      channel.permission
-                    )}`}
-                  >
-                    {channel.permission === "readonly" ? (
-                      <Dot size={12} />
-                    ) : expandedSections[channel.id] ? (
-                      <Minus size={12} />
-                    ) : (
-                      <Plus size={12} />
-                    )}
-                  </div>
-                  <span>{channel.name}</span>
-                </div>
-                {channel.permission !== "readonly" && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setAddingChannel({
-                        visible: true,
-                        channel: channel,
-                      });
-                    }}
-                    className="opacity-0 group-hover:opacity-100 hover:bg-gray-200 p-1 rounded"
-                  >
-                    <Plus size={14} />
-                  </button>
-                )}
-              </div>
-
-              {expandedSections[channel.id] && channel.channels?.length > 0 && (
-                <div className="ml-6">
-                  {channel.channels.map((subChannel) =>
-                    createChannel(subChannel, true)
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        }
-        // Render single channel
-        return createChannel(channel);
-      })}
+      <div
+        className="p-2 flex items-center justify-between text-gray-400 text-xs select-none"
+        onContextMenu={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          setContextMenu2({
+            visible: true,
+            x: e.pageX,
+            y: e.pageY,
+          });
+        }}
+      >
+        所有頻道 (右鍵新增頻道)
+      </div>
+      <div
+        className="flex flex-col overflow-y-auto 
+  [&::-webkit-scrollbar]:w-0 
+  [&::-webkit-scrollbar-thumb]:bg-transparent 
+  scrollbar-none"
+      >
+        {" "}
+        {[...channels]
+          .filter((_) => !_.parentId)
+          .map((channel) =>
+            channel.isCategory
+              ? renderCategory(channel)
+              : renderChannel(channel)
+          )}
+      </div>
     </>
   );
 };

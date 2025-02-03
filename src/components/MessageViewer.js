@@ -2,7 +2,7 @@ import { useRef, useLayoutEffect } from "react";
 
 import MarkdownViewer from "./MarkdownViewer";
 
-const MessageViewer = ({ messages }) => {
+const MessageViewer = ({ messages, users, server }) => {
   const messagesEndRef = useRef(null);
 
   useLayoutEffect(() => {
@@ -12,12 +12,11 @@ const MessageViewer = ({ messages }) => {
     });
   }, [messages]);
 
-  const formatMessageTime = (timestamp) => {
+  const formatMsgTimestamp = (timestamp) => {
     if (!timestamp) return "";
 
-    const messageDate = new Date(timestamp);
     const now = new Date();
-
+    const messageDate = new Date(parseInt(timestamp));
     const messageDay = new Date(
       messageDate.getFullYear(),
       messageDate.getMonth(),
@@ -26,7 +25,6 @@ const MessageViewer = ({ messages }) => {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-
     const timeString = messageDate.toLocaleTimeString("zh-TW", {
       hour: "2-digit",
       minute: "2-digit",
@@ -46,81 +44,71 @@ const MessageViewer = ({ messages }) => {
   };
 
   // Group messages by user and time window
-  const groupMessages = (msgs) => {
-    const sorted = [...msgs].sort(
+  const groupMessages = (message) => {
+    const sorted = [...message].sort(
       (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
     );
-    const grouped = [];
-    let currentGroup = null;
+    const grouped = sorted.reduce((acc, message) => {
+      const lastGroup = acc[acc.length - 1];
+      const nearTime =
+        lastGroup &&
+        new Date(message.timestamp) - new Date(lastGroup.timestamp) <=
+          5 * 60 * 1000;
+      const sameSender = lastGroup && message.sender === lastGroup.sender;
 
-    sorted.forEach((message) => {
-      if (!currentGroup) {
-        // Start new group
-        currentGroup = {
-          messageId: message.messageId,
-          user: message.user,
-          timestamp: message.timestamp,
-          contents: [message.content],
-        };
+      if (sameSender && nearTime) {
+        lastGroup.messages.push(message);
       } else {
-        const timeDiff =
-          new Date(message.timestamp) - new Date(currentGroup.timestamp);
-        const sameUser = message.user.id === currentGroup.user.id;
-
-        if (sameUser && timeDiff <= 5 * 60 * 1000) {
-          // 5 minutes in milliseconds
-          // Add to current group
-          currentGroup.contents.push(message.content);
-        } else {
-          // Start new group
-          grouped.push(currentGroup);
-          currentGroup = {
-            messageId: message.messageId,
-            user: message.user,
-            timestamp: message.timestamp,
-            contents: [message.content],
-          };
-        }
+        acc.push({
+          id: message.id,
+          sender: message.sender,
+          timestamp: message.timestamp,
+          messages: [message],
+        });
       }
-    });
 
-    // Add last group
-    if (currentGroup) {
-      grouped.push(currentGroup);
-    }
+      return acc;
+    }, []);
 
     return grouped;
   };
 
-  const groupedMessages = groupMessages(messages);
+  const renderMessage = (group) => {
+    return (
+      <div key={group.id} className="flex items-start space-x-1 mb-1">
+        <img
+          src={`/channel/UserIcons${users[group.sender].gender}_${
+            users[group.sender].permissions[server.id]
+          }_14x16.png`}
+          alt={group.sender.id}
+          className="select-none flex-shrink-0 mt-1"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center">
+            <span className="font-bold text-gray-900">
+              {users[group.sender].name}
+            </span>
+            <span className="text-xs text-gray-500 ml-2">
+              {formatMsgTimestamp(group.timestamp)}
+            </span>
+          </div>
 
-  return (
-    <>
-      {groupedMessages.map((group) => (
-        <div key={group.messageId} className="flex items-start space-x-1 mb-1">
-          <img
-            src={`/channel/UserIcons${group.user.gender}_${group.user.permission}_14x16.png`}
-            alt={group.user.id}
-            className="select-none flex-shrink-0 mt-1"
-          />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center">
-              <span className="font-bold text-gray-900">{group.user.name}</span>
-              <span className="text-xs text-gray-500 ml-2">
-                {formatMessageTime(group.timestamp)}
-              </span>
-            </div>
-
-            <div className="text-gray-700 break-words whitespace-pre-wrap">
-              <MarkdownViewer markdownText={group.contents.join("\n")} />
-            </div>
-            {/* <div className="text-gray-700 break-words whitespace-pre-wrap">
-              
-              {group.contents.join("\n")}
-            </div> */}
+          <div className="text-gray-700">
+            {group.messages.map((message) => (
+              <div key={message.id} className="break-words">
+                <MarkdownViewer markdownText={message.content} />
+              </div>
+            ))}
           </div>
         </div>
-      ))}
+      </div>
+    );
+  };
+
+  const groupedMessages = groupMessages(messages);
+  return (
+    <>
+      {groupedMessages.map((group) => renderMessage(group))}
       <div ref={messagesEndRef} />
     </>
   );
