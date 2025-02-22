@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Channel, User } from '@/types';
 import { Socket } from 'socket.io-client';
@@ -13,14 +14,18 @@ class Call {
     socket: Socket;
     currentRoom: string | null;
     isSpeaker: boolean;
-    audioContext: AudioContext | null;
-    sourceNode: MediaStreamAudioSourceNode | null;
-    processorNode: ScriptProcessorNode | null;
+    audioContext!: AudioContext;
+    sourceNode!: MediaStreamAudioSourceNode;
+    processorNode!: ScriptProcessorNode;
     isMuted: boolean;
     stream: MediaStream | null;
     currentUsers: UserCall[] = []; // Initialize with empty array of User type
     channel: Channel;
     user: User;
+    userListDiv: any;
+    source: any;
+    username!: string;
+    analyser!: AnalyserNode;
 
     constructor(socket: Socket,channel: Channel, user: User) {
         this.socket = socket;
@@ -28,17 +33,15 @@ class Call {
         this.user = user;
         this.currentRoom = null;
         this.isSpeaker = false;
-        this.audioContext = null;
-        this.sourceNode = null;
-        this.processorNode = null;
         this.isMuted = false;
         this.stream = null;
         if (this.socket) this.initialize();
     }
     initialize() {
-        // this.socket.on("update-users-list", (users: User[]) => this.updateUserList(users));
+        this.socket.on("update-users-list", (users: User[]) => console.log(users));
         // this.socket.on("user-speaking", ({ userId, isSpeaking, volume }: { userId: string, isSpeaking: boolean, volume: number }) => this.handleUserSpeaking(userId, isSpeaking, volume));
-        this.socket.on("audio-stream", ({ data }: { data: ArrayBuffer }) => this.playAudioStream(data));
+        this.socket.on("audio-stream", ({ from, data }: { from: string | undefined, data: ArrayBuffer }) => from != this.socket.id ? this.playAudioStream(data) : console.log(from,this.socket.id));
+        this.socket.on("update-disconnect", () => this.disconnectAudioStream());
         // this.socket.on("room-list", (rooms: string[]) => this.displayRooms(rooms));
         // this.socket.emit("get-rooms");
         // const room = new URLSearchParams(window.location.search).get("room");
@@ -49,7 +52,7 @@ class Call {
     }
     /**加入房間(這裡我直接傳入room id)**/
     async joinRoom(room: string): Promise<void> {
-        const username = this.user.id;
+        this.username = this.user.id;
         this.isSpeaker = confirm("是否要開啟麥克風？（取消則進入旁聽模式）");
         if (this.isSpeaker) {
             try {
@@ -69,25 +72,27 @@ class Call {
             this.setupAudioPlayback();
         }
         this.currentRoom = room;
-        this.socket.emit("join-room", { room, isSpeaker: this.isSpeaker, username });
+        this.socket.emit("join-room", { room, isSpeaker: this.isSpeaker, username: this.username });
     }
     /**開始廣播**/
     startBroadcasting(stream: MediaStream) {
         this.audioContext = new (window.AudioContext || window.AudioContext)();
-        if (!this.audioContext) return; // Ensure audioContext is not null
         this.sourceNode = this.audioContext.createMediaStreamSource(stream);
         this.processorNode = this.audioContext.createScriptProcessor(4096, 1, 1);
-        const analyser = this.audioContext.createAnalyser();
-        analyser.smoothingTimeConstant = 0.8;
-        analyser.fftSize = 512;
-        this.sourceNode.connect(analyser);
-        analyser.connect(this.processorNode);
-        // this.processorNode.connect(this.audioContext.destination);
+        this.analyser = this.audioContext.createAnalyser();
+        this.analyser.smoothingTimeConstant = 0.8;
+        this.analyser.fftSize = 512;
+        this.sourceNode.connect(this.analyser);
+        this.analyser.connect(this.processorNode);
+        const silentGain = this.audioContext.createGain();
+        silentGain.gain.value = 0;
+        this.processorNode.connect(silentGain);
+        silentGain.connect(this.audioContext.destination);
         this.processorNode.onaudioprocess = (event) => {
             const buffer = event.inputBuffer.getChannelData(0);
             const int16Array = this.convertFloat32ToInt16(buffer);
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
-            analyser.getByteFrequencyData(dataArray);
+            const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+            this.analyser.getByteFrequencyData(dataArray);
             let volume = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
             let isSpeaking = volume > 10;
             if (this.isMuted) {
@@ -126,13 +131,23 @@ class Call {
         for (let i = 0; i < int16Array.length; i++) {
             float32Array[i] = int16Array[i] / 32767;
         }
-        const audioBuffer = this.audioContext?.createBuffer(1, float32Array.length, this.audioContext.sampleRate);
+        const audioBuffer = this.audioContext.createBuffer(1, float32Array.length, this.audioContext.sampleRate);
         if (!audioBuffer || !this.audioContext) return; // Ensure audioBuffer and audioContext are not null
         audioBuffer.copyToChannel(float32Array, 0);
-        const source = this.audioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(this.audioContext.destination);
-        source.start();
+        this.source = this.audioContext.createBufferSource();
+        this.source.buffer = audioBuffer;
+        this.source.connect(this.audioContext.destination);
+        this.source.start();
+    }
+
+    /**停止播放音流**/
+    disconnectAudioStream() {
+        this.source?.stop();
+        this.audioContext = new (window.AudioContext || window.AudioContext)();
+        this.processorNode.disconnect();
+        this.sourceNode.disconnect();
+        this.analyser.disconnect();
+        console.log("Call disconnected");
     }
     /**切換靜音(個人)**/
     toggleMute() {
@@ -144,6 +159,56 @@ class Call {
         }
         this.socket.emit("toggle-mute", { room: this.currentRoom, userId: this.socket.id, isMuted: this.isMuted });
     }
+    /**更新使用者列表**/
+	updateUserList(users: UserCall[]) {
+		this.currentUsers = users;
+		this.userListDiv.innerHTML = "";
+		users.forEach((user: UserCall) => {
+			// 使用者ID
+			const userItem = document.createElement("div");
+			userItem.id = `user-${user.userId}`;
+			userItem.style.display = "flex";
+			userItem.style.alignItems = "center";
+			userItem.style.marginBottom = "5px";
+
+			// 使用者名稱
+			const usernameText = document.createElement("span");
+			usernameText.textContent = `${user.username} (${user.isSpeaker ? "發言者" : "聽眾"})`;
+			usernameText.style.width = "150px";
+			usernameText.style.textAlign = "left";
+
+			// 靜音emoji
+			const muteIcon = document.createElement("span");
+			muteIcon.id = `mute-icon-${user.userId}`;
+			muteIcon.textContent = user.isMuted ? "🔇" : "";
+			muteIcon.style.marginLeft = "5px";
+			muteIcon.style.color = "red";
+
+			// 背景音量條
+			const volumeBar = document.createElement("div");
+			volumeBar.id = `volume-${user.userId}`;
+			volumeBar.style.width = "100px";
+			volumeBar.style.height = "10px";
+			volumeBar.style.backgroundColor = "#ccc";
+			volumeBar.style.borderRadius = "5px";
+			volumeBar.style.marginLeft = "10px";
+
+			// 綠色音量條
+			const volumeFill = document.createElement("div");
+			volumeFill.style.height = "100%";
+			volumeFill.style.width = "0%";
+			volumeFill.style.backgroundColor = "limegreen";
+			volumeFill.style.borderRadius = "5px";
+			volumeFill.style.transition = "width 0.1s linear";
+			volumeFill.id = `volume-fill-${user.userId}`;
+
+			volumeBar.appendChild(volumeFill);
+			userItem.appendChild(usernameText);
+			userItem.appendChild(volumeBar);
+			userItem.appendChild(muteIcon);
+			this.userListDiv.appendChild(userItem);
+		});
+	}
     /**處理說話**/
     handleUserSpeaking(userId: string, isSpeaking: boolean, volume: number) {
         const volumeFill = document.getElementById(`volume-fill-${userId}`) as HTMLElement | null;

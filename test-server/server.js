@@ -3,7 +3,7 @@
 // const { Server } = require("this.socket.io");
 
 class Call {
-    constructor(io,channels) {
+    constructor(io = null ,channels = []) {
         // this.port = 3000;
         // this.app = app;
         // this.server = server;
@@ -11,7 +11,12 @@ class Call {
         // this.app.use(express.static("public"));
         // this.server.listen(this.port, () => console.log(`The server runs at http://localhost:${this.port}`));
 
-        this.rooms = channels;
+        this.rooms = {};
+        if (channels && Array.isArray(channels)) {
+            channels.forEach(channel => {
+                this.rooms[channel] = {};
+            });
+        }
         if (this.io) {
             this.io.on('connection', async (socket) => {
                 if (socket) {
@@ -21,7 +26,7 @@ class Call {
                     socket.on("audio-data", (data) => this.handleAudioData(socket, data));
                     socket.on("user-speaking", (data) => this.handleUserSpeaking(socket, data));
                     socket.on("toggle-mute", (data) => this.handleToggleMute(socket, data));
-                    socket.on("disconnect", () => this.handleDisconnect(socket));
+                    socket.on("call-disconnect", () => this.handleDisconnect(socket));
                 }
             });
         }
@@ -62,6 +67,7 @@ class Call {
         for (const room in this.rooms) {
             if (this.rooms[room][socket.id]) {
                 delete this.rooms[room][socket.id];
+                this.io.to(socket.id).emit("update-disconnect");
                 this.io.to(room).emit("update-users-list", Object.values(this.rooms[room]));
                 console.log(`使用者 ${socket.id} 離開房間 ${room}`);
                 if (Object.keys(this.rooms[room]).length == 0) {

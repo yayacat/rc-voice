@@ -369,6 +369,7 @@ const HomeComponent = () => {
     };
     const handleChannelDisconnect = () => {
       console.log('Channel disconnected');
+      socket.emit("call-disconnect");
     };
     const handleUpdateUserPresence = (data: Partial<Presence>) => {
       console.log('User presence update: ', data);

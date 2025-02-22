@@ -633,9 +633,10 @@ const io = new Server(server, {
 });
 
 const Call = require("./server");
+let serverCall = new Call();
 async function runServerCall() {
   const channels = (await db.get('channels')) || {};
-  const serverCall = new Call(io, channels);
+  serverCall = new Call(io, channels);
 }
 runServerCall();
 
@@ -725,6 +726,8 @@ io.on('connection', async (socket) => {
           ...(await getServer(server.id)),
         });
       }
+
+      serverCall.handleDisconnect(socket);
 
       new Logger('WebSocket').success(`User(${userId}) disconnected`);
     } catch (error) {
