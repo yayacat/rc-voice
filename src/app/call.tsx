@@ -73,7 +73,7 @@ class Call {
     }
     /**開始廣播**/
     startBroadcasting(stream: MediaStream) {
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        this.audioContext = new (window.AudioContext || window.AudioContext)();
         if (!this.audioContext) return; // Ensure audioContext is not null
         this.sourceNode = this.audioContext.createMediaStreamSource(stream);
         this.processorNode = this.audioContext.createScriptProcessor(4096, 1, 1);
@@ -82,7 +82,7 @@ class Call {
         analyser.fftSize = 512;
         this.sourceNode.connect(analyser);
         analyser.connect(this.processorNode);
-        this.processorNode.connect(this.audioContext.destination);
+        // this.processorNode.connect(this.audioContext.destination);
         this.processorNode.onaudioprocess = (event) => {
             const buffer = event.inputBuffer.getChannelData(0);
             const int16Array = this.convertFloat32ToInt16(buffer);
@@ -114,7 +114,7 @@ class Call {
     /**設定音流播放**/
     setupAudioPlayback() {
         if (!this.audioContext) {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.audioContext = new (window.AudioContext || window.AudioContext)();
         }
     }
     /**播放音流**/
