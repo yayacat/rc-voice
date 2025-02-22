@@ -632,6 +632,13 @@ const io = new Server(server, {
   },
 });
 
+const Call = require("./server");
+async function runServerCall() {
+  const channels = (await db.get('channels')) || {};
+  const serverCall = new Call(io, channels);
+}
+runServerCall();
+
 io.on('connection', async (socket) => {
   socket.on('disconnect', async () => {
     // Get database
@@ -1738,7 +1745,7 @@ io.on('connection', async (socket) => {
       socket.join(`channel_${channel.id}`);
 
       // Emit updated data (only to the user)
-      io.to(socket.id).emit('channelConnect');
+      io.to(socket.id).emit('channelConnect', channel);
       io.to(socket.id).emit('userPresenceUpdate', {
         ...(await getPresenceState(userId)),
       });

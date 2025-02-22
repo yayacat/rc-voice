@@ -12,7 +12,7 @@ import { CircleX } from 'lucide-react';
 import header from '@/styles/common/header.module.css';
 
 // Types
-import type { Presence, Server, User } from '@/types';
+import type { Channel, Presence, Server, User } from '@/types';
 
 // Pages
 import AuthPage from '@/components/pages/AuthPage';
@@ -35,6 +35,8 @@ import store from '@/redux/store';
 import { clearServer, setServer } from '@/redux/serverSlice';
 import { clearUser, setUser } from '@/redux/userSlice';
 import { clearSessionToken, setSessionToken } from '@/redux/sessionTokenSlice';
+import { Socket } from 'socket.io-client';
+import Call from './call';
 
 interface HeaderProps {
   selectedId?: number;
@@ -360,8 +362,10 @@ const HomeComponent = () => {
       console.log('Server disconnected');
       store.dispatch(clearServer());
     };
-    const handleChannelConnect = () => {
-      console.log('Channel connected');
+    const handleChannelConnect = (channel: Channel) => {
+      console.log('Channel connected: ', channel);
+      new Call(socket, channel, user);
+      // socket.emit("get-rooms");
     };
     const handleChannelDisconnect = () => {
       console.log('Channel disconnected');
@@ -408,6 +412,7 @@ const HomeComponent = () => {
     socket.on('userUpdate', handleUserUpdate);
     socket.on('directMessage', handleDirectMessage);
     socket.on('playSound', handlePlaySound);
+    socket.on("room-list", (rooms) => console.log('Channel list: ', rooms));
 
     return () => {
       socket.off('disconnect', handleDisconnect);
