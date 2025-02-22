@@ -40,7 +40,7 @@ class Call {
     initialize() {
         this.socket.on("update-users-list", (users: User[]) => console.log(users));
         // this.socket.on("user-speaking", ({ userId, isSpeaking, volume }: { userId: string, isSpeaking: boolean, volume: number }) => this.handleUserSpeaking(userId, isSpeaking, volume));
-        this.socket.on("audio-stream", ({ from, data }: { from: string | undefined, data: ArrayBuffer }) => from != this.socket.id ? this.playAudioStream(data) : console.log(from,this.socket.id));
+        this.socket.on("audio-stream", ({ from, data }: { from: string | undefined, data: ArrayBuffer }) => from != this.socket.id ? this.playAudioStream(data) : void 0);
         this.socket.on("update-disconnect", () => this.disconnectAudioStream());
         // this.socket.on("room-list", (rooms: string[]) => this.displayRooms(rooms));
         // this.socket.emit("get-rooms");
@@ -53,7 +53,8 @@ class Call {
     /**加入房間(這裡我直接傳入room id)**/
     async joinRoom(room: string): Promise<void> {
         this.username = this.user.id;
-        this.isSpeaker = confirm("是否要開啟麥克風？（取消則進入旁聽模式）");
+        // this.isSpeaker = confirm("是否要開啟麥克風？（取消則進入旁聽模式）");
+        this.isSpeaker = true;
         if (this.isSpeaker) {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
