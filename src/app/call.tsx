@@ -28,7 +28,7 @@ class Call {
     workletNode!: AudioWorkletNode;
     analyser!: AnalyserNode;
     isConnect: boolean;
-    animationFrameId: number;
+    // animationFrameId: number;
 
     constructor(socket: Socket, user: User, channel: Channel = {
         id: '',
@@ -54,7 +54,7 @@ class Call {
         this.isSpeaker = false;
         this.isMuted = false;
         this.isConnect = false;
-        this.animationFrameId = 0;
+        // this.animationFrameId = 0;
         this.setupAudioPlayback();
         if (this.socket) this.initialize();
     }
@@ -116,32 +116,41 @@ class Call {
                 const { audioData } = event.data; // 只接收 audioData
                 this.socket.emit("audio-data", { room: this.currentRoom, data: audioData, username:this.username });
 
+                const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                this.analyser.getByteFrequencyData(dataArray);
+                let volume = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+                let isSpeaking = volume > 10;
+
+                if (this.isMuted) { // 靜音判斷仍然在主執行緒
+                    volume = 0;
+                    isSpeaking = false;
+                }
+                this.socket.emit("user-speaking", { room: this.currentRoom, isSpeaking, volume });
             };
+
+            this.sourceNode.connect(this.analyser);
+            this.analyser.connect(this.workletNode);
+            this.workletNode.connect(this.sendAudioContext.destination);
         } catch (error) {
             console.error("Failed to load audio worklet module:", error);
             return;
         }
 
-        this.sourceNode.connect(this.analyser); //  音訊來源連接到 AnalyserNode (主執行緒)
-        this.analyser.connect(this.workletNode); // AnalyserNode 連接到 WorkletNode
-        this.workletNode.connect(this.sendAudioContext.destination);
+        // //  音量分析迴圈 (主執行緒)
+        // const processVolume = () => {
+        //     const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+        //     this.analyser.getByteFrequencyData(dataArray);
+        //     let volume = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+        //     let isSpeaking = volume > 10;
 
-
-        //  音量分析迴圈 (主執行緒)
-        const processVolume = () => {
-            const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-            this.analyser.getByteFrequencyData(dataArray);
-            let volume = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
-            let isSpeaking = volume > 10;
-
-            if (this.isMuted) { // 靜音判斷仍然在主執行緒
-                volume = 0;
-                isSpeaking = false;
-            }
-            this.socket.emit("user-speaking", { room: this.currentRoom, isSpeaking, volume }); // 發送 user-speaking 事件
-            this.animationFrameId = requestAnimationFrame(processVolume); //  使用 requestAnimationFrame 週期性執行
-        };
-        processVolume(); // 啟動音量分析迴圈
+        //     if (this.isMuted) { // 靜音判斷仍然在主執行緒
+        //         volume = 0;
+        //         isSpeaking = false;
+        //     }
+        //     this.socket.emit("user-speaking", { room: this.currentRoom, isSpeaking, volume }); // 發送 user-speaking 事件
+        //     this.animationFrameId = requestAnimationFrame(processVolume); //  使用 requestAnimationFrame 週期性執行
+        // };
+        // processVolume(); // 啟動音量分析迴圈
     }
     /** 轉換結構 */
     convertFloat32ToInt16(buffer: Float32Array): Int16Array {
@@ -178,8 +187,8 @@ class Call {
     /** 停止播放音流 */
     disconnectAudioStream() {
         this.isConnect = false;
-        cancelAnimationFrame(this.animationFrameId);
-        this.source.stop();
+        // cancelAnimationFrame(this.animationFrameId);
+        if (this.source) this.source.stop();
         this.sourceNode.disconnect();
         this.analyser.disconnect();
         this.workletNode.disconnect();
