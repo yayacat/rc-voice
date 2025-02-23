@@ -29,6 +29,7 @@ class Call {
     analyser!: AnalyserNode;
     isConnect: boolean;
     animationFrameId: number;
+    receiveWorkletNode!: AudioWorkletNode;
 
     constructor(socket: Socket, user: User, channel: Channel = {
         id: '',
@@ -56,6 +57,7 @@ class Call {
         this.isConnect = false;
         this.animationFrameId = 0;
         this.setupAudioPlayback();
+        this.setupReceiveWorklet();
         if (this.socket) this.initialize();
     }
     initialize() {
@@ -97,7 +99,7 @@ class Call {
             }
         }
         this.currentRoom = room;
-        this.socket.emit("join-room", { room, isSpeaker: this.isSpeaker, username: this.username });
+        if(this.socket) this.socket.emit("join-room", { room, isSpeaker: this.isSpeaker, username: this.username });
         console.log("Call room: ", room)
     }
     /** 開始廣播 */
@@ -114,7 +116,7 @@ class Call {
 
             this.workletNode.port.onmessage = (event) => {
                 const { audioData } = event.data; // 只接收 audioData
-                this.socket.emit("audio-data", { room: this.currentRoom, data: audioData, username:this.username });
+                if(this.socket) this.socket.emit("audio-data", { room: this.currentRoom, data: audioData, username:this.username });
             };
 
             const silentGain = this.sendAudioContext.createGain();
@@ -139,7 +141,7 @@ class Call {
                 volume = 0;
                 isSpeaking = false;
             }
-            this.socket.emit("user-speaking", { room: this.currentRoom, isSpeaking, volume }); // 發送 user-speaking 事件
+            if(this.socket) this.socket.emit("user-speaking", { room: this.currentRoom, isSpeaking, volume }); // 發送 user-speaking 事件
             this.animationFrameId = requestAnimationFrame(processVolume); //  使用 requestAnimationFrame 週期性執行
         };
         processVolume(); // 啟動音量分析迴圈
@@ -154,26 +156,39 @@ class Call {
     }
     /** 設定音流播放 */
     setupAudioPlayback() {
-        this.sendAudioContext = new (window.AudioContext)();
-        this.audioContext = new (window.AudioContext)();
+        this.sendAudioContext = new (window.AudioContext)({ sampleRate: 192000 });
+        this.audioContext = new (window.AudioContext)({ sampleRate: 192000 });
+    }
+    async setupReceiveWorklet() {
+        try {
+            await this.audioContext.audioWorklet.addModule('/audio-worklet-processor-receiver.js');
+            this.receiveWorkletNode = new AudioWorkletNode(this.audioContext, 'my-receive-audio-processor');
+            this.receiveWorkletNode.connect(this.audioContext.destination);
+        } catch (error) {
+            console.error("載入接收端 AudioWorklet 模組失敗:", error);
+        }
     }
     /** 播放音流 */
     playAudioStream(from: string, data: ArrayBuffer) {
         if (!this.isConnect) return;
         if (from == this.username) return;
         if (!data || !(data instanceof ArrayBuffer)) return console.error("Invalid audio data received");
-        const int16Array = new Int16Array(data);
-        const float32Array = new Float32Array(int16Array.length);
-        for (let i = 0; i < int16Array.length; i++) {
-            float32Array[i] = int16Array[i] / 32767;
-        }
-        const audioBuffer = this.audioContext.createBuffer(1, float32Array.length, this.audioContext.sampleRate);
-        if (!audioBuffer || !this.audioContext) return;
-        audioBuffer.copyToChannel(float32Array, 0);
-        this.source = this.audioContext.createBufferSource();
-        this.source.buffer = audioBuffer;
-        this.source.connect(this.audioContext.destination);
-        this.source.start();
+        if (this.receiveWorkletNode) this.receiveWorkletNode.port.postMessage({ audioData: data });
+        // const int16Array = new Int16Array(data);
+        // const float32Array = new Float32Array(int16Array.length);
+        // for (let i = 0; i < int16Array.length; i++) {
+        //     float32Array[i] = int16Array[i] / 32767;
+        // }
+        // const audioBuffer = this.audioContext.createBuffer(1, float32Array.length, this.audioContext.sampleRate);
+        // if (!audioBuffer || !this.audioContext) return;
+        // audioBuffer.copyToChannel(float32Array, 0);
+        // this.source = this.audioContext.createBufferSource();
+        // this.source.buffer = audioBuffer;
+        // this.source.connect(this.audioContext.destination);
+        // this.source.start();
+        // this.source.onended = () => {
+        //     this.source.disconnect();
+        // };
     }
 
     /** 停止播放音流 */
@@ -192,7 +207,7 @@ class Call {
         this.stream.getAudioTracks().forEach(track => {
             track.enabled = !this.isMuted;
         });
-        this.socket.emit("toggle-mute", { room: this.currentRoom, userId: this.socket.id, isMuted: this.isMuted });
+        if(this.socket) this.socket.emit("toggle-mute", { room: this.currentRoom, userId: this.socket.id, isMuted: this.isMuted });
     }
     /** 更新使用者列表 */
 	updateUserList(users: UserCall[]) {
