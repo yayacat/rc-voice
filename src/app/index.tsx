@@ -315,6 +315,16 @@ const HomeComponent = () => {
     (state: { sessionToken: string }) => state.sessionToken,
   );
 
+  const newCallRef = useRef<Call | null>(null);
+
+  if (!newCallRef.current) {
+    if (socket && user) {
+      newCallRef.current = new Call(socket, user);
+    }
+  }
+
+  const newCall = newCallRef.current;
+
   useEffect(() => {
     const token =
       store.getState().sessionToken ?? localStorage.getItem('sessionToken');
@@ -364,7 +374,7 @@ const HomeComponent = () => {
     };
     const handleChannelConnect = (channel: Channel) => {
       console.log('Channel connected: ', channel);
-      new Call(socket, channel, user);
+      if (newCall) newCall.joinChannel(channel);
       // socket.emit("get-rooms");
     };
     const handleChannelDisconnect = () => {
