@@ -57,11 +57,12 @@ class Call {
     }
     /**處理音流**/
     handleAudioData(socket, { room, data, username }) {
-        for (const roomTemp in this.rooms[room]) {
-            const callRoom = this.rooms[room][roomTemp];
-            if (callRoom.username == username || callRoom.userId == socket.id) continue;
-            else this.io.to(callRoom.userId).emit("audio-stream", { from: username, data });
-        }
+        this.io.to(room).emit("audio-stream", { from: username, data });
+        // for (const roomTemp in this.rooms[room]) {
+        //     const callRoom = this.rooms[room][roomTemp];
+        //     if (callRoom.username == username || callRoom.userId == socket.id) continue;
+        //     else this.io.to(callRoom.userId).emit("audio-stream", { from: username, data });
+        // }
     }
     /**處理講話**/
     handleUserSpeaking(socket, { room, isSpeaking, volume }) {
