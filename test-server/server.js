@@ -65,7 +65,10 @@ class Call {
     }
     /**處理講話**/
     handleUserSpeaking(socket, { room, isSpeaking, volume }) {
-        this.io.to(room).emit("user-speaking", { userId: socket.id, isSpeaking, volume });
+        for (const roomTemp in this.rooms[room]) {
+            const callRoom = this.rooms[room][roomTemp];
+            this.io.to(callRoom.userId).emit("user-speaking", { userId: callRoom.username, isSpeaking, volume });
+        }
     }
     /**處理斷線**/
     handleDisconnect(socket) {

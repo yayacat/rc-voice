@@ -414,11 +414,16 @@ const UserTab: React.FC<UserTabProps> = React.memo(
 
     const [showInfoBlock, setShowInfoBlock] = useState<boolean>(false);
     const floatingBlockRef = useRef<HTMLDivElement>(null);
-    const [showUnplay, setShowUnplay] = useState<boolean>(false);
+    const userId = user.id;
+    const [userSpeakingStatus, setUserSpeakingStatus] = useState<{ [userId: string]: boolean }>({[userId]: true});
 
     socket?.on("user-speaking", ({ userId, isSpeaking }: { userId: string, isSpeaking: boolean }) => {
-      // console.log(socket.id,userId,isSpeaking);
-      if (socket.id == userId && !isSpeaking) setShowUnplay(true);
+      setUserSpeakingStatus(prevStatus => {
+        return {
+            ...prevStatus,
+            [userId]: !isSpeaking
+        };
+      });
     });
 
     useEffect(() => {
@@ -479,7 +484,8 @@ const UserTab: React.FC<UserTabProps> = React.memo(
             setShowContextMenu(true);
           }}
         >
-          <div className={`${styles['userState']} ${showUnplay ? styles['unplay'] : ""}`} />
+          <div className={`${styles['userState']}
+          ${userSpeakingStatus[user.id] ? styles['unplay'] : ""}`} />
           <div
             className={`${styles['userIcon']} ${permission[userGender]} ${
               permission[`lv-${userPermission}`]

@@ -69,7 +69,7 @@ class Call {
                 this.startBroadcasting(stream);
             } catch (error) {
                 alert("無法存取麥克風，已進入旁聽模式");
-                this.isSpeaker = false;
+                // this.isSpeaker = false;
             }
         }
         this.currentRoom = room;
