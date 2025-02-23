@@ -12,22 +12,23 @@ interface UserCall {
 
 class Call {
     socket: Socket;
-    currentRoom: string | null;
+    currentRoom: string;
     isSpeaker: boolean;
     sendAudioContext!: AudioContext;
     audioContext!: AudioContext;
     sourceNode!: MediaStreamAudioSourceNode;
     isMuted: boolean;
-    stream: MediaStream | null;
+    stream!: MediaStream;
     currentUsers: UserCall[] = []; // Initialize with empty array of User type
     channel: Channel;
     user: User;
     userListDiv: any;
-    source: any;
+    source!: AudioBufferSourceNode;
     username!: string;
     workletNode!: AudioWorkletNode;
     analyser!: AnalyserNode;
     isConnect: boolean;
+    animationFrameId: number;
 
     constructor(socket: Socket, user: User, channel: Channel = {
         id: '',
@@ -49,11 +50,12 @@ class Call {
         this.socket = socket;
         this.user = user;
         this.channel = channel;
-        this.currentRoom = null;
+        this.currentRoom = "";
         this.isSpeaker = false;
         this.isMuted = false;
         this.isConnect = false;
-        this.stream = null;
+        this.animationFrameId = 0;
+        this.setupAudioPlayback();
         if (this.socket) this.initialize();
     }
     initialize() {
@@ -69,6 +71,7 @@ class Call {
     }
     /** 加入頻道 */
     joinChannel(channel: Channel) {
+        this.isConnect = true;
         this.channel = channel;
         console.log("Call channel: ", channel)
         this.joinRoom(this.channel.id);
@@ -78,17 +81,16 @@ class Call {
         this.username = this.user.id;
         // this.isSpeaker = confirm("是否要開啟麥克風？（取消則進入旁聽模式）");
         this.isSpeaker = true;
-        this.setupAudioPlayback();
         if (this.isSpeaker) {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
+                this.stream = await navigator.mediaDevices.getUserMedia({
                     audio: {
                         echoCancellation: true,
                         noiseSuppression: true,
                         autoGainControl: true,
                     }
                 });
-                this.startBroadcasting(stream);
+                this.startBroadcasting();
             } catch (error) {
                 alert("無法存取麥克風，已進入旁聽模式");
                 // this.isSpeaker = false;
@@ -99,10 +101,9 @@ class Call {
         console.log("Call room: ", room)
     }
     /** 開始廣播 */
-    async startBroadcasting(stream: MediaStream) {
+    async startBroadcasting() {
         this.username = this.user.id;
-        this.sendAudioContext = new (window.AudioContext)();
-        this.sourceNode = this.sendAudioContext.createMediaStreamSource(stream);
+        this.sourceNode = this.sendAudioContext.createMediaStreamSource(this.stream);
         this.analyser = this.sendAudioContext.createAnalyser(); // 在主執行緒建立 AnalyserNode
         this.analyser.smoothingTimeConstant = 0.8;
         this.analyser.fftSize = 512;
@@ -138,7 +139,7 @@ class Call {
                 isSpeaking = false;
             }
             this.socket.emit("user-speaking", { room: this.currentRoom, isSpeaking, volume }); // 發送 user-speaking 事件
-            requestAnimationFrame(processVolume); //  使用 requestAnimationFrame 週期性執行
+            this.animationFrameId = requestAnimationFrame(processVolume); //  使用 requestAnimationFrame 週期性執行
         };
         processVolume(); // 啟動音量分析迴圈
     }
@@ -152,13 +153,13 @@ class Call {
     }
     /** 設定音流播放 */
     setupAudioPlayback() {
+        this.sendAudioContext = new (window.AudioContext)();
         this.audioContext = new (window.AudioContext)();
     }
     /** 播放音流 */
     playAudioStream(from: string, data: ArrayBuffer) {
         if (!this.isConnect) return;
         if (from == this.username) return;
-        this.setupAudioPlayback();
         if (!data || !(data instanceof ArrayBuffer)) return console.error("Invalid audio data received");
         const int16Array = new Int16Array(data);
         const float32Array = new Float32Array(int16Array.length);
@@ -166,7 +167,7 @@ class Call {
             float32Array[i] = int16Array[i] / 32767;
         }
         const audioBuffer = this.audioContext.createBuffer(1, float32Array.length, this.audioContext.sampleRate);
-        if (!audioBuffer || !this.audioContext) return; // Ensure audioBuffer and audioContext are not null
+        if (!audioBuffer || !this.audioContext) return;
         audioBuffer.copyToChannel(float32Array, 0);
         this.source = this.audioContext.createBufferSource();
         this.source.buffer = audioBuffer;
@@ -177,9 +178,8 @@ class Call {
     /** 停止播放音流 */
     disconnectAudioStream() {
         this.isConnect = false;
-        this.source?.stop();
-        this.setupAudioPlayback();
-        this.sendAudioContext = new (window.AudioContext)();
+        cancelAnimationFrame(this.animationFrameId);
+        this.source.stop();
         this.sourceNode.disconnect();
         this.analyser.disconnect();
         this.workletNode.disconnect();
@@ -188,11 +188,9 @@ class Call {
     /** 切換靜音(個人) */
     toggleMute() {
         this.isMuted = !this.isMuted;
-        if (this.stream) {
-            this.stream.getAudioTracks().forEach(track => {
-                track.enabled = !this.isMuted;
-            });
-        }
+        this.stream.getAudioTracks().forEach(track => {
+            track.enabled = !this.isMuted;
+        });
         this.socket.emit("toggle-mute", { room: this.currentRoom, userId: this.socket.id, isMuted: this.isMuted });
     }
     /** 更新使用者列表 */
