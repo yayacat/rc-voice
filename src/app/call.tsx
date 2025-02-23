@@ -128,9 +128,12 @@ class Call {
                 this.socket.emit("user-speaking", { room: this.currentRoom, isSpeaking, volume });
             };
 
+            const silentGain = this.sendAudioContext.createGain();
+            silentGain.gain.value = 0;
             this.sourceNode.connect(this.analyser);
             this.analyser.connect(this.workletNode);
-            this.workletNode.connect(this.sendAudioContext.destination);
+            this.workletNode.connect(silentGain);
+            silentGain.connect(this.sendAudioContext.destination);
         } catch (error) {
             console.error("Failed to load audio worklet module:", error);
             return;
