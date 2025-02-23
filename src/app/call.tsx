@@ -14,9 +14,9 @@ class Call {
     socket: Socket;
     currentRoom: string | null;
     isSpeaker: boolean;
+    sendAudioContext!: AudioContext;
     audioContext!: AudioContext;
     sourceNode!: MediaStreamAudioSourceNode;
-    processorNode!: ScriptProcessorNode;
     isMuted: boolean;
     stream: MediaStream | null;
     currentUsers: UserCall[] = []; // Initialize with empty array of User type
@@ -25,6 +25,7 @@ class Call {
     userListDiv: any;
     source: any;
     username!: string;
+    workletNode!: AudioWorkletNode;
     analyser!: AnalyserNode;
 
     constructor(socket: Socket,channel: Channel, user: User) {
@@ -40,7 +41,7 @@ class Call {
     initialize() {
         this.socket.on("update-users-list", (users: User[]) => console.log(users));
         // this.socket.on("user-speaking", ({ userId, isSpeaking, volume }: { userId: string, isSpeaking: boolean, volume: number }) => this.handleUserSpeaking(userId, isSpeaking, volume));
-        this.socket.on("audio-stream", ({ from, data }: { from: string | undefined, data: ArrayBuffer }) => from != this.socket.id ? this.playAudioStream(data) : void 0);
+        this.socket.on("audio-stream", ({ from, data }: { from: string, data: ArrayBuffer }) => this.playAudioStream(from, data));
         this.socket.on("update-disconnect", () => this.disconnectAudioStream());
         // this.socket.on("room-list", (rooms: string[]) => this.displayRooms(rooms));
         // this.socket.emit("get-rooms");
@@ -55,6 +56,7 @@ class Call {
         this.username = this.user.id;
         // this.isSpeaker = confirm("是否要開啟麥克風？（取消則進入旁聽模式）");
         this.isSpeaker = true;
+        this.setupAudioPlayback();
         if (this.isSpeaker) {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
@@ -69,45 +71,53 @@ class Call {
                 alert("無法存取麥克風，已進入旁聽模式");
                 this.isSpeaker = false;
             }
-        } else {
-            this.setupAudioPlayback();
         }
         this.currentRoom = room;
         this.socket.emit("join-room", { room, isSpeaker: this.isSpeaker, username: this.username });
     }
     /**開始廣播**/
-    startBroadcasting(stream: MediaStream) {
-        this.audioContext = new (window.AudioContext || window.AudioContext)();
-        this.sourceNode = this.audioContext.createMediaStreamSource(stream);
-        this.processorNode = this.audioContext.createScriptProcessor(4096, 1, 1);
-        this.analyser = this.audioContext.createAnalyser();
+    async startBroadcasting(stream: MediaStream) {
+        this.username = this.user.id;
+        this.sendAudioContext = new (window.AudioContext)();
+        this.sourceNode = this.sendAudioContext.createMediaStreamSource(stream);
+        this.analyser = this.sendAudioContext.createAnalyser(); // 在主執行緒建立 AnalyserNode
         this.analyser.smoothingTimeConstant = 0.8;
         this.analyser.fftSize = 512;
-        this.sourceNode.connect(this.analyser);
-        this.analyser.connect(this.processorNode);
-        const silentGain = this.audioContext.createGain();
-        silentGain.gain.value = 0;
-        this.processorNode.connect(silentGain);
-        silentGain.connect(this.audioContext.destination);
-        this.processorNode.onaudioprocess = (event) => {
-            const buffer = event.inputBuffer.getChannelData(0);
-            const int16Array = this.convertFloat32ToInt16(buffer);
+
+        try {
+            await this.sendAudioContext.audioWorklet.addModule('/audio-worklet-processor.js');
+            this.workletNode = new AudioWorkletNode(this.sendAudioContext, 'my-audio-processor');
+
+            this.workletNode.port.onmessage = (event) => {
+                const { audioData } = event.data; // 只接收 audioData
+                this.socket.emit("audio-data", { room: this.currentRoom, data: audioData, username:this.username });
+
+            };
+        } catch (error) {
+            console.error("Failed to load audio worklet module:", error);
+            return;
+        }
+
+        this.sourceNode.connect(this.analyser); //  音訊來源連接到 AnalyserNode (主執行緒)
+        this.analyser.connect(this.workletNode); // AnalyserNode 連接到 WorkletNode
+        this.workletNode.connect(this.sendAudioContext.destination);
+
+
+        //  音量分析迴圈 (主執行緒)
+        const processVolume = () => {
             const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
             this.analyser.getByteFrequencyData(dataArray);
             let volume = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
             let isSpeaking = volume > 10;
-            if (this.isMuted) {
+
+            if (this.isMuted) { // 靜音判斷仍然在主執行緒
                 volume = 0;
                 isSpeaking = false;
             }
-            this.socket.emit("user-speaking", { room: this.currentRoom, isSpeaking, volume });
-            if (this.isMuted) {
-                const silentData = new Int16Array(4096).buffer;
-                this.socket.emit("audio-data", { room: this.currentRoom, data: silentData });
-            } else {
-                this.socket.emit("audio-data", { room: this.currentRoom, data: int16Array.buffer });
-            }
+            this.socket.emit("user-speaking", { room: this.currentRoom, isSpeaking, volume }); // 發送 user-speaking 事件
+            requestAnimationFrame(processVolume); //  使用 requestAnimationFrame 週期性執行
         };
+        processVolume(); // 啟動音量分析迴圈
     }
     /**轉換結構**/
     convertFloat32ToInt16(buffer: Float32Array): Int16Array {
@@ -119,13 +129,12 @@ class Call {
     }
     /**設定音流播放**/
     setupAudioPlayback() {
-        if (!this.audioContext) {
-            this.audioContext = new (window.AudioContext || window.AudioContext)();
-        }
+        this.audioContext = new (window.AudioContext)();
     }
     /**播放音流**/
-    playAudioStream(data: ArrayBuffer) {
-        if (!this.audioContext) this.setupAudioPlayback();
+    playAudioStream(from: string, data: ArrayBuffer) {
+        if (from == this.username) return;
+        this.setupAudioPlayback();
         if (!data || !(data instanceof ArrayBuffer)) return console.error("Invalid audio data received");
         const int16Array = new Int16Array(data);
         const float32Array = new Float32Array(int16Array.length);
@@ -144,10 +153,11 @@ class Call {
     /**停止播放音流**/
     disconnectAudioStream() {
         this.source?.stop();
-        this.audioContext = new (window.AudioContext || window.AudioContext)();
-        this.processorNode.disconnect();
+        this.setupAudioPlayback();
+        this.sendAudioContext = new (window.AudioContext)();
         this.sourceNode.disconnect();
         this.analyser.disconnect();
+        this.workletNode.disconnect();
         console.log("Call disconnected");
     }
     /**切換靜音(個人)**/

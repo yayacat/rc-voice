@@ -636,7 +636,8 @@ const Call = require("./server");
 let serverCall = new Call();
 async function runServerCall() {
   const channels = (await db.get('channels')) || {};
-  serverCall = new Call(io, channels);
+  const CallLogger = new Logger('Call');
+  serverCall = new Call(io, channels, CallLogger);
 }
 runServerCall();
 
