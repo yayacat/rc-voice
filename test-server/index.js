@@ -632,7 +632,7 @@ const io = new Server(server, {
   },
 });
 
-const Call = require("./server");
+const Call = require("./call");
 let serverCall = new Call();
 async function runServerCall() {
   const channels = (await db.get('channels')) || {};
