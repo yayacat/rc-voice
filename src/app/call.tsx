@@ -50,6 +50,7 @@ class Call {
     }) {
         this.socket = socket;
         this.user = user;
+        this.username = this.user.id;
         this.channel = channel;
         this.currentRoom = "";
         this.isSpeaker = false;
@@ -62,12 +63,18 @@ class Call {
     }
     initialize() {
         this.isConnect = true;
-        this.socket.on("update-users-list", (users: User[]) => {if (this.isConnect) console.log("Call users list: ",users)});
-        this.socket.on("audio-stream", ({ from, data }: { from: string, data: ArrayBuffer }) => this.playAudioStream(from, data));
+        this.socket.on("update-users-list", (users: User[]) =>
+            {if (this.isConnect) console.log("Call users list: ",users)});
+        this.socket.on("audio-stream", (
+            { from, data }: { from: string, data: ArrayBuffer }) =>
+                this.playAudioStream(from, data));
         this.socket.on("update-disconnect", () => this.disconnectAudioStream());
 
         console.log("call socket initialized", this.socket);
-        // this.socket.on("user-speaking", ({ userId, isSpeaking, volume }: { userId: string, isSpeaking: boolean, volume: number }) => this.handleUserSpeaking(userId, isSpeaking, volume));
+        // this.socket.on("user-speaking",
+        //     ({ userId, isSpeaking, volume }:
+        //         { userId: string, isSpeaking: boolean, volume: number }) =>
+        //             this.handleUserSpeaking(userId, isSpeaking, volume));
         // this.socket.on("room-list", (rooms: string[]) => this.displayRooms(rooms));
         // this.socket.emit("get-rooms");
     }
@@ -80,7 +87,6 @@ class Call {
     }
     /** 加入房間 */
     async joinRoom(room: string): Promise<void> {
-        this.username = this.user.id;
         // this.isSpeaker = confirm("是否要開啟麥克風？（取消則進入旁聽模式）");
         this.isSpeaker = true;
         if (this.isSpeaker) {
@@ -99,12 +105,16 @@ class Call {
             }
         }
         this.currentRoom = room;
-        if(this.socket) this.socket.emit("join-room", { room, isSpeaker: this.isSpeaker, username: this.username });
+        if (this.socket && this.socket.connected)
+            this.socket.emit("join-room", {
+                room,
+                isSpeaker: this.isSpeaker,
+                username: this.username
+            });
         console.log("Call room: ", room)
     }
     /** 開始廣播 */
     async startBroadcasting() {
-        this.username = this.user.id;
         this.sourceNode = this.sendAudioContext.createMediaStreamSource(this.stream);
         this.analyser = this.sendAudioContext.createAnalyser(); // 在主執行緒建立 AnalyserNode
         this.analyser.smoothingTimeConstant = 0.8;
@@ -115,8 +125,13 @@ class Call {
             this.workletNode = new AudioWorkletNode(this.sendAudioContext, 'my-audio-processor');
 
             this.workletNode.port.onmessage = (event) => {
-                const { audioData } = event.data; // 只接收 audioData
-                if(this.socket) this.socket.emit("audio-data", { room: this.currentRoom, data: audioData, username:this.username });
+                const { audioData } = event.data;
+                if (this.socket && this.socket.connected && !this.socket.disconnected)
+                    this.socket.emit("audio-data", {
+                        room: this.currentRoom,
+                        data: audioData,
+                        username:this.username
+                    });
             };
 
             const silentGain = this.sendAudioContext.createGain();
@@ -137,14 +152,20 @@ class Call {
             let volume = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
             let isSpeaking = volume > 10;
 
-            if (this.isMuted) { // 靜音判斷仍然在主執行緒
+            if (this.isMuted) {
                 volume = 0;
                 isSpeaking = false;
             }
-            if(this.socket) this.socket.emit("user-speaking", { room: this.currentRoom, isSpeaking, volume }); // 發送 user-speaking 事件
-            this.animationFrameId = requestAnimationFrame(processVolume); //  使用 requestAnimationFrame 週期性執行
+            if (this.socket && this.socket.connected)
+                this.socket.emit("user-speaking", {
+                    room: this.currentRoom,
+                    isSpeaking,
+                    volume,
+                    username:this.username
+                });
+            this.animationFrameId = requestAnimationFrame(processVolume);
         };
-        processVolume(); // 啟動音量分析迴圈
+        processVolume();
     }
     /** 轉換結構 */
     convertFloat32ToInt16(buffer: Float32Array): Int16Array {
@@ -162,7 +183,8 @@ class Call {
     async setupReceiveWorklet() {
         try {
             await this.audioContext.audioWorklet.addModule('/audio-worklet-processor-receiver.js');
-            this.receiveWorkletNode = new AudioWorkletNode(this.audioContext, 'my-receive-audio-processor');
+            this.receiveWorkletNode = new AudioWorkletNode(
+                this.audioContext, 'my-receive-audio-processor');
             this.receiveWorkletNode.connect(this.audioContext.destination);
         } catch (error) {
             console.error("載入接收端 AudioWorklet 模組失敗:", error);
@@ -172,23 +194,10 @@ class Call {
     playAudioStream(from: string, data: ArrayBuffer) {
         if (!this.isConnect) return;
         if (from == this.username) return;
-        if (!data || !(data instanceof ArrayBuffer)) return console.error("Invalid audio data received");
-        if (this.receiveWorkletNode) this.receiveWorkletNode.port.postMessage({ audioData: data });
-        // const int16Array = new Int16Array(data);
-        // const float32Array = new Float32Array(int16Array.length);
-        // for (let i = 0; i < int16Array.length; i++) {
-        //     float32Array[i] = int16Array[i] / 32767;
-        // }
-        // const audioBuffer = this.audioContext.createBuffer(1, float32Array.length, this.audioContext.sampleRate);
-        // if (!audioBuffer || !this.audioContext) return;
-        // audioBuffer.copyToChannel(float32Array, 0);
-        // this.source = this.audioContext.createBufferSource();
-        // this.source.buffer = audioBuffer;
-        // this.source.connect(this.audioContext.destination);
-        // this.source.start();
-        // this.source.onended = () => {
-        //     this.source.disconnect();
-        // };
+        if (!data || !(data instanceof ArrayBuffer))
+            return console.error("Invalid audio data received");
+        if (this.receiveWorkletNode)
+            this.receiveWorkletNode.port.postMessage({ audioData: data });
     }
 
     /** 停止播放音流 */
@@ -207,7 +216,12 @@ class Call {
         this.stream.getAudioTracks().forEach(track => {
             track.enabled = !this.isMuted;
         });
-        if(this.socket) this.socket.emit("toggle-mute", { room: this.currentRoom, userId: this.socket.id, isMuted: this.isMuted });
+        if (this.socket && this.socket.connected)
+            this.socket.emit("toggle-mute", {
+                room: this.currentRoom,
+                userId: this.socket.id,
+                isMuted: this.isMuted
+            });
     }
     /** 更新使用者列表 */
 	updateUserList(users: UserCall[]) {

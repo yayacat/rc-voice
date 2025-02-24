@@ -50,26 +50,18 @@ class Call {
         this.rooms[room][socket.id] = { username, userId: socket.id, isSpeaker, isMuted: false };
         this.io.to(room).emit("update-users-list", Object.values(this.rooms[room]));
         this.Logger.success(`${socket.id} 使用者 ${username} 加入房間 ${room}，發言者：${isSpeaker}`);
-        if (isSpeaker) {
-            socket.emit("start-broadcast");
-        }
+        // if (isSpeaker) {
+        //     socket.emit("start-broadcast");
+        // }
         // this.io.emit("room-list", Object.keys(this.rooms));
     }
     /**處理音流**/
     handleAudioData(socket, { room, data, username }) {
         this.io.to(room).emit("audio-stream", { from: username, data });
-        // for (const roomTemp in this.rooms[room]) {
-        //     const callRoom = this.rooms[room][roomTemp];
-        //     if (callRoom.username == username || callRoom.userId == socket.id) continue;
-        //     else this.io.to(callRoom.userId).emit("audio-stream", { from: username, data });
-        // }
     }
     /**處理講話**/
-    handleUserSpeaking(socket, { room, isSpeaking, volume }) {
-        for (const roomTemp in this.rooms[room]) {
-            const callRoom = this.rooms[room][roomTemp];
-            this.io.to(callRoom.userId).emit("user-speaking", { userId: callRoom.username, isSpeaking, volume });
-        }
+    handleUserSpeaking(socket, { room, isSpeaking, volume, username }) {
+        this.io.to(room).emit("user-speaking", { userId: username, isSpeaking, volume });
     }
     /**處理斷線**/
     handleDisconnect(socket) {
