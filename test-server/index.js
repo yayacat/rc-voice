@@ -7,7 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs').promises;
 const path = require('path');
 
-const utils = require('./utils/');
+const utils = require('./utils');
 const Logger = utils.logger;
 const Set = utils.set;
 const Get = utils.get;
