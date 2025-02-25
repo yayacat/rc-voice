@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-require-imports */
 const http = require('http');
 const { QuickDB } = require('quick.db');
@@ -8,7 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs').promises;
 const path = require('path');
 
-const utils = require('./utils');
+const utils = require('./utils/');
 const Logger = utils.logger;
 const Set = utils.set;
 const Get = utils.get;
