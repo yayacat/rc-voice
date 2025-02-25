@@ -7,10 +7,11 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs').promises;
 const path = require('path');
 
-const utils = require('./utils/');
-const Logger = utils.logger;
-const Set = utils.set;
-const Get = utils.get;
+const Logger = require('./utils/logger');
+const Set = require('./utils/set');
+const Get = require('./utils/get');
+const Map = require('./utils/map');
+const Interval = require('./utils/interval');
 
 const {
   PORT,
@@ -129,7 +130,7 @@ const server = http.createServer((req, res) => {
 
         // Generate session id
         const sessionId = uuidv4();
-        utils.map.userSessions.set(sessionId, user.id);
+        Map.userSessions.set(sessionId, user.id);
 
         sendSuccess(res, {
           message: '登入成功',
@@ -226,5 +227,5 @@ process.on('unhandledRejection', (error) => {
 // Start Server
 server.listen(PORT, () => {
   new Logger('Server').success(`Server is running on port ${PORT}`);
-  utils.interval.setupCleanupInterval();
+  Interval.setupCleanupInterval();
 });
