@@ -28,6 +28,7 @@ import { measureLatency } from '@/utils/measureLatency';
 // Hooks
 import { useSocket } from '@/hooks/SocketProvider';
 import Auth from './auth/page';
+import Modal from './popup/page';
 
 interface HeaderProps {
   selectedId?: number;
@@ -288,9 +289,8 @@ const Header: React.FC<HeaderProps> = React.memo(
 
 Header.displayName = 'Header';
 
-const HomeComponent = () => {
+const Home = () => {
   // Redux
-  const user = useSelector((state: { user: User | null }) => state.user);
   const server = useSelector(
     (state: { server: Server | null }) => state.server,
   );
@@ -301,14 +301,7 @@ const HomeComponent = () => {
   // Socket Control
   const socket = useSocket();
 
-  // Sound Control
-  const joinSoundRef = useRef<HTMLAudioElement | null>(null);
-  const leaveSoundRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    joinSoundRef.current = new Audio('/sounds/join.mp3');
-    leaveSoundRef.current = new Audio('/sounds/leave.mp3');
-  }, []);
+  // Modal Control
 
   // Tab Control
   const [selectedTabId, setSelectedTabId] = useState<number>(1);
@@ -341,11 +334,8 @@ const HomeComponent = () => {
     }
   };
 
-  return !socket || !sessionId ? (
-    <Auth />
-  ) : (
+  return (
     <>
-      {/* Top Navigation */}
       <Header
         selectedId={selectedTabId}
         onSelect={(tabId) => setSelectedTabId(tabId)}
@@ -357,11 +347,25 @@ const HomeComponent = () => {
   );
 };
 
-HomeComponent.displayName = 'HomeComponent';
+Home.displayName = 'Home';
 
 // use dynamic import to disable SSR
-const Home = dynamic(() => Promise.resolve(HomeComponent), {
-  ssr: false,
-});
+const Root = dynamic(
+  () =>
+    Promise.resolve(() => {
+      // Redux
+      const sessionId = useSelector(
+        (state: { sessionToken: string | null }) => state.sessionToken,
+      );
 
-export default Home;
+      // Socket
+      const socket = useSocket();
+
+      return !socket || !sessionId ? <Auth /> : <Home />;
+    }),
+  {
+    ssr: false,
+  },
+);
+
+export default Root;
