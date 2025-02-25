@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @next/next/no-img-element */
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect } from 'react';
-import { Search } from 'lucide-react';
+import { useSelector } from 'react-redux';
 
 // CSS
 import styles from '@/styles/homePage.module.css';
@@ -14,15 +13,12 @@ import ServerApplicationModal from '@/components/modals/ServerApplicationModal';
 // Type
 import type { Server, User } from '@/types';
 
-// Redux
-import { useSelector } from 'react-redux';
-
 // Hooks
 import { useSocket } from '@/hooks/SocketProvider';
 import { errorHandler } from '@/utils/errorHandler';
 
 // Services
-import { API_URL, apiService } from '@/services/api.service';
+import { API_URL } from '@/services/api.service';
 
 // ServerCard Component
 interface ServerCardProps {
@@ -31,38 +27,22 @@ interface ServerCardProps {
 
 const ServerCard: React.FC<ServerCardProps> = React.memo(({ server }) => {
   // Redux
+  const user = useSelector((state: { user: User | null }) => state.user);
   const sessionId = useSelector(
-    (state: { sessionToken: string }) => state.sessionToken,
+    (state: { sessionToken: string | null }) => state.sessionToken,
   );
-  const user = useSelector((state: { user: User }) => state.user);
 
   // Socket Control
   const socket = useSocket();
 
   const [showPrivateModal, setShowPrivateModal] = useState(false);
-  const userPermission = user.members?.[server.id]?.permissionLevel ?? 0;
 
   const handleServerSelect = (serverId: string) => {
-    if (typeof window === 'undefined') return;
-
-    if (user.members?.[serverId]?.isBlocked) {
-      alert(`您已被「${server.name}」封鎖`);
-      return;
-    }
-
-    if (server.settings.visibility === 'invisible' && userPermission < 2) {
-      setShowPrivateModal(true);
-      return;
-    }
-
     socket?.emit('connectServer', { serverId, sessionId });
-    errorHandler.handle = () => {
-      console.log('error');
-    };
   };
 
-  const serverIcon = server.iconUrl
-    ? API_URL + server.iconUrl
+  const serverAvatar = server.avatarUrl
+    ? API_URL + server.avatarUrl
     : '/logo_server_def.png';
   const serverName = server.name ?? '';
   const serverDisplayId = server.displayId ?? '';
@@ -76,23 +56,34 @@ const ServerCard: React.FC<ServerCardProps> = React.memo(({ server }) => {
           onClose={() => setShowPrivateModal(false)}
         />
       )}
-      <button
-        className="flex items-start gap-3 p-3 border border-gray-200 rounded bg-white hover:bg-gray-50 w-full"
+      <div
+        className={styles['myGroupsRoomItemBox']}
         onClick={() => handleServerSelect(server.id)}
       >
-        <img src={serverIcon} alt="Server Icon" className="w-14 h-14" />
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-medium text-[#4A6B9D] text-start truncate">
-            {serverName}
-          </h3>
-          <p className="text-xs text-gray-500 text-start">
-            ID:{serverDisplayId}
-          </p>
-          <p className="text-xs text-gray-500 text-start truncate mt-2">
-            {serverSlogan}
-          </p>
+        <div
+          className={styles['myGroupsRoomAvatarPicture']}
+          style={{
+            background: `url(${serverAvatar})`,
+            backgroundSize: 'cover',
+            backgroundPosition: '0 0',
+          }}
+        ></div>
+        <div className={styles['myGroupsRoomInfo']}>
+          <div className={styles['myGroupsRoomName']}>{serverName}</div>
+          <div className={styles['myGroupsRoomIDBox']}>
+            <div
+              className={`${styles['myGroupsRoomIDTitle']} ${
+                server.ownerId === user?.id ? styles['IsOwner'] : ''
+              }`}
+              data-key="10063"
+            >
+              ID:
+            </div>
+            <div className={styles['myGroupsRoomID']}>{serverDisplayId}</div>
+          </div>
+          <div className={styles['myGroupsRoomSlogen']}>{serverSlogan}</div>
         </div>
-      </button>
+      </div>
     </>
   );
 });
@@ -106,7 +97,7 @@ interface ServerGridProps {
 
 const ServerGrid: React.FC<ServerGridProps> = React.memo(({ servers }) => {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+    <div className={styles['myGroupsRoomItems']}>
       {servers.map(
         (server) => server && <ServerCard key={server?.id} server={server} />,
       )}
@@ -166,7 +157,14 @@ const Header: React.FC<HeaderProps> = React.memo(({ onSearch }) => {
           <button
             className={styles['navegateItem']}
             data-key="30014"
-            onClick={() => setShowCreateServer(true)}
+            onClick={() => {
+              // if (window.electron) {
+              //   window.electron.openPopup('create-server');
+              // } else {
+              //   window.location.href = '/popup?page=create-server';
+              // }
+              setShowCreateServer(true);
+            }}
           >
             <div></div>
             創建語音群
@@ -186,70 +184,81 @@ Header.displayName = 'Header';
 // HomePage Component
 const HomePageComponent: React.FC = React.memo(() => {
   // Redux
-  const sessionId = useSelector(
-    (state: { sessionToken: string }) => state.sessionToken,
-  );
-
-  // Socket Control
-  const socket = useSocket();
+  const user = useSelector((state: { user: User | null }) => state.user);
 
   // State
-  const [recommendedServers, setRecommendedServers] = useState<Server[]>([]);
-  const [joinedServers, setJoinedServers] = useState<Server[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Test
+  const userServers = user?.servers ?? [];
+  const username = user?.name || '用戶';
+
   useEffect(() => {
-    if (!socket || !sessionId) return;
+    if (typeof window !== 'undefined' && window.electron) {
+      window.electron.updateDiscordPresence({
+        details: `正在瀏覽主頁`,
+        state: `已加入 ${userServers.length} 個群組`,
+        largeImageKey: 'app_icon',
+        largeImageText: 'RC Voice',
+        smallImageKey: 'home_icon',
+        smallImageText: '主頁',
+        resetTimer: true,
+        buttons: [
+          {
+            label: '加入我們的Discord伺服器',
+            url: 'https://discord.gg/adCWzv6wwS',
+          },
+        ],
+      });
+    }
 
-    // Fetch server data
-    const fetchServerData = () => {
-      socket.emit('getServers', { sessionId, searchQuery });
-    };
-
-    // Handle server updates
-    const handleServerUpdate = (data: {
-      recommendedServers: Server[];
-      joinedServers: Server[];
-    }) => {
-      setRecommendedServers(data.recommendedServers ?? []);
-      setJoinedServers(data.joinedServers ?? []);
-    };
-
-    // Set up event listeners
-    socket.on('serversUpdate', handleServerUpdate);
-
-    // Initial fetch
-    fetchServerData();
-
-    // Cleanup
     return () => {
-      socket.off('serversUpdate', handleServerUpdate);
+      if (typeof window !== 'undefined' && window.electron) {
+        window.electron.updateDiscordPresence({});
+      }
     };
-  }, [socket, sessionId, searchQuery]);
+  }, [username, userServers.length]);
 
   return (
     <div className={styles['homeWrapper']}>
       <Header onSearch={(query: string) => setSearchQuery(query)} />
-      <main className="flex flex-1 min-h-0 bg-gray-100">
-        <div className="flex flex-1 flex-col item-center space-y-6 p-8 overflow-y-auto">
-          {searchQuery && joinedServers.length > 0 && (
-            <section>
-              <h2 className="text-lg font-bold mb-3">搜尋結果</h2>
-              <ServerGrid servers={joinedServers} />
-            </section>
-          )}
-          {!searchQuery && (
+      <main className={styles['myGroupsWrapper']}>
+        <div className={styles['myGroupsContain']}>
+          <div className={styles['myGroupsView']}>
+            {/* {searchQuery && joinedServers.length > 0 && (
+              <div className={styles['myGroupsItem']}>
+                <div className={styles['myGroupsTitle']} data-key="80016">
+                  搜尋結果：
+                </div>
+                <div className={styles['myGroupsRoomItems']}>
+                  <ServerGrid servers={joinedServers} />
+                </div>
+              </div>
+            )}
+            {!searchQuery && ( */}
             <>
-              <section className="mb-6">
-                <h2 className="text-lg font-bold mb-3">推薦語音群</h2>
-                <ServerGrid servers={recommendedServers} />
-              </section>
-              <section>
-                <h2 className="text-lg font-bold mb-3">最近語音群</h2>
-                <ServerGrid servers={joinedServers} />
-              </section>
+              <div className={styles['myGroupsItem']}>
+                <div className={styles['myGroupsTitle']} data-key="60005">
+                  最近訪問
+                </div>
+                <ServerGrid servers={userServers} />
+              </div>
+
+              <div className={styles['myGroupsItem']}>
+                <div className={styles['myGroupsTitle']} data-key="30283">
+                  我的語音群
+                </div>
+                <ServerGrid servers={userServers} />
+              </div>
+
+              <div className={styles['myGroupsItem']}>
+                <div className={styles['myGroupsTitle']} data-key="60005">
+                  收藏的語音群
+                </div>
+                <ServerGrid servers={userServers} />
+              </div>
             </>
-          )}
+          </div>
         </div>
       </main>
     </div>

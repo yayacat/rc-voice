@@ -1,12 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable @typescript-eslint/no-unused-expressions */
 /* eslint-disable react/display-name */
 import React, { useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Edit, Plus, Trash } from 'lucide-react';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from '@hello-pangea/dnd';
 
 // CSS
 import styles from '@/styles/serverPage.module.css';
@@ -14,7 +17,7 @@ import grade from '@/styles/common/grade.module.css';
 import permission from '@/styles/common/permission.module.css';
 
 // Types
-import type { Channel, Server, User, Visibility } from '@/types';
+import type { Channel, Server, User } from '@/types';
 
 // Redux
 import store from '@/redux/store';
@@ -31,17 +34,6 @@ import UserInfoBlock from '@/components/UserInfoBlock';
 import AddChannelModal from '@/components/modals/AddChannelModal';
 import EditChannelModal from '@/components/modals/EditChannelModal';
 import DeleteChannelModal from '@/components/modals/DeleteChannelModal';
-
-const getVisibilityStyle = (visibility: Visibility): string => {
-  switch (visibility) {
-    case 'private':
-      return 'bg-blue-100';
-    case 'readonly':
-      return 'bg-gray-300';
-    default:
-      return 'bg-white';
-  }
-};
 
 interface ContextMenuPosState {
   x: number;
@@ -77,9 +69,11 @@ const CategoryTab: React.FC<CategoryTabProps> = React.memo(
 
     const categoryVisibility = category.settings.visibility ?? 'public';
     const categoryName = category.name ?? '';
-    const userPermission = server.members?.[user.id].permissionLevel ?? 1;
+    // const userMember = server.members?.find((m) => m.userId === user.id);
+    const userMember = server.members?.[user.id];
+    const userPermission = userMember?.permissionLevel ?? 1;
+    const subChannels = category.subChannels ?? [];
     const canEdit = userPermission >= 5;
-    const serverChannels = server.channels ?? [];
 
     return (
       <Draggable
@@ -95,9 +89,7 @@ const CategoryTab: React.FC<CategoryTabProps> = React.memo(
               className={`${styles['channelTab']} ${
                 expanded ? styles['expanded'] : ''
               } ${
-                category.isLobby
-                  ? styles['lobby']
-                  : styles[category.settings.visibility]
+                category.isLobby ? styles['lobby'] : styles[categoryVisibility]
               }`}
               onClick={() =>
                 setExpanded(
@@ -115,7 +107,7 @@ const CategoryTab: React.FC<CategoryTabProps> = React.memo(
             </div>
 
             {/* Expanded Sections */}
-            {expanded && serverChannels.length > 0 && (
+            {expanded && (
               <Droppable
                 droppableId={`category-${category.id}`}
                 type="CHANNEL"
@@ -129,8 +121,8 @@ const CategoryTab: React.FC<CategoryTabProps> = React.memo(
                     {...provided.droppableProps}
                     className={styles['channelList']}
                   >
-                    {serverChannels
-                      .filter((c) => c.parentId === category.id)
+                    {subChannels
+                      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                       .map((subChannel, index) =>
                         subChannel.isCategory ? (
                           <CategoryTab
@@ -196,7 +188,7 @@ const CategoryTab: React.FC<CategoryTabProps> = React.memo(
             {showAddChannelModal && (
               <AddChannelModal
                 onClose={() => setShowAddChannelModal(false)}
-                parentChannel={category}
+                isRoot={false}
               />
             )}
             {/* Edit Channel Modal */}
@@ -230,7 +222,6 @@ interface ChannelTabProps {
 const ChannelTab: React.FC<ChannelTabProps> = React.memo(
   ({ channel, server, user, index }) => {
     // Redux
-    const mainUser = useSelector((state: { user: User }) => state.user);
     const sessionId = useSelector(
       (state: { sessionToken: string }) => state.sessionToken,
     );
@@ -257,7 +248,7 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
       useState<boolean>(false);
 
     const handleJoinChannel = (channelId: string) => {
-      if (user.presence?.currentChannelId !== channelId) {
+      if (user.currentChannelId !== channelId) {
         if (server.settings?.visibility === 'private' && userPermission === 1) {
           const targetChannel = server.channels?.find(
             (c) => c.id === channelId,
@@ -274,8 +265,12 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
 
     const channelVisibility = channel.settings.visibility ?? 'public';
     const channelName = channel.name ?? '';
-    const channelUsers = channel.users ?? [];
-    const userPermission = server.members?.[user.id].permissionLevel ?? 1;
+    const channelUsers =
+      server.users?.filter((u) => u.currentChannelId === channel.id) ?? [];
+    // const userMember = server.members?.find((m) => m.userId === user.id);
+    const userMember = server.members?.[user.id];
+    const userPermission = userMember?.permissionLevel ?? 1;
+    const userInChannel = user.currentChannelId === channel.id;
     const canEdit = userPermission >= 5;
 
     return (
@@ -290,12 +285,12 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
             <div
               {...provided.dragHandleProps}
               className={`${styles['channelTab']} ${
-                !channel.isLobby && channel.parentId ? styles['subChannel'] : ''
+                expanded ? styles['expanded'] : ''
               } ${
-                channel.isLobby
-                  ? styles['lobby']
-                  : styles[channel.settings.visibility]
-              } ${expanded ? styles['expanded'] : ''}`}
+                channel.isLobby ? styles['lobby'] : styles[channelVisibility]
+              } ${userInChannel ? styles['userCurrentLocation'] : ''} ${
+                !channel.isRoot ? styles['subChannel'] : ''
+              }`}
               onClick={() =>
                 setExpanded(channelVisibility != 'readonly' ? !expanded : false)
               }
@@ -316,16 +311,18 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
               </div>
             </div>
             {/* Expanded Sections */}
-            {(channel.isLobby || expanded) && channelUsers.length > 0 && (
+            {expanded && (
               <div className={styles['userList']}>
-                {channelUsers.map((user: User) => (
-                  <UserTab
-                    key={user.id}
-                    user={user}
-                    server={server}
-                    mainUser={mainUser}
-                  />
-                ))}
+                {channelUsers
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((channelUser: User) => (
+                    <UserTab
+                      key={user.id}
+                      user={user}
+                      server={server}
+                      channelUser={channelUser}
+                    />
+                  ))}
               </div>
             )}
             {/* Context Menu */}
@@ -371,7 +368,7 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
             {showAddChannelModal && (
               <AddChannelModal
                 onClose={() => setShowAddChannelModal(false)}
-                parentChannel={channel}
+                isRoot={false}
               />
             )}
             {/* Edit Channel Modal */}
@@ -396,13 +393,13 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
 );
 
 interface UserTabProps {
-  user: User;
+  channelUser: User;
   server: Server;
-  mainUser: User;
+  user: User;
 }
 
 const UserTab: React.FC<UserTabProps> = React.memo(
-  ({ user, server, mainUser }) => {
+  ({ user, server, channelUser }) => {
     // Socket Control
     const socket = useSocket();
 
@@ -438,20 +435,23 @@ const UserTab: React.FC<UserTabProps> = React.memo(
         document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const mainUserPermission =
-      server.members?.[mainUser.id]?.permissionLevel ?? 1;
-    const userPermission = server.members?.[user.id]?.permissionLevel ?? 1;
-    const userNickname = server.members?.[user.id]?.nickname ?? user.name;
-    const userLevel = Math.min(56, Math.ceil(user.level / 5)); // 56 is max level
-    const userGender = user.gender;
-    const userBadges = user.badges ?? [];
-    const canEdit = mainUserPermission >= 5;
+    // const channelUserMember = server.members?.find((m) => m.userId === user.id);
+    const channelUserMember = server.members?.[user.id];
+    const channelUserPermission = channelUserMember?.permissionLevel ?? 1;
+    const channelUserNickname = channelUserMember?.nickname ?? user.name;
+    const channelUserLevel = Math.min(56, Math.ceil(user.level / 5)); // 56 is max level
+    const channelUserGender = user.gender;
+    const channelUserBadges = user.badges ?? [];
+    // const userMember = server.members?.find((m) => m.userId === user.id);
+    const userMember = server.members?.[user.id];
+    const userPermission = userMember?.permissionLevel ?? 1;
+    const canEdit = userPermission >= 5;
 
     const handleKickUser = (targetId: string) => {
       socket?.emit('userKicked', {
         sessionId: store.getState().sessionToken,
         serverId: server.id,
-        userId: mainUser.id,
+        userId: user.id,
         targetId: targetId,
       });
     };
@@ -460,7 +460,7 @@ const UserTab: React.FC<UserTabProps> = React.memo(
       socket?.emit('userAddFriend', {
         sessionId: store.getState().sessionToken,
         serverId: server.id,
-        userId: mainUser.id,
+        userId: user.id,
         targetId: targetId,
       });
     };
@@ -488,16 +488,18 @@ const UserTab: React.FC<UserTabProps> = React.memo(
           <div className={`${styles['userState']}
           ${userSpeakingStatus[user.id] ? styles['unplay'] : ""}`} />
           <div
-            className={`${styles['userIcon']} ${permission[userGender]} ${
-              permission[`lv-${userPermission}`]
+            className={`${styles['userIcon']} ${
+              permission[channelUserGender]
+            } ${permission[`lv-${channelUserPermission}`]}`}
+          />
+          <div className={styles['userTabName']}>{channelUserNickname}</div>
+          <div
+            className={`${styles['userGrade']} ${
+              grade[`lv-${channelUserLevel}`]
             }`}
           />
-          <div className={styles['userTabName']}>{userNickname}</div>
-          <div
-            className={`${styles['userGrade']} ${grade[`lv-${userLevel}`]}`}
-          />
-          <BadgeViewer badges={userBadges} maxDisplay={3} />
-          {user.id === mainUser.id && (
+          <BadgeViewer badges={channelUserBadges} maxDisplay={3} />
+          {channelUser.id === user.id && (
             <div className={styles['myLocationIcon']} />
           )}
         </div>
@@ -515,7 +517,7 @@ const UserTab: React.FC<UserTabProps> = React.memo(
                       id: 'kick',
                       icon: <Trash size={14} className="w-5 h-5 mr-2" />,
                       label: '踢出',
-                      disabled: mainUser.id == user.id ? true : false,
+                      disabled: user.id == channelUser.id ? true : false,
                       onClick: () => {
                         setShowContextMenu(false);
                         handleKickUser(user.id);
@@ -525,7 +527,7 @@ const UserTab: React.FC<UserTabProps> = React.memo(
                       id: 'addFriend',
                       icon: <Plus size={14} className="w-5 h-5 mr-2" />,
                       label: '新增好友',
-                      disabled: mainUser.id == user.id ? true : false,
+                      disabled: user.id == channelUser.id ? true : false,
                       onClick: () => {
                         setShowContextMenu(false);
                         handleaddFriend(user.id);
@@ -537,7 +539,7 @@ const UserTab: React.FC<UserTabProps> = React.memo(
                       id: 'addFriend',
                       icon: <Plus size={14} className="w-5 h-5 mr-2" />,
                       label: '新增好友',
-                      disabled: mainUser.id == user.id ? true : false,
+                      disabled: user.id == channelUser.id ? true : false,
                       onClick: () => {
                         setShowContextMenu(false);
                         handleaddFriend(user.id);
@@ -593,180 +595,164 @@ const ChannelViewer: React.FC<ChannelViewerProps> = ({ channels }) => {
 
   const connectStatus = 3;
   const userCurrentChannel = channels.find(
-    (_) => _.id == user.presence?.currentChannelId,
+    (ch) => ch.id == user.currentChannelId,
   );
   const userCurrentChannelName = userCurrentChannel?.name ?? '';
-  const userPermission = server.members?.[user.id]?.permissionLevel ?? 1;
+  // const userMember = server.members?.find((m) => m.userId === user.id);
+  const userMember = server.members?.[user.id];
+  const userPermission = userMember?.permissionLevel ?? 1;
+  const serverChannels = server.channels ?? [];
   const canEdit = userPermission >= 5;
 
-  const handleDragEnd = (result: any) => {
+  // Updates we send to the server
+  interface ChannelUpdate {
+    id: string;
+    order: number;
+    parentChannelId: string | null;
+    isCategory: boolean;
+  }
+
+  const handleDragEnd = (result: DropResult) => {
     const { destination, source, draggableId, combine } = result;
-    const sessionId = store.getState().sessionToken;
 
-    // Helper：封裝更新頻道順序的 socket 發送
-    const emitUpdate = (updatedChannels: any[]) => {
-      if (updatedChannels && updatedChannels.length > 0) {
-        socket?.emit('updateChannelOrder', {
-          sessionId,
-          serverId: server.id,
-          updatedChannels,
-        });
-      }
-    };
+    // Validation
+    const movedChannel = channels?.find((ch) => ch.id === draggableId);
+    if (!movedChannel) return;
 
-    // 如果是合併操作（拖到另一個頻道上）
-    if (combine) {
-      const movedChannel = channels?.find((c) => c.id === draggableId);
-      const targetChannel = channels?.find((c) => c.id === combine.draggableId);
-      if (
-        !movedChannel ||
-        !targetChannel ||
-        targetChannel.isLobby ||
-        movedChannel.isLobby
-      )
-        return;
+    // Permission check
+    // const userMember = server.members?.find((m) => m.userId === user.id);
+    const userMember = server.members?.[user.id];
+    const userPermission = userMember?.permissionLevel ?? 1;
+    const canEdit = userPermission >= 5;
+    if (!canEdit) return;
 
-      // 將目標頻道更新為 category
-      const updatedTarget = { ...targetChannel, isCategory: true };
-      // 將移動頻道設定為 target 的子頻道，order 依當前子頻道數計算
-      const childCount =
-        channels?.filter((c) => c.parentId === targetChannel.id).length || 0;
-      const updatedMoved = {
-        ...movedChannel,
-        parentId: targetChannel.id,
-        order: childCount,
-      };
-
-      emitUpdate([updatedTarget, updatedMoved]);
-
-      // 同時更新來源父層頻道的排序
-      const sourceParentId = movedChannel.parentId;
-      const sourceChannels = channels
-        ?.filter((c) => c.parentId === sourceParentId && c.id !== draggableId)
-        .map((channel, index) => ({ ...channel, order: index }));
-      emitUpdate(sourceChannels || []);
-
+    // Prevent lobby movement restrictions
+    if (
+      movedChannel.isLobby &&
+      (combine || destination?.droppableId !== 'root')
+    ) {
       return;
     }
 
-    // 如果沒有指定目標則返回
+    // Helper to emit updates
+    const emitUpdates = (updates: ChannelUpdate[]) => {
+      if (updates.length === 0) return;
+      socket?.emit('updateChannelOrder', {
+        sessionId: store.getState().sessionToken,
+        serverId: server.id,
+        updates,
+      });
+    };
+
+    // Handle combining channels
+    if (combine) {
+      const targetChannel = channels?.find(
+        (ch) => ch.id === combine.draggableId,
+      );
+      if (!targetChannel || targetChannel.isLobby) return;
+
+      // Calculate order for moved channel
+      const siblings =
+        channels?.filter((ch) =>
+          ch.subChannels?.some((sub) => sub.id === targetChannel.id),
+        ) || [];
+      const newOrder = siblings.length;
+
+      const updates: ChannelUpdate[] = [
+        {
+          id: targetChannel.id,
+          order: targetChannel.order,
+          parentChannelId: null,
+          isCategory: true,
+        },
+        {
+          id: movedChannel.id,
+          order: newOrder,
+          parentChannelId: targetChannel.id,
+          isCategory: false,
+        },
+      ];
+
+      // Update order of siblings in source
+      const sourceChannels = channels?.filter((ch) =>
+        ch.subChannels?.some((sub) => sub.id === movedChannel.id),
+      );
+
+      if (sourceChannels) {
+        const sourceUpdates = sourceChannels.map(
+          (ch, idx): ChannelUpdate => ({
+            id: ch.id,
+            order: idx,
+            parentChannelId: null,
+            isCategory: ch.isCategory,
+          }),
+        );
+        updates.push(...sourceUpdates);
+      }
+
+      emitUpdates(updates);
+      return;
+    }
+
+    // Handle regular drag and drop
     if (!destination) return;
-    // 如果位置沒有改變則返回
     if (
       destination.droppableId === source.droppableId &&
       destination.index === source.index
     )
       return;
 
-    const movedChannel = channels?.find((c) => c.id === draggableId);
-    if (!movedChannel) return;
-    // 大廳頻道只能在 root 內移動
-    if (movedChannel.isLobby && destination.droppableId !== 'root') return;
-
-    // 取得來源與目標父層 ID，若 droppableId 為 'root' 則代表 parentId 為 null
-    const sourceParentId =
-      source.droppableId === 'root'
-        ? null
-        : source.droppableId.replace('category-', '');
-    const destParentId =
+    const targetParentId =
       destination.droppableId === 'root'
         ? null
         : destination.droppableId.replace('category-', '');
-    const destChannel = destParentId
-      ? channels?.find((c) => c.id === destParentId)
-      : null;
 
-    // 取得目標層級中的所有頻道（如果在 root 層，則 parentId 為 null）
-    const channelsAtDest =
-      channels?.filter((c) =>
-        destParentId ? c.parentId === destParentId : c.parentId === null,
-      ) || [];
+    // Get channels at destination level
+    const siblings =
+      channels?.filter((ch) => {
+        if (targetParentId === null) {
+          return ch.subChannels === undefined || ch.subChannels.length === 0;
+        }
+        return ch.subChannels?.some((sub) => sub.id === targetParentId);
+      }) || [];
 
-    // 移除被拖曳的頻道
-    const channelsWithoutMoved = channelsAtDest.filter(
-      (c) => c.id !== draggableId,
-    );
-    // 在新的位置插入被拖曳的頻道（更新其 parentId 為目標父層）
-    const newChannelsOrder = [...channelsWithoutMoved];
-    newChannelsOrder.splice(destination.index, 0, {
-      ...movedChannel,
-      parentId: destParentId,
-    });
+    // Remove moved channel and insert at new position
+    const updatedChannels = siblings.filter((ch) => ch.id !== draggableId);
+    updatedChannels.splice(destination.index, 0, movedChannel);
 
-    // 若目標是頻道而非類別，則將其更新為 category
-    if (destChannel && !destChannel.isCategory) {
-      const updatedDestChannel = { ...destChannel, isCategory: true };
-      newChannelsOrder.push(updatedDestChannel);
-    }
-
-    // 重新計算順序
-    const updatedChannels = newChannelsOrder.map((channel, index) => ({
-      ...channel,
-      order: index,
-      // 若是移動的頻道，更新其 parentId；其他保持原狀
-      parentId: channel.id === draggableId ? destParentId : channel.parentId,
-      // 移動頻道進入新層後設為非 category（除大廳外）
-      isCategory: channel.id === draggableId ? false : channel.isCategory,
+    // Create updates
+    const updates: ChannelUpdate[] = updatedChannels.map((ch, idx) => ({
+      id: ch.id,
+      order: idx,
+      parentChannelId: targetParentId,
+      isCategory: ch.isCategory,
     }));
 
-    emitUpdate(updatedChannels);
+    // Add moved channel update
+    updates.push({
+      id: movedChannel.id,
+      order: destination.index,
+      parentChannelId: targetParentId,
+      isCategory: movedChannel.isCategory,
+    });
 
-    // 若來源與目標層不同，需要更新來源層級的排序
-    if (sourceParentId !== destParentId) {
-      const sourceList = channels
-        ?.filter((c) => c.parentId === sourceParentId && c.id !== draggableId)
-        .map((channel, index) => ({ ...channel, order: index }));
-      if (sourceList && sourceList.length > 0) {
-        emitUpdate(sourceList);
-      } else if (sourceParentId) {
-        // 如果來源父頻道下已無其他子頻道，將其更新為非類別
-        const sourceCategory = channels?.find((c) => c.id === sourceParentId);
-        if (sourceCategory) {
-          emitUpdate([{ ...sourceCategory, isCategory: false }]);
-        }
-      }
-    }
+    emitUpdates(updates);
   };
 
   useEffect(() => {
     const currentChannel = server.channels?.find(
-      (c) => c.id === user.presence?.currentChannelId,
+      (c) => c.id === user.currentChannelId,
     );
     if (currentChannel && currentChannel.isCategory) {
       const lobbyChannel = server.channels?.find((c) => c.isLobby);
-      if (lobbyChannel && lobbyChannel.id !== user.presence?.currentChannelId) {
+      if (lobbyChannel && lobbyChannel.id !== user.currentChannelId) {
         socket?.emit('connectChannel', {
           sessionId,
           channelId: lobbyChannel.id,
         });
       }
     }
-  }, [server.channels, user.presence?.currentChannelId, sessionId, socket]);
-
-  // FOR TESTING
-  const micQueueUsers: User[] = [
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-    user,
-  ];
+  }, [server.channels, user.currentChannelId, sessionId, socket]);
 
   return (
     <>
@@ -824,8 +810,8 @@ const ChannelViewer: React.FC<ChannelViewerProps> = ({ channels }) => {
               {...provided.droppableProps}
               className={styles['channelList']}
             >
-              {channels
-                ?.filter((c) => !c.parentId)
+              {serverChannels
+                .filter((c) => c.isRoot)
                 .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
                 .map((channel, index) =>
                   channel.isCategory ? (
@@ -874,7 +860,7 @@ const ChannelViewer: React.FC<ChannelViewerProps> = ({ channels }) => {
       {showAddChannelModal && (
         <AddChannelModal
           onClose={() => setShowAddChannelModal(false)}
-          parentChannel={null}
+          isRoot={true}
         />
       )}
     </>

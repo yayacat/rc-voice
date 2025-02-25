@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react/display-name */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable react-hooks/exhaustive-deps */
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSelector } from 'react-redux';
 
 // CSS
 import styles from '@/styles/friendPage.module.css';
@@ -13,19 +13,36 @@ import FriendListViewer from '@/components/viewers/FriendListViewer';
 import BadgeViewer from '@/components/viewers/BadgeViewer';
 
 // Types
-import type { User, FriendCategory } from '@/types';
+import type { User } from '@/types';
 
-// Redux
-import { useSelector } from 'react-redux';
-
-// Services
-import { apiService } from '@/services/api.service';
+// Hooks
+import { useSocket } from '@/hooks/SocketProvider';
 
 interface HeaderProps {
   user: User;
 }
 
 const Header: React.FC<HeaderProps> = React.memo(({ user }) => {
+  // Redux
+  const sessionId = useSelector(
+    (state: { sessionToken: string | null }) => state.sessionToken,
+  );
+
+  // Socket
+  const socket = useSocket();
+
+  const handleChangeSignature = (signature: string) => {
+    const updatedUser: Partial<User> = { signature };
+    socket?.emit('updateUser', { sessionId, user: updatedUser });
+  };
+
+  // Input Control
+  const [signatureInput, setSignatureInput] = useState<string>(
+    user.signature ?? '',
+  );
+  const [isComposing, setIsComposing] = useState<boolean>(false);
+  const MAXLENGTH = 300;
+
   const userLevel = Math.min(56, Math.ceil(user.level / 5)); // 56 is max level
   const userAvatarUrl = user.avatarUrl;
   const userBadges = user.badges ?? [];
@@ -58,10 +75,33 @@ const Header: React.FC<HeaderProps> = React.memo(({ user }) => {
       <div className={styles['signatureBox']}>
         <textarea
           className={styles['signatureInput']}
-          value={userSignature}
+          value={signatureInput}
           placeholder="點擊更改簽名"
           data-placeholder="30018"
-          onChange={() => {}} // TODO: Implement signature change
+          onChange={(e) => {
+            if (signatureInput.length > MAXLENGTH) return;
+            e.preventDefault();
+            const input = e.target.value;
+            setSignatureInput(input);
+          }}
+          onKeyDown={(e) => {
+            if (e.shiftKey) return;
+            if (e.key !== 'Enter') return;
+            e.currentTarget.blur();
+            if (signatureInput == user.signature) return;
+            if (signatureInput.length > MAXLENGTH) return;
+            if (isComposing) return;
+            e.preventDefault();
+            handleChangeSignature(signatureInput);
+          }}
+          onBlur={(e) => {
+            if (signatureInput == user.signature) return;
+            if (signatureInput.length > MAXLENGTH) return;
+            e.preventDefault();
+            handleChangeSignature(signatureInput);
+          }}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
         />
       </div>
     </div>
@@ -71,29 +111,6 @@ const Header: React.FC<HeaderProps> = React.memo(({ user }) => {
 const FriendPageComponent: React.FC = React.memo(() => {
   // Redux
   const user = useSelector((state: { user: User }) => state.user);
-  const sessionId = useSelector(
-    (state: { sessionToken: string }) => state.sessionToken,
-  );
-
-  // API
-  const [friendCategories, setFriendCategories] = useState<FriendCategory[]>(
-    [],
-  );
-
-  useEffect(() => {
-    if (!sessionId) return;
-
-    const fetchFriendDatas = async () => {
-      try {
-        const data = await apiService.post('/user/friends', { sessionId });
-        console.log('Friend data fetch:', data);
-        setFriendCategories(data?.friendCategories ?? []);
-      } catch (error: Error | any) {
-        console.error(error);
-      }
-    };
-    fetchFriendDatas();
-  }, []);
 
   // Sidebar Control
   const [sidebarWidth, setSidebarWidth] = useState<number>(256);
@@ -140,7 +157,10 @@ const FriendPageComponent: React.FC = React.memo(() => {
           className={styles['sidebar']}
           style={{ width: `${sidebarWidth}px` }}
         >
-          <FriendListViewer friendCategories={friendCategories} />
+          <FriendListViewer
+            friends={user.friends ?? []}
+            friendGroups={user.friendGroups ?? []}
+          />
         </aside>
 
         {/* Resize Handle */}
