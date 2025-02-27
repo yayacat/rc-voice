@@ -1,6 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable react/display-name */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from 'react';
 import { Trash } from 'lucide-react';
 
@@ -9,19 +8,14 @@ import styles from '@/styles/friendPage.module.css';
 import grade from '@/styles/common/grade.module.css';
 
 // Types
-import type { Friend, FriendGroup } from '@/types';
+import { popupType, type Friend, type FriendGroup } from '@/types';
 
 // Components
 import BadgeViewer from '@/components/viewers/BadgeViewer';
-import ContextMenu from '@/components/ContextMenu';
 
-// Modal
-import DirectMessageModal from '@/components/modals/DirectMessageModal';
-
-interface ContextMenuPosState {
-  x: number;
-  y: number;
-}
+//
+import { useContextMenu } from '@/components/ContextMenuProvider';
+import { ipcService } from '@/services/ipc.service';
 
 interface FriendGroupProps {
   friendGroup: FriendGroup;
@@ -33,14 +27,8 @@ const FriendGroup: React.FC<FriendGroupProps> = React.memo(
     // Expanded Control
     const [expanded, setExpanded] = useState<boolean>(true);
 
-    // Context Menu Control
-    const [contentMenuPos, setContentMenuPos] = useState<ContextMenuPosState>({
-      x: 0,
-      y: 0,
-    });
-    const [showContextMenu, setShowContextMenu] = useState<boolean>(false);
-
-    // Modal Control
+    // Context Menu
+    const contextMenu = useContextMenu();
 
     const groupName = friendGroup.name;
     const groupFriends = friends.filter(
@@ -56,8 +44,16 @@ const FriendGroup: React.FC<FriendGroupProps> = React.memo(
           onContextMenu={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            setShowContextMenu(true);
-            setContentMenuPos({ x: e.pageX, y: e.pageY });
+            contextMenu.showContextMenu(e.pageX, e.pageY, [
+              {
+                id: 'delete',
+                icon: <Trash size={14} className="w-5 h-5 mr-2" />,
+                label: '刪除',
+                onClick: () => {
+                  // Open Delete Group Modal
+                },
+              },
+            ]);
           }}
         >
           <div
@@ -79,28 +75,6 @@ const FriendGroup: React.FC<FriendGroupProps> = React.memo(
             ))}
           </div>
         )}
-
-        {/* Context Menu */}
-        {showContextMenu && (
-          <ContextMenu
-            onClose={() => setShowContextMenu(false)}
-            x={contentMenuPos.x}
-            y={contentMenuPos.y}
-            items={[
-              {
-                id: 'delete',
-                icon: <Trash size={14} className="w-5 h-5 mr-2" />,
-                label: '刪除',
-                onClick: () => {
-                  setShowContextMenu(false);
-                  // Open Delete Group Modal
-                },
-              },
-            ]}
-          />
-        )}
-
-        {/* Delete Group Modal */}
       </div>
     );
   },
@@ -111,17 +85,7 @@ interface FriendCardProps {
 }
 const FriendCard: React.FC<FriendCardProps> = React.memo(({ friend }) => {
   // Context Menu Control
-  const [contentMenuPos, setContentMenuPos] = useState<ContextMenuPosState>({
-    x: 0,
-    y: 0,
-  });
-  const [showContextMenu, setShowContextMenu] = useState<boolean>(false);
-
-  // Modal Control
-  const [showDeleteFriendModal, setShowDeleteFriendModal] =
-    useState<boolean>(false);
-  const [showDirectMessageModal, setShowDirectMessageModal] =
-    useState<boolean>(false);
+  const contextMenu = useContextMenu();
 
   const friendUser = friend.user;
   const friendLevel = Math.min(56, Math.ceil((friendUser?.level ?? 0) / 5)); // 56 is max level
@@ -138,13 +102,21 @@ const FriendCard: React.FC<FriendCardProps> = React.memo(({ friend }) => {
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setShowContextMenu(true);
-          setContentMenuPos({ x: e.pageX, y: e.pageY });
+          contextMenu.showContextMenu(e.pageX, e.pageY, [
+            {
+              id: 'delete',
+              icon: <Trash size={14} className="w-5 h-5 mr-2" />,
+              label: '刪除好友',
+              onClick: () => {
+                // Open Delete Friend Modal
+              },
+            },
+          ]);
         }}
         onDoubleClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setShowDirectMessageModal(true);
+          ipcService.popup.open(popupType.DIRECT_MESSAGE, 600, 450);
         }}
       >
         <div
@@ -166,38 +138,6 @@ const FriendCard: React.FC<FriendCardProps> = React.memo(({ friend }) => {
           <div className={styles['signature']}>{friendSignature}</div>
         </div>
       </div>
-
-      {/* Context Menu */}
-      {showContextMenu && (
-        <ContextMenu
-          onClose={() => setShowContextMenu(false)}
-          x={contentMenuPos.x}
-          y={contentMenuPos.y}
-          items={[
-            {
-              id: 'delete',
-              icon: <Trash size={14} className="w-5 h-5 mr-2" />,
-              label: '刪除好友',
-              onClick: () => {
-                setShowContextMenu(false);
-                // Open Delete Friend Modal
-              },
-            },
-          ]}
-        />
-      )}
-
-      {/* Delete Friend Moda */}
-
-      {/* Direct Message Modal */}
-      {showDirectMessageModal && (
-        <div>
-          <DirectMessageModal
-            friend={friend}
-            onClose={() => setShowDirectMessageModal(false)}
-          />
-        </div>
-      )}
     </div>
   );
 });
@@ -215,7 +155,8 @@ const FriendListViewer: React.FC<FriendListViewerProps> = React.memo(
     const [searchQuery, setSearchQuery] = useState<string>('');
 
     const filteredFriends =
-      friends?.filter((friend) => friend.user?.name.includes(searchQuery)) ?? [];
+      friends?.filter((friend) => friend.user?.name.includes(searchQuery)) ??
+      [];
 
     // Tab Control
     const [selectedTabId, setSelectedTabId] = useState<number>(0);

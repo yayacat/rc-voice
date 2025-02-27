@@ -133,8 +133,8 @@ export interface Channel {
   isRoot: boolean;
   isCategory: boolean;
   isLobby: boolean;
-  voiceMode: "free" | "queue" | "forbidden";
-  chatMode: "free" | "forbidden";
+  voiceMode: 'free' | 'queue' | 'forbidden';
+  chatMode: 'free' | 'forbidden';
   order: number;
   serverId: string;
   settings: {
@@ -190,4 +190,49 @@ export interface ContextMenuItem {
   label: string;
   disabled?: boolean;
   onClick: () => void;
+}
+
+export enum SocketClientEvent {
+  CONNECT_USER = 'connectUser',
+  DISCONNECT_USER = 'disconnectUser',
+  UPDATE_USER = 'updateUser',
+  CONNECT_SERVER = 'connectServer',
+  DISCONNECT_SERVER = 'disconnectServer',
+  CREATE_SERVER = 'createServer',
+  UPDATE_SERVER = 'updateServer',
+  DELETE_SERVER = 'deleteServer',
+  CONNECT_CHANNEL = 'connectChannel',
+  DISCONNECT_CHANNEL = 'disconnectChannel',
+  CREATE_CHANNEL = 'createChannel',
+  UPDATE_CHANNEL = 'updateChannel',
+  DELETE_CHANNEL = 'deleteChannel',
+  SEND_MESSAGE = 'sendMessage',
+  SEND_DIRECT_MESSAGE = 'sendDirectMessage',
+}
+
+export enum SocketServerEvent {
+  CONNECT = 'connect',
+  DISCONNECT = 'disconnect',
+  NOTIFICATION = 'notification', // not used yet
+  USER_CONNECT = 'userConnect', // deprecated
+  USER_DISCONNECT = 'userDisconnect', // deprecated
+  USER_UPDATE = 'userUpdate',
+  SERVER_CONNECT = 'serverConnect',
+  SERVER_DISCONNECT = 'serverDisconnect',
+  SERVER_UPDATE = 'serverUpdate',
+  CHANNEL_CONNECT = 'channelConnect',
+  CHANNEL_DISCONNECT = 'channelDisconnect',
+  CHANNEL_UPDATE = 'channelUpdate',
+  PLAY_SOUND = 'playSound',
+  ERROR = 'error',
+}
+
+export enum popupType {
+  CREATE_SERVER = 'createServer',
+  EDIT_SERVER = 'editServer',
+  CREATE_CHANNEL = 'createChannel',
+  DELETE_CHANNEL = 'deleteChannel',
+  EDIT_CHANNEL = 'editChannel',
+  APPLY_MEMBER = 'applyMember',
+  DIRECT_MESSAGE = 'directMessage',
 }

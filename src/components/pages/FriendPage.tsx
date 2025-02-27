@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react/display-name */
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -32,7 +33,7 @@ const Header: React.FC<HeaderProps> = React.memo(({ user }) => {
 
   const handleChangeSignature = (signature: string) => {
     const updatedUser: Partial<User> = { signature };
-    socket?.emit('updateUser', { sessionId, user: updatedUser });
+    socket?.updateUser(updatedUser);
   };
 
   // Input Control

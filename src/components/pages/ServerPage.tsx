@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -48,11 +49,7 @@ const ServerPageComponent: React.FC = () => {
   const socket = useSocket();
 
   const handleSendMessage = (message: Message): void => {
-    socket?.emit('sendMessage', {
-      sessionId,
-      channelId: message.channelId,
-      message,
-    });
+    socket?.sendMessage(message);
   };
 
   // Volume Control
