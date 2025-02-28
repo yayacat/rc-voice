@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 
 // Types
@@ -26,6 +26,8 @@ import { clearChannel, setChannel } from '@/redux/channelSlice';
 
 // Services
 import { ipcService } from '@/services/ipc.service';
+import Call from '@/app/call';
+import { Socket } from 'socket.io-client';
 
 // const WS_URL = 'ws://localhost:4500';
 
@@ -53,6 +55,20 @@ const SocketProvider = ({ children }: SocketProviderProps) => {
   const channel = useSelector(
     (state: { channel: Channel | null }) => state.channel,
   );
+
+  const newCallRef = useRef<Call | null>(null);
+  let newCall = newCallRef.current;
+
+  const handleSendSocket = (socket: Socket) => {
+    console.log('socket: ', socket);
+    if (!newCallRef.current) {
+      if (user) {
+        newCallRef.current = new Call(socket, user);
+      }
+    } else {
+      newCall = newCallRef.current;
+    }
+  };
 
   const handleDisconnect = () => {
     console.log('Socket disconnected');
@@ -95,6 +111,7 @@ const SocketProvider = ({ children }: SocketProviderProps) => {
   const handleChannelConnect = (channel: Channel) => {
     store.dispatch(setChannel(channel));
     console.log('Channel connected: ', channel);
+    if (newCall) newCall.joinChannel(channel);
   };
   const handleChannelDisconnect = () => {
     console.log('Channel disconnected');
@@ -157,6 +174,7 @@ const SocketProvider = ({ children }: SocketProviderProps) => {
         [SocketServerEvent.CHANNEL_DISCONNECT]: handleChannelDisconnect,
         [SocketServerEvent.CHANNEL_UPDATE]: handleChannelUpdate,
         [SocketServerEvent.PLAY_SOUND]: handlePlaySound,
+        [SocketServerEvent.SEND_SOCKET]: handleSendSocket,
       };
 
       Object.entries(eventHandlers).forEach(([event, handler]) => {

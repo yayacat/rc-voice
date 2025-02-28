@@ -34,9 +34,6 @@ class Call {
     constructor(socket: Socket, user: User, channel: Channel = {
         id: '',
         name: '',
-        messageIds: [],
-        parentId: null,
-        userIds: [],
         isCategory: false,
         isLobby: false,
         serverId: '',
@@ -46,7 +43,11 @@ class Call {
             userLimit: 0,
             visibility: 'public'
         },
-        createdAt: 0
+        createdAt: 0,
+        isRoot: false,
+        voiceMode: 'free',
+        chatMode: 'free',
+        order: 0
     }) {
         this.socket = socket;
         this.user = user;

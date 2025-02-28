@@ -9,8 +9,11 @@ const userHandler = require('./user');
 const serverHandler = require('./server');
 const channelHandler = require('./channel');
 const messageHandler = require('./message');
+const callHandler = require("./call");
 
-module.exports = (io) => {
+let serverCall = new callHandler();
+
+module.exports = (io, db) => {
   io.use((socket, next) => {
     console.log(socket.handshake.query.sessionId);
     const sessionId = socket.handshake.query.sessionId;
@@ -171,6 +174,7 @@ module.exports = (io) => {
         );
       }
       channelHandler.disconnectChannel(io, socket, sessionId, channelId);
+      serverCall.handleDisconnect(socket);
     });
     socket.on('createChannel', async (data) => {
       // data = {
@@ -277,4 +281,11 @@ module.exports = (io) => {
       messageHandler.sendDirectMessage(io, socket, sessionId, message);
     });
   });
+
+  async function runServerCall() {
+    const channels = (await db.get('channels')) || {};
+    const CallLogger = new Logger('Call');
+    serverCall = new callHandler(io, channels, CallLogger);
+  }
+  runServerCall();
 };

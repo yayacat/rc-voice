@@ -106,6 +106,11 @@ export const ipcService = {
         ipcRenderer.removeListener('window-unmaximized', callback);
       }
     },
+    openDevtool: () => {
+      if (isElectron) {
+        ipcRenderer.send('openDevtool');
+      }
+    },
   },
 
   popup: {

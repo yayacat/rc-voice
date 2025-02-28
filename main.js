@@ -235,9 +235,10 @@ function connectSocket(sessionId) {
   });
 
   socket.on('connect', () => {
-    BrowserWindow.getAllWindows().forEach((window) =>
-      window.webContents.send('connect', socket.id),
-    );
+    BrowserWindow.getAllWindows().forEach((window) => {
+      window.webContents.send('connect', socket.id);
+      window.webContents.send('sendSocket', socket);
+    });
     socket.on('connect_error', (error) => {
       BrowserWindow.getAllWindows().forEach((window) =>
         window.webContents.send('connect_error', error),
@@ -302,6 +303,14 @@ function connectSocket(sessionId) {
       );
     });
     socket.on('channelUpdate', (data) => {
+      sharedData.channel = { ...sharedData.channel, ...data };
+      BrowserWindow.getAllWindows().forEach((window) =>
+        window.webContents.send('channelUpdate', data),
+      );
+    });
+
+    socket.on("room-list", (rooms) => console.log('Channel list: ', rooms));
+    socket.on('user-speaking', (data) => {
       sharedData.channel = { ...sharedData.channel, ...data };
       BrowserWindow.getAllWindows().forEach((window) =>
         window.webContents.send('channelUpdate', data),
@@ -538,6 +547,15 @@ app.whenReady().then(async () => {
   // request initial data
   ipcMain.on('request-initial-data', (event) => {
     event.sender.send('initial-data', sharedData);
+  });
+
+  ipcMain.on("openDevtool", () => {
+    if (isDev) {
+      const currentWindow = BrowserWindow.getFocusedWindow();
+
+      if (currentWindow)
+        currentWindow.webContents.openDevTools({ mode: "detach" });
+    }
   });
 });
 

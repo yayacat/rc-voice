@@ -95,6 +95,11 @@ const Header: React.FC<HeaderProps> = React.memo(
       else console.warn('IPC not available - not in Electron environment');
     };
 
+    const handleOpenDevtool = () => {
+      if (ipcService.getAvailability()) ipcService.window.openDevtool();
+      else console.warn('IPC not available - not in Electron environment');
+    };
+
     // Menu Control
     const [showMenu, setShowMenu] = useState(false);
 
@@ -225,6 +230,7 @@ const Header: React.FC<HeaderProps> = React.memo(
                 className={`${header['option']} ${header['hasImage']}`}
                 data-type="system-setting"
                 data-key="30066"
+                onClick={() => handleOpenDevtool()}
               >
                 系統設定
               </div>

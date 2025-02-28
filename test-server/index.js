@@ -220,7 +220,7 @@ const io = new Server(server, {
 // runServerCall();
 // serverCall.handleDisconnect(socket);
 
-require('./socket/index')(io);
+require('./socket/index')(io, db);
 
 // Error Handling
 server.on('error', (error) => {

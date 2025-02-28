@@ -225,6 +225,7 @@ export enum SocketServerEvent {
   CHANNEL_UPDATE = 'channelUpdate',
   PLAY_SOUND = 'playSound',
   ERROR = 'error',
+  SEND_SOCKET = 'sendSocket',
 }
 
 export enum popupType {
