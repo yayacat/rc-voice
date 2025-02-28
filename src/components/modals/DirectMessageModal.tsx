@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable jsx-a11y/alt-text */
@@ -36,11 +37,7 @@ const DirectMessageModal: React.FC<DirectMessageModalProps> = React.memo(
     const socket = useSocket();
 
     const handleSendMessage = (directMessage: DirectMessage) => {
-      socket?.emit('sendDirectMessage', {
-        sessionId: sessionId,
-        recieverId: friend.user?.id,
-        directMessage,
-      });
+      socket?.sendDirectMessage(directMessage);
     };
 
     const friendUser = friend.user;

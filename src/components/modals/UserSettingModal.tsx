@@ -153,14 +153,11 @@ const UserSettingModal: React.FC<UserSettingModalProps> = ({ onClose }) => {
   const [error, setError] = useState('');
 
   const handleSubmit = async () => {
-    socket?.emit('updateUser', { sessionId, user: editedUser });
-    socket?.on('error', (error: { message: string }) => {
-      setError(error.message);
-    });
+    socket?.updateUser(editedUser);
     onClose();
   };
   const handleLogout = () => {
-    socket?.emit('disconnectUser', { sessionId });
+    socket?.disconnectUser();
     onClose();
   };
 
@@ -199,7 +196,7 @@ const UserSettingModal: React.FC<UserSettingModalProps> = ({ onClose }) => {
           onClick: onClose,
         },
         {
-          label: '確認',
+          label: '確定',
           style: 'primary',
           type: 'submit',
           onClick: () => {},
