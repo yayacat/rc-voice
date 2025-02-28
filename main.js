@@ -237,7 +237,6 @@ function connectSocket(sessionId) {
   socket.on('connect', () => {
     BrowserWindow.getAllWindows().forEach((window) => {
       window.webContents.send('connect', socket.id);
-      window.webContents.send('sendSocket', socket);
     });
     socket.on('connect_error', (error) => {
       BrowserWindow.getAllWindows().forEach((window) =>
@@ -309,11 +308,21 @@ function connectSocket(sessionId) {
       );
     });
 
+    socket.on("update-users-list", (users) => console.log("Call users list: ",users));
+    socket.on("audio-stream", ({ from, data }) => {
+      BrowserWindow.getAllWindows().forEach((window) =>
+        window.webContents.send('audio-stream', from, data),
+      );
+    });
+    socket.on("update-disconnect", () => {
+      BrowserWindow.getAllWindows().forEach((window) =>
+        window.webContents.send('update-disconnect'),
+      );
+    });
     socket.on("room-list", (rooms) => console.log('Channel list: ', rooms));
     socket.on('user-speaking', (data) => {
-      sharedData.channel = { ...sharedData.channel, ...data };
       BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('channelUpdate', data),
+        window.webContents.send('user-speaking', data),
       );
     });
 
@@ -359,6 +368,10 @@ function connectSocket(sessionId) {
     );
     ipcMain.on('sendDirectMessage', (_, data) =>
       socket.emit('sendDirectMessage', { sessionId, ...data }),
+    );
+
+    ipcMain.on('join-room', (_, data) =>
+      socket.emit('join-room', { sessionId, ...data }),
     );
 
     // Close auth window and create main window

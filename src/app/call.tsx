@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Channel, User } from '@/types';
+import { useSelector } from 'react-redux';
 import { Socket } from 'socket.io-client';
 
 interface UserCall {
@@ -11,7 +12,7 @@ interface UserCall {
 }
 
 class Call {
-    socket: Socket;
+    // socket: Socket;
     currentRoom: string;
     isSpeaker: boolean;
     sendAudioContext!: AudioContext;
@@ -31,7 +32,7 @@ class Call {
     animationFrameId: number;
     receiveWorkletNode!: AudioWorkletNode;
 
-    constructor(socket: Socket, user: User, channel: Channel = {
+    constructor(channel: Channel = {
         id: '',
         name: '',
         isCategory: false,
@@ -49,8 +50,9 @@ class Call {
         chatMode: 'free',
         order: 0
     }) {
-        this.socket = socket;
-        this.user = user;
+        // this.socket = socket;
+        const user = useSelector((state: { user: User | null }) => state.user);
+        this.user = user!;
         this.username = this.user.id;
         this.channel = channel;
         this.currentRoom = "";
@@ -60,18 +62,18 @@ class Call {
         this.animationFrameId = 0;
         this.setupAudioPlayback();
         this.setupReceiveWorklet();
-        if (this.socket) this.initialize();
+        // if (this.socket) this.initialize();
     }
     initialize() {
-        this.isConnect = true;
-        this.socket.on("update-users-list", (users: User[]) =>
-            {if (this.isConnect) console.log("Call users list: ",users)});
-        this.socket.on("audio-stream", (
-            { from, data }: { from: string, data: ArrayBuffer }) =>
-                this.playAudioStream(from, data));
-        this.socket.on("update-disconnect", () => this.disconnectAudioStream());
+        // this.isConnect = true;
+        // this.socket.on("update-users-list", (users: User[]) =>
+        //     {if (this.isConnect) console.log("Call users list: ",users)});
+        // this.socket.on("audio-stream", (
+        //     { from, data }: { from: string, data: ArrayBuffer }) =>
+        //         this.playAudioStream(from, data));
+        // this.socket.on("update-disconnect", () => this.disconnectAudioStream());
 
-        console.log("call socket initialized", this.socket);
+        // console.log("call socket initialized", this.socket);
         // this.socket.on("user-speaking",
         //     ({ userId, isSpeaking, volume }:
         //         { userId: string, isSpeaking: boolean, volume: number }) =>

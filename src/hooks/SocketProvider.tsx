@@ -59,16 +59,15 @@ const SocketProvider = ({ children }: SocketProviderProps) => {
   const newCallRef = useRef<Call | null>(null);
   let newCall = newCallRef.current;
 
-  const handleSendSocket = (socket: Socket) => {
-    console.log('socket: ', socket);
-    if (!newCallRef.current) {
-      if (user) {
-        newCallRef.current = new Call(socket, user);
-      }
-    } else {
-      newCall = newCallRef.current;
-    }
-  };
+  // const handleSendSocket = (socket: Socket) => {
+  //   console.log('socket: ', socket);
+  //   if (!newCallRef.current) {
+  //     newCallRef.current = new Call(socket);
+  //     newCall = newCallRef.current;
+  //   } else {
+  //     newCall = newCallRef.current;
+  //   }
+  // };
 
   const handleDisconnect = () => {
     console.log('Socket disconnected');
@@ -112,6 +111,7 @@ const SocketProvider = ({ children }: SocketProviderProps) => {
     store.dispatch(setChannel(channel));
     console.log('Channel connected: ', channel);
     if (newCall) newCall.joinChannel(channel);
+    else console.log('Call falsed: ', newCall);
   };
   const handleChannelDisconnect = () => {
     console.log('Channel disconnected');
@@ -174,7 +174,7 @@ const SocketProvider = ({ children }: SocketProviderProps) => {
         [SocketServerEvent.CHANNEL_DISCONNECT]: handleChannelDisconnect,
         [SocketServerEvent.CHANNEL_UPDATE]: handleChannelUpdate,
         [SocketServerEvent.PLAY_SOUND]: handlePlaySound,
-        [SocketServerEvent.SEND_SOCKET]: handleSendSocket,
+        // [SocketServerEvent.SEND_SOCKET]: handleSendSocket,
       };
 
       Object.entries(eventHandlers).forEach(([event, handler]) => {
