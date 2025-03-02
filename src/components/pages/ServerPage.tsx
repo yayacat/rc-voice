@@ -11,6 +11,7 @@ import styles from '@/styles/serverPage.module.css';
 import MarkdownViewer from '@/components/viewers/MarkdownViewer';
 import MessageViewer from '@/components/viewers/MessageViewer';
 import ChannelViewer from '@/components/viewers/ChannelViewer';
+import MessageInputBox from '@/components/MessageInputBox';
 
 // Modals
 import ServerSettingModal from '@/components/modals/ServerSettingModal';
@@ -20,11 +21,11 @@ import UserSettingModal from '@/components/modals/UserSettingModal';
 import type { User, Server, Message, Permission, Channel } from '@/types';
 
 // Socket
-import { useSocket } from '@/hooks/SocketProvider';
+import { useSocket } from '@/providers/SocketProvider';
 
 // Services
 import { API_URL } from '@/services/api.service';
-import MessageInputBox from '@/components/MessageInputBox';
+import { ipcService } from '@/services/ipc.service';
 
 const getStoredBoolean = (key: string, defaultValue: boolean): boolean => {
   const stored = localStorage.getItem(key);
@@ -40,9 +41,6 @@ const ServerPageComponent: React.FC = () => {
   );
   const channel = useSelector(
     (state: { channel: Channel | null }) => state.channel,
-  );
-  const sessionId = useSelector(
-    (state: { sessionToken: string }) => state.sessionToken,
   );
 
   // Socket
@@ -86,7 +84,7 @@ const ServerPageComponent: React.FC = () => {
       if (isResizing) {
         const maxWidth = window.innerWidth * 0.3;
         const newWidth = Math.max(
-          220,
+          250,
           Math.min(mouseMoveEvent.clientX, maxWidth),
         );
         setSidebarWidth(newWidth);
@@ -129,6 +127,9 @@ const ServerPageComponent: React.FC = () => {
   const [showServerSetting, setShowServerSetting] = useState<boolean>(false);
 
   const userMember = user ? server?.members?.[user.id] : null;
+  const userPermissionLevel = userMember?.permissionLevel ?? (0 as Permission);
+  const serverUsers = server?.users ?? [];
+  const serverUserCount = serverUsers.length;
   const serverChannels = server?.channels ?? [];
   const serverAvatar = server?.avatarUrl
     ? API_URL + server.avatarUrl
@@ -139,30 +140,22 @@ const ServerPageComponent: React.FC = () => {
   const channelMessages = channel?.messages ?? [];
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.electron) {
-      window.electron.updateDiscordPresence({
-        details: `在 ${serverName} 中`,
-        state: `與 ${server?.users?.length ?? 0} 位成員聊天`,
-        largeImageKey: 'app_icon',
-        largeImageText: 'RC Voice',
-        smallImageKey: 'home_icon',
-        smallImageText: '主頁',
-        resetTimer: true,
-        buttons: [
-          {
-            label: '加入我們的Discord伺服器',
-            url: 'https://discord.gg/adCWzv6wwS',
-          },
-        ],
-      });
-    }
-
-    return () => {
-      if (typeof window !== 'undefined' && window.electron) {
-        window.electron.updateDiscordPresence({});
-      }
-    };
-  }, [serverName]);
+    ipcService.discord.updatePresence({
+      details: `在 ${serverName} 中`,
+      state: `與 ${serverUserCount} 位成員聊天`,
+      largeImageKey: 'app_icon',
+      largeImageText: 'RC Voice',
+      smallImageKey: 'home_icon',
+      smallImageText: '主頁',
+      timestamp: Date.now(),
+      buttons: [
+        {
+          label: '加入我們的Discord伺服器',
+          url: 'https://discord.gg/adCWzv6wwS',
+        },
+      ],
+    });
+  }, [serverName, serverUserCount]);
 
   return (
     <div className={styles['serverWrapper']}>
@@ -197,9 +190,7 @@ const ServerPageComponent: React.FC = () => {
                 <div className={styles['idIcon']} />
                 <div className={styles['idText']}>{serverDisplayId}</div>
                 <div className={styles['memberIcon']} />
-                <div className={styles['memberText']}>
-                  {server?.users?.length ?? 0}
-                </div>
+                <div className={styles['memberText']}>{serverUserCount}</div>
               </div>
             </div>
             <div className={styles['optionBox']}>
@@ -237,8 +228,7 @@ const ServerPageComponent: React.FC = () => {
                   content: msg,
                   senderId: user.id,
                   channelId: user.currentChannelId,
-                  permissionLevel:
-                    userMember?.permissionLevel ?? (0 as Permission),
+                  permissionLevel: userPermissionLevel,
                   timestamp: 0,
                 });
               }}

@@ -1,29 +1,34 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-require-imports */
 const path = require('path');
-const { app, BrowserWindow, ipcMain, protocol } = require('electron');
-const serve = require("electron-serve");
+const { app, BrowserWindow, ipcMain } = require('electron');
+const serve = require('electron-serve');
 const net = require('net');
 const DiscordRPC = require('discord-rpc');
-const { Socket, io } = require('socket.io-client');
+const { io } = require('socket.io-client');
 
-let isDev = process.argv.includes("--dev");
+let isDev = process.argv.includes('--dev');
 
-const appServe = app.isPackaged ? serve({
-  directory: path.join(__dirname, "./out")
-}) : !isDev ? serve({
-  directory: path.join(__dirname, "./out")
-}) : null;
+const appServe = app.isPackaged
+  ? serve({
+      directory: path.join(__dirname, './out'),
+    })
+  : !isDev
+  ? serve({
+      directory: path.join(__dirname, './out'),
+    })
+  : null;
 
-let baseUri = "";
+let baseUri = '';
 
 if (isDev) {
-  baseUri = 'http://127.0.0.1:3000'
+  baseUri = 'http://127.0.0.1:3000';
 }
 
 // Track windows
 let mainWindow = null;
 let authWindow = null;
+let popupWindows = {};
 
 // Socket connection
 const WS_URL = 'http://localhost:4500';
@@ -40,8 +45,8 @@ let sharedData = {
 const clientId = '1242441392341516288';
 DiscordRPC.register(clientId);
 const rpc = new DiscordRPC.Client({ transport: 'ipc' });
-let currentActivity = {
-  details: '正在啟動應用',
+const defaultPrecence = {
+  details: '正在使用應用',
   state: '準備中',
   startTimestamp: Date.now(),
   largeImageKey: 'app_icon',
@@ -92,6 +97,11 @@ function waitForPort(port) {
 }
 
 async function createMainWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.focus();
+    return mainWindow;
+  }
+
   if (isDev) {
     try {
       await waitForPort(3000);
@@ -117,7 +127,7 @@ async function createMainWindow() {
 
   if (app.isPackaged || !isDev) {
     appServe(mainWindow).then(() => {
-      mainWindow.loadURL("app://-");
+      mainWindow.loadURL('app://-');
     });
   } else {
     mainWindow.loadURL(`${baseUri}`);
@@ -130,13 +140,17 @@ async function createMainWindow() {
     mainWindow.webContents.send(
       mainWindow.isMaximized() ? 'window-maximized' : 'window-unmaximized',
     );
-    mainWindow.webContents.send('initial-data', sharedData);
   });
 
   return mainWindow;
 }
 
 async function createAuthWindow() {
+  if (authWindow && !authWindow.isDestroyed()) {
+    authWindow.focus();
+    return authWindow;
+  }
+
   if (isDev) {
     try {
       await waitForPort(3000);
@@ -162,7 +176,7 @@ async function createAuthWindow() {
 
   if (app.isPackaged || !isDev) {
     appServe(authWindow).then(() => {
-      authWindow.loadURL("app://./auth.html");
+      authWindow.loadURL('app://./auth.html');
     });
   } else {
     authWindow.loadURL(`${baseUri}/auth`);
@@ -181,6 +195,12 @@ async function createAuthWindow() {
 }
 
 async function createPopup(type, height, width) {
+  // Track popup windows
+  if (popupWindows[type] && !popupWindows[type].isDestroyed()) {
+    popupWindows[type].focus();
+    return popupWindows[type];
+  }
+
   if (isDev) {
     try {
       await waitForPort(3000);
@@ -204,6 +224,10 @@ async function createPopup(type, height, width) {
     },
   });
 
+  popup.on('closed', () => {
+    popupWindows[type] = null;
+  });
+
   if (app.isPackaged || !isDev) {
     appServe(popup).then(() => {
       popup.loadURL(`app://./popup.html?type=${type}`);
@@ -216,6 +240,8 @@ async function createPopup(type, height, width) {
 
   // Open DevTools in development mode
   if (isDev) popup.webContents.openDevTools();
+
+  popupWindows[type] = popup;
 
   return popup;
 }
@@ -398,22 +424,18 @@ function disconnectSocket(socket) {
   return null;
 }
 
-async function setActivity() {
+async function setActivity(activity) {
   if (!rpc) return;
-
   try {
-    rpc.setActivity(currentActivity);
+    rpc.setActivity(activity);
   } catch (error) {
     console.error('設置Rich Presence時出錯:', error);
+    rpc.setActivity(defaultPrecence);
   }
 }
 
 rpc.on('ready', () => {
-  setActivity();
-
-  setInterval(() => {
-    setActivity();
-  }, 15000);
+  setActivity(defaultPrecence);
 });
 
 app.whenReady().then(async () => {
@@ -469,7 +491,7 @@ app.whenReady().then(async () => {
     createPopup(type, height, width),
   );
 
-  // listen for window control event
+  // Window control event handlers
   ipcMain.on('window-control', (event, command) => {
     const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) return;
@@ -494,72 +516,14 @@ app.whenReady().then(async () => {
     }
   });
 
-  // Window management IPC handlers
-  ipcMain.on('login', (_, sessionId) => {
-    if (!socketInstance) socketInstance = connectSocket(sessionId);
-    socketInstance.connect();
-  });
-  ipcMain.on('logout', () => {
-    socketInstance = disconnectSocket(socketInstance);
-  });
-
-  // Window control handlers
-  ipcMain.on('minimize-window', () => {
-    const currentWindow = BrowserWindow.getFocusedWindow();
-    if (currentWindow) {
-      currentWindow.minimize();
-    }
-  });
-  ipcMain.on('maximize-window', () => {
-    const currentWindow = BrowserWindow.getFocusedWindow();
-    if (currentWindow) {
-      if (currentWindow.isMaximized()) {
-        currentWindow.unmaximize();
-      } else {
-        currentWindow.maximize();
-      }
-    }
-  });
-  ipcMain.on('close-window', () => {
-    const currentWindow = BrowserWindow.getFocusedWindow();
-    if (currentWindow) {
-      currentWindow.close();
-    }
-  });
-
-  // Popup handlers
-  ipcMain.on('open-popup', (event, type, height, width) =>
-    createPopup(type, height, width),
-  );
-
-  // listen for window control event
-  ipcMain.on('window-control', (event, command) => {
-    const window = BrowserWindow.fromWebContents(event.sender);
-    if (!window) return;
-
-    switch (command) {
-      case 'minimize':
-        window.minimize();
-        break;
-      case 'maximize':
-        if (window.isMaximized()) {
-          window.unmaximize();
-        } else {
-          window.maximize();
-        }
-        break;
-      case 'unmaximize':
-        window.unmaximize();
-        break;
-      case 'close':
-        window.close();
-        break;
-    }
-  });
-
-  // request initial data
+  // Request initial data handlers
   ipcMain.on('request-initial-data', (event) => {
     event.sender.send('initial-data', sharedData);
+  });
+
+  // Discord RPC handlers
+  ipcMain.on('update-discord-presence', (_, updatePresence) => {
+    setActivity(updatePresence);
   });
 
   ipcMain.on("openDevtool", () => {
@@ -570,68 +534,10 @@ app.whenReady().then(async () => {
         currentWindow.webContents.openDevTools({ mode: "detach" });
     }
   });
-});
 
 app.on('activate', async () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     await createAuthWindow();
-  }
-});
-
-ipcMain.on('update-discord-presence', (event, presenceData) => {
-  try {
-    const {
-      details,
-      state,
-      largeImageKey,
-      largeImageText,
-      smallImageKey,
-      smallImageText,
-      buttons,
-      resetTimer,
-    } = presenceData;
-
-    Object.assign(currentActivity, {
-      ...(details !== undefined && { details }),
-      ...(state !== undefined && { state }),
-      ...(largeImageKey !== undefined && { largeImageKey }),
-      ...(largeImageText !== undefined && { largeImageText }),
-      ...(smallImageKey !== undefined && { smallImageKey }),
-      ...(smallImageText !== undefined && { smallImageText }),
-    });
-
-    if (buttons?.length > 0) {
-      const validButtons = buttons.slice(0, 2).filter((button) => {
-        return (
-          button?.label &&
-          button?.url &&
-          typeof button.url === 'string' &&
-          /^https?:\/\//.test(button.url)
-        );
-      });
-
-      if (validButtons.length > 0) {
-        currentActivity.buttons = validButtons;
-      }
-    }
-
-    if (resetTimer) {
-      currentActivity.startTimestamp = Date.now();
-    }
-
-    setActivity();
-  } catch (error) {
-    console.error('更新Discord Presence時發生錯誤:', error);
-    try {
-      const basicActivity = {
-        details: '正在使用應用',
-        state: '瀏覽中',
-        startTimestamp: Date.now(),
-      };
-      rpc.setActivity(basicActivity);
-    } catch (e) {
-      console.error('使用基本設置恢復失敗:', e);
-    }
   }
 });
 

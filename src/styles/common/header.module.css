@@ -281,30 +281,6 @@
   display: block;
 }
 
-/* .menuDropDown .option.hasSubmenu .submenu {
-    width: 100%;
-    position: absolute;
-    top: 0;
-    left: -100%;
-    background: #fff;
-    border: 1px solid #ccc;
-    padding: 5px;
-    z-index: 1000;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  }
-  
-  .menuDropDown .option.hasSubmenu .submenu .option {
-    cursor: pointer;
-    text-align: center;
-    width: 100%;
-    padding-top: 5px;
-    padding-bottom: 5px;
-  }
-  
-  .menuDropDown .option.hasSubmenu .submenu .option:hover {
-    background: #eee;
-  } */
-
 .selected:before {
   width: 13px;
   height: 13px;
@@ -330,18 +306,17 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  padding: 0.5rem 1rem 0 1rem;
+  padding: 0.5rem 0.5rem 0 0.5rem;
   width: max-content;
   min-width: 120px;
+  height: 2.2rem;
   align-items: center;
   justify-content: center;
   font-family: Arial;
   font-size: 15px;
-  text-align: center;
-  text-overflow: ellipsis;
+  text-align: left;
   overflow: hidden;
   white-space: nowrap;
-  height: 2.2rem;
 }
 
 .mainTabs .tab .tabBg {
@@ -361,6 +336,10 @@
 .mainTabs .tab .tabLable {
   flex: 1;
   z-index: 1;
+  max-width: 100%;
+  padding-right: 1rem;
+  text-overflow: ellipsis;
+  overflow: hidden;
   color: rgb(255 255 255);
 }
 
@@ -373,10 +352,11 @@
 }
 
 .mainTabs .tabClose {
+  color: #fff;
   z-index: 1;
   position: absolute;
-  top: 0.3rem;
-  right: 0.3rem;
+  top: 0.6rem;
+  right: 0.5rem;
 }
 
 /* User Status */

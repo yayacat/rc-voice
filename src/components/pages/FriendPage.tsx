@@ -15,19 +15,14 @@ import BadgeViewer from '@/components/viewers/BadgeViewer';
 // Types
 import type { User } from '@/types';
 
-// Hooks
-import { useSocket } from '@/hooks/SocketProvider';
+// Providers
+import { useSocket } from '@/providers/SocketProvider';
 
 interface HeaderProps {
   user: User;
 }
 
 const Header: React.FC<HeaderProps> = React.memo(({ user }) => {
-  // Redux
-  const sessionId = useSelector(
-    (state: { sessionToken: string | null }) => state.sessionToken,
-  );
-
   // Socket
   const socket = useSocket();
 
@@ -130,7 +125,7 @@ const FriendPageComponent: React.FC = React.memo(() => {
       if (isResizing) {
         const maxWidth = window.innerWidth * 0.3;
         const newWidth = Math.max(
-          220,
+          250,
           Math.min(mouseMoveEvent.clientX, maxWidth),
         );
         setSidebarWidth(newWidth);
@@ -148,6 +143,9 @@ const FriendPageComponent: React.FC = React.memo(() => {
     };
   }, [resize, stopResizing]);
 
+  const userFriends = user.friends ?? [];
+  const userFriendGroups = user.friendGroups ?? [];
+
   return (
     <div className={styles['friendWrapper']}>
       <Header user={user} />
@@ -158,8 +156,8 @@ const FriendPageComponent: React.FC = React.memo(() => {
           style={{ width: `${sidebarWidth}px` }}
         >
           <FriendListViewer
-            friends={user.friends ?? []}
-            friendGroups={user.friendGroups ?? []}
+            friends={userFriends}
+            friendGroups={userFriendGroups}
           />
         </aside>
 
