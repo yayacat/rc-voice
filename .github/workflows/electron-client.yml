@@ -13,6 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
+      fail-fast: false        # 新增此行以確保一個作業失敗不會停止其他作業
 
     steps:
       - name: Checkout Repository
