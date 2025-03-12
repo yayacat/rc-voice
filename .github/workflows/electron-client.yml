@@ -26,6 +26,8 @@ jobs:
           cache: 'yarn'
 
       - name: Install Dependencies
+        run: npm install
+      - name: Install Dependencies
         run: yarn install
 
       - name: Build Next.js
