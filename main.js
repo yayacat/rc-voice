@@ -31,7 +31,9 @@ let authWindow = null;
 let popups = {};
 
 // Socket connection
-const WS_URL = 'http://localhost:4500';
+// const WS_URL = 'ws://localhost:4500';
+// const WS_URL = "wss://rc.yayacat.us.kg/";
+const WS_URL = "wss://rc.yayacat.pp.ua/";
 let socketInstance = null;
 
 // Popup initial datas
