@@ -1,34 +1,66 @@
-// Code Generated with love
-import React from 'react';
-import { useSelector } from 'react-redux';
+import React, { useEffect } from 'react';
 
 // CSS
 import homePage from '@/styles/homePage.module.css';
 
 // Type
-import { type Server, type User } from '@/types';
+import { Server, SocketServerEvent, User } from '@/types';
 
 // Providers
 import { useSocket } from '@/providers/SocketProvider';
+import { ipcService } from '@/services/ipc.service';
+import { PopupType } from '@/types';
+import { StandardizedError } from '@/utils/errorHandler';
 
 interface ServerCardProps {
+  user: User;
   server: Server;
 }
 
-const ServerCard: React.FC<ServerCardProps> = React.memo(({ server }) => {
-  // Redux
-  const user = useSelector((state: { user: User }) => state.user);
-
-  // Socket Control
+const ServerCard: React.FC<ServerCardProps> = React.memo(({ user, server }) => {
+  // Hooks
   const socket = useSocket();
 
+  // Handlers
   const handleServerSelect = (serverId: string) => {
-    socket?.send.connectServer({ serverId });
+    if (!socket) return;
+    if (user.currentServerId === serverId) return;
+
+    socket.send.connectServer({ serverId, userId: user.id });
   };
 
+  const handleError = (error: StandardizedError) => {
+    if (error.tag === 'VISIBILITY') {
+      ipcService.popup.open(PopupType.APPLY_MEMBER);
+      ipcService.initialData.onRequest(PopupType.APPLY_MEMBER, {
+        server: server,
+        user: user,
+      });
+    }
+  };
+
+  // Effects
+  useEffect(() => {
+    if (!socket) return;
+
+    const eventHandlers = {
+      [SocketServerEvent.ERROR]: handleError,
+    };
+    const unsubscribe: (() => void)[] = [];
+
+    Object.entries(eventHandlers).map(([event, handler]) => {
+      const unsub = socket.on[event as SocketServerEvent](handler);
+      unsubscribe.push(unsub);
+    });
+
+    return () => {
+      unsubscribe.forEach((unsub) => unsub());
+    };
+  }, [socket]);
+
   // Variables
-  const serverAvatar = server.avatarUrl;
   const serverName = server.name;
+  const serverAvatar = server.avatar;
   const serverDisplayId = server.displayId;
   const serverSlogan = server.slogan;
 
@@ -36,15 +68,15 @@ const ServerCard: React.FC<ServerCardProps> = React.memo(({ server }) => {
     <>
       <div
         className={homePage['myGroupsRoomItemBox']}
-        onClick={() => handleServerSelect(server.id)}
+        onClick={() => {
+          handleServerSelect(server.id);
+        }}
       >
         <div
           className={homePage['myGroupsRoomAvatarPicture']}
-          style={{
-            backgroundImage: `url(${serverAvatar})`,
-            backgroundSize: 'cover',
-            backgroundPosition: '0 0',
-          }}
+          style={
+            serverAvatar ? { backgroundImage: `url(${serverAvatar})` } : {}
+          }
         ></div>
         <div className={homePage['myGroupsRoomInfo']}>
           <div className={homePage['myGroupsRoomName']}>{serverName}</div>
@@ -70,15 +102,16 @@ ServerCard.displayName = 'ServerCard';
 
 // ServerGrid Component
 interface ServerListViewerProps {
+  user: User;
   servers: Server[];
 }
 
 const ServerListViewer: React.FC<ServerListViewerProps> = React.memo(
-  ({ servers }) => {
+  ({ user, servers }) => {
     return (
       <div className={homePage['myGroupsRoomItems']}>
         {servers.map((server) => (
-          <ServerCard key={server?.id} server={server} />
+          <ServerCard key={server.id} user={user} server={server} />
         ))}
       </div>
     );

@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import React from 'react';
 import { ArrowUp } from 'lucide-react';
 
 // CSS
@@ -14,32 +13,34 @@ import Permission from '@/styles/common/permission.module.css';
 import BadgeViewer from '@/components/viewers/BadgeViewer';
 
 // Types
-import type { User, Server } from '@/types';
+import type { ServerMember } from '@/types';
 import { getPermissionText } from '@/utils/formatters';
 
-interface UserInfoBlockProps {
-  user: User | null;
-  server: Server | null;
+// Providers
+import { useLanguage } from '@/providers/LanguageProvider';
+
+interface MemberInfoBlockProps {
   x: number;
   y: number;
-  onClose: () => void;
+  member: ServerMember;
 }
 
-const UserInfoBlock: React.FC<UserInfoBlockProps> = React.memo(
-  ({ onClose, x, y, user, server }) => {
-    if (!user) return null;
+const MemberInfoBlock: React.FC<MemberInfoBlockProps> = React.memo(
+  ({ x, y, member }) => {
+    // Language
+    const lang = useLanguage();
 
-    const userGender = user.gender;
-    const userMember = server?.members?.[user.id];
-    const userPermission = userMember?.permissionLevel ?? 1;
-    const userContributions = userMember?.contribution ?? 0;
-    const userLevel = Math.min(56, Math.ceil(user.level / 5));
-    const userXp = user.xp ?? 0;
-    const userXpProgress = user.progress ?? 0;
-    const userRequiredXp = user.requiredXp ?? 0;
-    const userBadges = user.badges ?? [];
-    const userName = user.name;
-    const userAvatar = user.avatarUrl ?? '/pfp/default.png';
+    const memberName = member.name;
+    const memberAvatar = member.avatar;
+    const memberGender = member.gender;
+    const memberLevel = member.level;
+    const memberGrade = Math.min(56, Math.ceil(memberLevel / 5));
+    const memberXp = member.xp;
+    const memberXpProgress = member.progress;
+    const memberRequiredXp = member.requiredXp;
+    const memberBadges = member.badges || [];
+    const memberPermission = member.permissionLevel;
+    const memberContributions = member.contribution;
 
     return (
       <div
@@ -51,10 +52,10 @@ const UserInfoBlock: React.FC<UserInfoBlockProps> = React.memo(
           <div className={UserInfoCard['userInfoAvatarPicture']}></div>
           {/* Right Info */}
           <div className={UserInfoCard['userInfoRight']}>
-            <div className={UserInfoCard['userInfoUsername']}>{userName}</div>
+            <div className={UserInfoCard['userInfoUsername']}>{memberName}</div>
             <div
               className={`${styles['userGrade']} ${UserInfoCard['userGrade']} ${
-                Grade[`lv-${userLevel}`]
+                Grade[`lv-${memberGrade}`]
               }`}
             ></div>
             <div className={`${Vip['vipIconBig']} ${Vip['vip-big-5']}`}></div>
@@ -70,7 +71,7 @@ const UserInfoBlock: React.FC<UserInfoBlockProps> = React.memo(
                 <div
                   className={UserInfoCard['userInfoXpProgress']}
                   style={{
-                    width: `${userXpProgress}%`,
+                    width: `${memberXpProgress * 100}%`,
                   }}
                 />
                 {/** Xp Text */}
@@ -79,16 +80,16 @@ const UserInfoBlock: React.FC<UserInfoBlockProps> = React.memo(
                   <div
                     style={{
                       position: 'absolute',
-                      left: `${userXpProgress}%`,
+                      left: `${memberXpProgress * 100}%`,
                       transform: 'translateX(-50%) scale(0.8)',
                       bottom: '-25px',
                     }}
                     className="flex flex-col items-center"
                   >
                     <ArrowUp size={12} className="text-blue-500" />
-                    <span>{userXp}</span>
+                    <span>{memberXp}</span>
                   </div>
-                  <div>{userRequiredXp}</div>
+                  <div>{memberRequiredXp}</div>
                 </div>
               </div>
             </div>
@@ -98,39 +99,26 @@ const UserInfoBlock: React.FC<UserInfoBlockProps> = React.memo(
           <div className={UserInfoCard['userInfoBottom']}>
             <div
               className={`${UserInfoCard['userInfoPermission']} ${
-                Permission[userGender]
-              } ${Permission[`lv-${userPermission}`]}`}
+                Permission[memberGender]
+              } ${Permission[`lv-${memberPermission}`]}`}
             ></div>
             <div className={UserInfoCard['userInfoPermissionText']}>
-              {getPermissionText(userPermission)}
+              {getPermissionText(memberPermission, lang.tr)}
             </div>
             <div className={styles['saperator']}></div>
             <div className={UserInfoCard['userInfoContributionBox']}>
               <div className={UserInfoCard['userInfoContributionText']}>
-                貢獻：
+                {lang.tr.contribution}:
               </div>
               <div className={UserInfoCard['userInfoContributionTextVal']}>
-                {userContributions}
+                {memberContributions}
               </div>
             </div>
           </div>
 
           {/* Badges Section */}
           <div className={UserInfoCard['userInfoBadges']}>
-            <BadgeViewer badges={userBadges} maxDisplay={13} />
-            {/* <img src="/badge/raidcall_2.png" alt="8-bit Yellow Cat Badge" />
-            <img src="/badge/raidcall_2.png" alt="8-bit Yellow Cat Badge" />
-            <img src="/badge/raidcall_2.png" alt="8-bit Yellow Cat Badge" />
-            <img src="/badge/raidcall_2.png" alt="8-bit Yellow Cat Badge" />
-            <img src="/badge/raidcall_2.png" alt="8-bit Yellow Cat Badge" />
-            <img src="/badge/raidcall_2.png" alt="8-bit Yellow Cat Badge" />
-            <img src="/badge/raidcall_2.png" alt="8-bit Yellow Cat Badge" />
-            <img src="/badge/raidcall_2.png" alt="8-bit Yellow Cat Badge" />
-            <img src="/badge/raidcall_2.png" alt="8-bit Yellow Cat Badge" />
-            <img src="/badge/raidcall_2.png" alt="8-bit Yellow Cat Badge" />
-            <img src="/badge/raidcall_2.png" alt="8-bit Yellow Cat Badge" />
-            <img src="/badge/raidcall_2.png" alt="8-bit Yellow Cat Badge" />
-            <img src="/badge/raidcall_2.png" alt="8-bit Yellow Cat Badge" /> */}
+            <BadgeViewer badges={memberBadges} maxDisplay={13} />
           </div>
         </div>
       </div>
@@ -138,6 +126,6 @@ const UserInfoBlock: React.FC<UserInfoBlockProps> = React.memo(
   },
 );
 
-UserInfoBlock.displayName = 'UserInfoBlock';
+MemberInfoBlock.displayName = 'MemberInfoBlock';
 
-export default UserInfoBlock;
+export default MemberInfoBlock;

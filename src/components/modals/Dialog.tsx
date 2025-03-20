@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React from 'react';
 
 // CSS
@@ -7,6 +6,9 @@ import dialog from '@/styles/popups/dialog.module.css';
 
 // Services
 import { ipcService } from '@/services/ipc.service';
+
+// Providers
+import { useLanguage } from '@/providers/LanguageProvider';
 
 enum DIALOG_ICON {
   ALERT = 'alert',
@@ -24,8 +26,15 @@ interface DialogProps {
 }
 
 const Dialog: React.FC<DialogProps> = (initialData: DialogProps) => {
-  const { iconType, title, submitTo } = initialData;
+  // Hooks
+  const lang = useLanguage();
 
+  // Variables
+  const iconType = initialData.iconType;
+  const title = initialData.title;
+  const submitTo = initialData.submitTo;
+
+  // Handlers
   const handleClose = () => {
     ipcService.window.close();
   };
@@ -54,8 +63,8 @@ const Dialog: React.FC<DialogProps> = (initialData: DialogProps) => {
         </div>
       </div>
       <div className={popup['popupFooter']}>
-        <button className={popup['button']} onClick={handleSubmit}>
-          確定
+        <button className={popup['button']} onClick={() => handleSubmit()}>
+          {lang.tr.confirm}
         </button>
       </div>
     </div>

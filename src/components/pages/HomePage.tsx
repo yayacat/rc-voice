@@ -1,7 +1,5 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
 
 // CSS
 import homePage from '@/styles/homePage.module.css';
@@ -10,66 +8,93 @@ import homePage from '@/styles/homePage.module.css';
 import ServerListViewer from '@/components/viewers/ServerListViewer';
 
 // Type
-import { popupType, type Server, type User } from '@/types';
+import { PopupType, Server, SocketServerEvent, User } from '@/types';
 
 // Providers
 import { useSocket } from '@/providers/SocketProvider';
+import { useLanguage } from '@/providers/LanguageProvider';
 
 // Services
 import { ipcService } from '@/services/ipc.service';
 
-const HomePageComponent: React.FC = React.memo(() => {
-  // Redux
-  const user = useSelector((state: { user: User }) => state.user);
+interface HomePageProps {
+  user: User;
+}
+
+const HomePageComponent: React.FC<HomePageProps> = React.memo(({ user }) => {
+  // Hooks
+  const lang = useLanguage();
+  const socket = useSocket();
+
+  // States
+  const [searchResults, setSearchResults] = useState<Server[]>([]);
 
   // Variables
+  const userId = user.id;
   const userName = user.name;
   const userOwnedServers = user.ownedServers || [];
   const userRecentServers = user.recentServers || [];
   const userFavServers = user.favServers || [];
 
-  // Socket Control
-  const socket = useSocket();
+  // Handlers
+  const handleSearchServer = (query: string) => {
+    if (!socket) return;
+    socket.send.searchServer({ query });
+  };
 
-  // Search Results Control
-  const [searchResults, setSearchResults] = useState<Server[]>([]);
+  const handleServerSearch = (servers: Server[]) => {
+    setSearchResults(servers);
+  };
 
-  // Update Discord Presence
+  const handleOpenCreateServer = () => {
+    ipcService.popup.open(PopupType.CREATE_SERVER);
+    ipcService.initialData.onRequest(PopupType.CREATE_SERVER, {
+      userId: user.id,
+    });
+  };
+
+  // Effects
   useEffect(() => {
+    if (!socket) return;
+
+    const eventHandlers = {
+      [SocketServerEvent.SERVER_SEARCH]: handleServerSearch,
+    };
+    const unsubscribe: (() => void)[] = [];
+
+    Object.entries(eventHandlers).map(([event, handler]) => {
+      const unsub = socket.on[event as SocketServerEvent](handler);
+      unsubscribe.push(unsub);
+    });
+
+    return () => {
+      unsubscribe.forEach((unsub) => unsub());
+    };
+  }, [socket]);
+
+  useEffect(() => {
+    if (!socket) return;
+    if (userId) socket.send.refreshUser({ userId: userId });
+  }, [socket]);
+
+  useEffect(() => {
+    if (!lang) return;
     ipcService.discord.updatePresence({
-      details: `正在瀏覽主頁`,
-      state: `使用者: ${userName}`,
+      details: lang.tr.RPCHomePage,
+      state: `${lang.tr.RPCUser} ${userName}`,
       largeImageKey: 'app_icon',
       largeImageText: 'RC Voice',
       smallImageKey: 'home_icon',
-      smallImageText: '主頁',
+      smallImageText: lang.tr.RPCHome,
       timestamp: Date.now(),
       buttons: [
         {
-          label: '加入我們的Discord伺服器',
+          label: lang.tr.RPCJoinServer,
           url: 'https://discord.gg/adCWzv6wwS',
         },
       ],
     });
-  }, []);
-
-  // Refresh User
-  useEffect(() => {
-    socket?.send.refreshUser(null);
-  }, []);
-
-  // Handlers
-  const handleSearch = (query: string) => {
-    socket?.send.searchServer({ query });
-    socket?.on.serverSearch((results: Server[]) => {
-      setSearchResults(results);
-    });
-  };
-
-  const handleOpenCreateServerPopup = () => {
-    ipcService.popup.open(popupType.CREATE_SERVER, 407, 550);
-    ipcService.initialData.onRequest(popupType.CREATE_SERVER, { user: user });
-  };
+  }, [lang, userName]);
 
   return (
     <div className={homePage['homeWrapper']}>
@@ -81,13 +106,13 @@ const HomePageComponent: React.FC = React.memo(() => {
           <div className={homePage['searchBar']}>
             <input
               type="search"
-              placeholder="輸入群ID或群名稱"
+              placeholder={lang.tr.searchPlaceholder}
               data-placeholder="60021"
               className={homePage['searchInput']}
               onKeyDown={(e) => {
                 if (e.key != 'Enter') return;
                 if (e.currentTarget.value.trim() === '') return;
-                handleSearch(e.currentTarget.value);
+                handleSearchServer(e.currentTarget.value);
               }}
             />
             <div className={homePage['searchIcon']} />
@@ -99,29 +124,29 @@ const HomePageComponent: React.FC = React.memo(() => {
             data-key="60060"
           >
             <div></div>
-            主頁
+            {lang.tr.home}
           </button>
           <button className={homePage['navegateItem']} data-key="40007">
             <div></div>
-            遊戲
+            {lang.tr.game}
           </button>
           <button className={homePage['navegateItem']} data-key="30375">
             <div></div>
-            秀場
+            {lang.tr.live}
           </button>
         </div>
         <div className={homePage['right']}>
           <button
             className={homePage['navegateItem']}
             data-key="30014"
-            onClick={handleOpenCreateServerPopup}
+            onClick={() => handleOpenCreateServer()}
           >
             <div></div>
-            創建語音群
+            {lang.tr.createGroup}
           </button>
           <button className={homePage['navegateItem']} data-key="60004">
             <div></div>
-            個人專屬
+            {lang.tr.personalExclusive}
           </button>
         </div>
       </header>
@@ -132,28 +157,28 @@ const HomePageComponent: React.FC = React.memo(() => {
             {searchResults.length > 0 && (
               <div className={homePage['myGroupsItem']}>
                 <div className={homePage['myGroupsTitle']} data-key="60005">
-                  搜尋結果
+                  {lang.tr.recentVisits}
                 </div>
-                <ServerListViewer servers={searchResults} />
+                <ServerListViewer user={user} servers={searchResults} />
               </div>
             )}
             <div className={homePage['myGroupsItem']}>
               <div className={homePage['myGroupsTitle']} data-key="60005">
-                最近訪問
+                {lang.tr.recentVisits}
               </div>
-              <ServerListViewer servers={userRecentServers} />
+              <ServerListViewer user={user} servers={userRecentServers} />
             </div>
             <div className={homePage['myGroupsItem']}>
               <div className={homePage['myGroupsTitle']} data-key="30283">
-                我的語音群
+                {lang.tr.myGroups}
               </div>
-              <ServerListViewer servers={userOwnedServers} />
+              <ServerListViewer user={user} servers={userOwnedServers} />
             </div>
             <div className={homePage['myGroupsItem']}>
               <div className={homePage['myGroupsTitle']} data-key="60005">
-                收藏的語音群
+                {lang.tr.favoriteGroups}
               </div>
-              <ServerListViewer servers={userFavServers} />
+              <ServerListViewer user={user} servers={userFavServers} />
             </div>
           </div>
         </div>

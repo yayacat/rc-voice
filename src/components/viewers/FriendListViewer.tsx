@@ -1,5 +1,3 @@
-/* eslint-disable react-hooks/rules-of-hooks */
-/* eslint-disable react/display-name */
 import React, { useState } from 'react';
 import { Trash } from 'lucide-react';
 
@@ -8,33 +6,36 @@ import styles from '@/styles/friendPage.module.css';
 import grade from '@/styles/common/grade.module.css';
 
 // Types
-import { popupType, type Friend, type FriendGroup } from '@/types';
+import { PopupType, User, FriendGroup, UserFriend } from '@/types';
 
 // Components
 import BadgeViewer from '@/components/viewers/BadgeViewer';
 
 // Providers
 import { useContextMenu } from '@/providers/ContextMenuProvider';
+import { useLanguage } from '@/providers/LanguageProvider';
 
 // Services
 import { ipcService } from '@/services/ipc.service';
 
-interface FriendGroupProps {
+interface FriendGroupTabProps {
   friendGroup: FriendGroup;
-  friends: Friend[];
+  friends: UserFriend[];
 }
 
-const FriendGroup: React.FC<FriendGroupProps> = React.memo(
+const FriendGroupTab: React.FC<FriendGroupTabProps> = React.memo(
   ({ friendGroup, friends }) => {
-    // Expanded Control
-    const [expanded, setExpanded] = useState<boolean>(true);
-
-    // Context Menu
+    // Hooks
+    const lang = useLanguage();
     const contextMenu = useContextMenu();
 
-    const groupName = friendGroup.name;
-    const groupFriends = friends.filter(
-      (friend) => friend.groupId == friendGroup.id,
+    // States
+    const [expanded, setExpanded] = useState<boolean>(true);
+
+    // Variables
+    const friendGroupName = friendGroup.name;
+    const friendGroupFriends = friends.filter(
+      (fd) => fd.friendGroupId === friendGroup.id,
     );
 
     return (
@@ -44,13 +45,11 @@ const FriendGroup: React.FC<FriendGroupProps> = React.memo(
           className={styles['tab']}
           onClick={() => setExpanded(!expanded)}
           onContextMenu={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
             contextMenu.showContextMenu(e.pageX, e.pageY, [
               {
                 id: 'delete',
                 icon: <Trash size={14} className="w-5 h-5 mr-2" />,
-                label: '刪除',
+                label: lang.tr.delete,
                 onClick: () => {
                   // Open Delete Group Modal
                 },
@@ -63,16 +62,14 @@ const FriendGroup: React.FC<FriendGroupProps> = React.memo(
               expanded ? styles['expanded'] : ''
             }`}
           />
-          <span className={styles['tabLable']}>{groupName}</span>
-          <span
-            className={styles['tabCount']}
-          >{`(${groupFriends.length})`}</span>
+          <span className={styles['tabLable']}>{friendGroupName}</span>
+          <span className={styles['tabCount']}>{`(${friends.length})`}</span>
         </div>
 
         {/* Expanded Sections */}
-        {expanded && groupFriends && (
+        {expanded && friends && (
           <div className={styles['tabContent']}>
-            {groupFriends.map((friend) => (
+            {friendGroupFriends.map((friend) => (
               <FriendCard key={friend.id} friend={friend} />
             ))}
           </div>
@@ -82,19 +79,32 @@ const FriendGroup: React.FC<FriendGroupProps> = React.memo(
   },
 );
 
+FriendGroupTab.displayName = 'FriendGroupTab';
+
 interface FriendCardProps {
-  friend: Friend;
+  friend: UserFriend;
 }
+
 const FriendCard: React.FC<FriendCardProps> = React.memo(({ friend }) => {
-  // Context Menu Control
+  // Hooks
+  const lang = useLanguage();
   const contextMenu = useContextMenu();
 
-  const friendUser = friend.user;
-  const friendLevel = Math.min(56, Math.ceil((friendUser?.level ?? 0) / 5)); // 56 is max level
-  const friendAvatarUrl = friendUser?.avatarUrl;
-  const friendName = friendUser?.name;
-  const friendBadges = friendUser?.badges ?? [];
-  const friendSignature = friendUser?.signature ?? '';
+  // Variables
+  const friendName = friend.name;
+  const friendAvatar = friend.avatar;
+  const friendSignature = friend.signature;
+  const friendLevel = friend.level;
+  const friendGrade = Math.min(56, Math.ceil(friendLevel / 5)); // 56 is max level
+  const friendBadges = friend.badges || [];
+
+  // Handlers
+  const handleOpenDirectMessagePopup = () => {
+    ipcService.popup.open(PopupType.DIRECT_MESSAGE);
+    ipcService.initialData.onRequest(PopupType.DIRECT_MESSAGE, {
+      user: friend,
+    });
+  };
 
   return (
     <div key={friend.id}>
@@ -102,38 +112,30 @@ const FriendCard: React.FC<FriendCardProps> = React.memo(({ friend }) => {
       <div
         className={styles['friendCard']}
         onContextMenu={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
           contextMenu.showContextMenu(e.pageX, e.pageY, [
             {
               id: 'delete',
               icon: <Trash size={14} className="w-5 h-5 mr-2" />,
-              label: '刪除好友',
+              label: lang.tr.deleteFriend,
               onClick: () => {
                 // Open Delete Friend Modal
               },
             },
           ]);
         }}
-        onDoubleClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          ipcService.popup.open(popupType.DIRECT_MESSAGE, 600, 450);
+        onDoubleClick={() => {
+          handleOpenDirectMessagePopup();
         }}
       >
         <div
           className={styles['avatarPicture']}
-          style={
-            friendAvatarUrl
-              ? { backgroundImage: `url(${friendAvatarUrl})` }
-              : {}
-          }
+          style={{ backgroundImage: `url(${friendAvatar})` }}
         />
         <div className={styles['baseInfoBox']}>
           <div className={styles['container']}>
             <div className={styles['name']}>{friendName}</div>
             <div
-              className={`${styles['userGrade']} ${grade[`lv-${friendLevel}`]}`}
+              className={`${styles['userGrade']} ${grade[`lv-${friendGrade}`]}`}
             />
             <BadgeViewer badges={friendBadges} />
           </div>
@@ -144,24 +146,39 @@ const FriendCard: React.FC<FriendCardProps> = React.memo(({ friend }) => {
   );
 });
 
+FriendCard.displayName = 'FriendCard';
+
 interface FriendListViewerProps {
-  friendGroups: FriendGroup[] | null;
-  friends: Friend[] | null;
+  user: User;
 }
 
 const FriendListViewer: React.FC<FriendListViewerProps> = React.memo(
-  ({ friendGroups, friends }) => {
-    if (!friendGroups) return null;
+  ({ user }) => {
+    // Hooks
+    const lang = useLanguage();
 
-    // Search Control
+    // Variables
+    const userFriends = user.friends || [];
+    const userFriendGroups = user.friendGroups || [];
+    const filteredFriends = userFriends.filter((fd) =>
+      fd.name.includes(searchQuery),
+    );
+
+    // States
     const [searchQuery, setSearchQuery] = useState<string>('');
-
-    const filteredFriends =
-      friends?.filter((friend) => friend.user?.name.includes(searchQuery)) ??
-      [];
-
-    // Tab Control
     const [selectedTabId, setSelectedTabId] = useState<number>(0);
+
+    // Handlers
+    const handleOpenApplyFriendPopup = () => {
+      ipcService.popup.open(PopupType.APPLY_FRIEND);
+      ipcService.initialData.onRequest(PopupType.APPLY_FRIEND, {
+        user: user,
+      });
+    };
+
+    // const handleOpenCreateGroupPopup = () => {
+    //   // ipcService.popup.open(PopupType.CREATE_FRIEND_GROUP);
+    // };
 
     return (
       <>
@@ -193,7 +210,7 @@ const FriendListViewer: React.FC<FriendListViewerProps> = React.memo(
               <div className={styles['searchIcon']} />
               <input
                 type="text"
-                placeholder="搜尋好友"
+                placeholder={lang.tr.searchFriend}
                 className={styles['searchInput']}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -202,10 +219,10 @@ const FriendListViewer: React.FC<FriendListViewerProps> = React.memo(
             </div>
             {/* Friend Groups */}
             <div className={styles['friendGroups']}>
-              {friendGroups.map((group) => (
-                <FriendGroup
-                  key={group.id}
-                  friendGroup={group}
+              {userFriendGroups.map((friendGroup) => (
+                <FriendGroupTab
+                  key={friendGroup.id}
+                  friendGroup={friendGroup}
                   friends={filteredFriends}
                 />
               ))}
@@ -213,10 +230,14 @@ const FriendListViewer: React.FC<FriendListViewerProps> = React.memo(
             {/* Bottom Buttons */}
             <div className={styles['bottomButtons']}>
               <div className={styles['button']} datatype="addGroup">
-                添加分組
+                {lang.tr.friendAddGroup}
               </div>
-              <div className={styles['button']} datatype="addFriend">
-                新增好友
+              <div
+                className={styles['button']}
+                datatype="addFriend"
+                onClick={() => handleOpenApplyFriendPopup()}
+              >
+                {lang.tr.addFriend}
               </div>
             </div>
           </div>

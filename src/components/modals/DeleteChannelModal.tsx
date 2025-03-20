@@ -1,62 +1,65 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { FormEvent, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { Channel } from '@/types';
-import { useSocket } from '@/providers/SocketProvider';
-import Dialog from '@/components/modals/Dialog';
+// import React, { FormEvent, useState } from 'react';
+// import { Channel } from '@/types';
+// import { useSocket } from '@/providers/SocketProvider';
+// import Dialog from '@/components/modals/Dialog';
 
-import DeleteChannel from '../../styles/popups/deleteChannel.module.css';
-import Popup from '../../styles/common/popup.module.css';
+// import DeleteChannel from '../../styles/popups/deleteChannel.module.css';
+// import Popup from '../../styles/common/popup.module.css';
+// import { useLanguage } from '@/providers/LanguageProvider';
 
-interface DeleteChannelModalProps {
-  onClose: () => void;
-  channel: Channel;
-}
+// interface DeleteChannelModalProps {
+//   onClose: () => void;
+//   channel: Channel;
+// }
 
-const DeleteChannelModal: React.FC<DeleteChannelModalProps> = ({
-  onClose,
-  channel,
-}) => {
-  // Socket
-  const socket = useSocket();
+// const DeleteChannelModal: React.FC<DeleteChannelModalProps> = ({
+//   onClose,
+//   channel,
+// }) => {
+//   // Language
+//   const lang = useLanguage();
 
-  // Error Control
-  const [error, setError] = useState('');
+//   // Socket
+//   const socket = useSocket();
 
-  const handleSubmit = async (e: FormEvent<Element>) => {
-    e.preventDefault();
-    socket?.send.deleteChannel({ channelId: channel.id });
-    onClose();
-  };
+//   // Error Control
+//   const [error, setError] = useState('');
 
-  return (
-    <form className={Popup['popupContainer']} onSubmit={handleSubmit}>
-      <div className={Popup['popupMessageWrapper']}>
-        <div className={DeleteChannel['popupBody']}>
-          {/* <Dialog
-            popupIcon="popupIconWarning"
-            textBorder={Popup['textBorder']}
-            title={`您確定要刪除頻道：${channel?.name} 嗎？`}
-            onSubmit={handleSubmit}
-            onClose={onClose}
-            iconType={'error'}
-            submitTo={''}
-          /> */}
-        </div>
+//   // Handlers
+//   const handleSubmit = async (e: FormEvent<Element>) => {
+//     e.preventDefault();
+//     socket?.send.deleteChannel({ channelId: channel.id });
+//     onClose();
+//   };
 
-        <div className={Popup['popupFooter']}>
-          <button type="submit" className={Popup['button']}>
-            確定
-          </button>
-          <button type="button" className={Popup['button']} onClick={onClose}>
-            取消
-          </button>
-        </div>
-      </div>
-    </form>
-  );
-};
+//   return (
+//     <form className={Popup['popupContainer']} onSubmit={handleSubmit}>
+//       <div className={Popup['popupMessageWrapper']}>
+//         <div className={DeleteChannel['popupBody']}>
+//           {/* <Dialog
+//             popupIcon="popupIconWarning"
+//             textBorder={Popup['textBorder']}
+//             title={`您確定要刪除頻道：${channel?.name} 嗎？`}
+//             onSubmit={handleSubmit}
+//             onClose={onClose}
+//             iconType={'error'}
+//             submitTo={''}
+//           /> */}
+//         </div>
 
-DeleteChannelModal.displayName = 'DeleteChannelModal';
+//         <div className={Popup['popupFooter']}>
+//           <button type="submit" className={Popup['button']}>
+//             {lang.tr.confirm}
+//           </button>
+//           <button type="button" className={Popup['button']} onClick={onClose}>
+//             {lang.tr.cancel}
+//           </button>
+//         </div>
+//       </div>
+//     </form>
+//   );
+// };
 
-export default DeleteChannelModal;
+// DeleteChannelModal.displayName = 'DeleteChannelModal';
+
+// export default DeleteChannelModal;

@@ -1,16 +1,19 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-expressions */
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
 import { CircleX } from 'lucide-react';
 
 // CSS
 import header from '@/styles/common/header.module.css';
 
 // Types
-import { Channel, Server, User, SocketServerEvent } from '@/types';
+import {
+  PopupType,
+  SocketServerEvent,
+  LanguageKey,
+  Server,
+  User,
+} from '@/types';
 
 // Pages
 import FriendPage from '@/components/pages/FriendPage';
@@ -22,95 +25,67 @@ import LoadingSpinner from '@/components/common/LoadingSpinner';
 
 // Utils
 import { errorHandler, StandardizedError } from '@/utils/errorHandler';
+import { createDefault } from '@/utils/default';
 
 // Providers
 import WebRTCProvider from '@/providers/WebRTCProvider';
 import { useSocket } from '@/providers/SocketProvider';
+import { useLanguage } from '@/providers/LanguageProvider';
 
 // Services
 import { ipcService } from '@/services/ipc.service';
 import authService from '@/services/auth.service';
 
-// Redux
-import store from '@/redux/store';
-import { clearServer, setServer } from '@/redux/serverSlice';
-import { clearUser, setUser } from '@/redux/userSlice';
-import { clearChannel, setChannel } from '@/redux/channelSlice';
-
 interface HeaderProps {
-  selectedId?: number;
-  setSelectedTabId?: (tabId: number) => void;
+  user: User;
+  server: Server;
+  selectedId: 'home' | 'friends' | 'server';
+  setSelectedTabId: (tabId: 'home' | 'friends' | 'server') => void;
 }
 
 const Header: React.FC<HeaderProps> = React.memo(
-  ({ selectedId = 1, setSelectedTabId }) => {
-    // Redux
-    const user = useSelector((state: { user: User }) => state.user);
-    const server = useSelector((state: { server: Server }) => state.server);
+  ({ user, server, selectedId, setSelectedTabId }) => {
+    // Hooks
+    const socket = useSocket();
+    const lang = useLanguage();
+
+    // States
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [showMenu, setShowMenu] = useState(false);
+    const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
     // Variables
-    const userCurrentServerId = user.currentServerId;
+    const serverId = server.id;
+    const userId = user.id;
     const userName = user.name;
     const userStatus = user.status;
 
-    // Socket
-    const socket = useSocket();
-
-    // Fullscreen Control
-    const [isFullscreen, setIsFullscreen] = useState(false);
-
-    // Menu Control
-    const [showMenu, setShowMenu] = useState(false);
-
-    // Status Dropdown Control
-    const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-
-    // Tab Control
-    const MAIN_TABS = React.useMemo(() => {
-      const tabs = [
-        {
-          id: 1,
-          label: '首頁',
-          onClick: () => {},
-        },
-        {
-          id: 2,
-          label: '好友',
-          onClick: () => {},
-        },
-      ];
-      if (server.id) {
-        tabs.push({
-          id: 3,
-          label: server.name,
-          onClick: () => {},
-        });
-      }
-      return tabs;
-    }, [user, server]);
-
-    // Status Dropdown Control
+    // Constants
+    const MAIN_TABS = [
+      { id: 'home', label: lang.tr.home },
+      { id: 'friends', label: lang.tr.friends },
+      { id: 'server', label: server.name },
+    ];
     const STATUS_OPTIONS = [
-      { status: 'online', label: '上線' },
-      { status: 'dnd', label: '請勿打擾' },
-      { status: 'idle', label: '閒置' },
-      { status: 'gn', label: '離線' },
+      { status: 'online', label: lang.tr.online },
+      { status: 'dnd', label: lang.tr.dnd },
+      { status: 'idle', label: lang.tr.idle },
+      { status: 'gn', label: lang.tr.gn },
     ];
 
     // Handlers
     const handleLogout = () => {
-      store.dispatch(clearChannel());
-      store.dispatch(clearServer());
-      store.dispatch(clearUser());
       authService.logout();
     };
 
-    const handleLeaveServer = (serverId: string) => {
-      socket?.send.disconnectServer({ serverId: serverId });
+    const handleLeaveServer = () => {
+      if (!socket) return;
+      socket.send.disconnectServer({ serverId: serverId, userId: userId });
     };
 
     const handleUpdateStatus = (status: User['status']) => {
-      socket?.send.updateUser({ user: { status } });
+      if (!socket) return;
+      socket.send.updateUser({ user: { id: userId, status } });
     };
 
     const handleCreateError = (error: StandardizedError) => {
@@ -118,9 +93,8 @@ const Header: React.FC<HeaderProps> = React.memo(
     };
 
     const handleFullscreen = () => {
-      isFullscreen
-        ? ipcService.window.unmaximize()
-        : ipcService.window.maximize();
+      if (isFullscreen) ipcService.window.unmaximize();
+      else ipcService.window.maximize();
       setIsFullscreen(!isFullscreen);
     };
 
@@ -136,16 +110,37 @@ const Header: React.FC<HeaderProps> = React.memo(
       ipcService.window.openDevtool();
     };
 
+    const handleLanguageChange = (language: LanguageKey) => {
+      lang.set(language);
+      localStorage.setItem('language', language);
+    };
+
+    const handleShowEditUser = () => {
+      ipcService.popup.open(PopupType.EDIT_USER);
+      ipcService.initialData.onRequest(PopupType.EDIT_USER, {
+        user: user,
+      });
+    };
+
     return (
       <div className={header['header']}>
         {/* Title */}
         <div className={`${header['titleBox']} ${header['big']}`}></div>
         {/* User Status */}
         <div className={header['userStatus']}>
-          <div className={header['nameDisplay']}>{userName}</div>
+          <div
+            className={header['nameDisplay']}
+            onClick={() => {
+              handleShowEditUser();
+            }}
+          >
+            {userName}
+          </div>
           <div
             className={header['statusBox']}
-            onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+            onClick={() => {
+              setShowStatusDropdown(!showStatusDropdown);
+            }}
           >
             <div className={header['statusDisplay']} datatype={userStatus} />
             <div className={header['statusTriangle']} />
@@ -173,25 +168,23 @@ const Header: React.FC<HeaderProps> = React.memo(
           {MAIN_TABS.map((Tab) => {
             const TabId = Tab.id;
             const TabLable = Tab.label;
-
+            const TabClose = TabId === 'server';
+            if (TabId === 'server' && !serverId) return null;
             return (
               <div
                 key={`Tabs-${TabId}`}
                 className={`${header['tab']} ${
                   TabId === selectedId ? header['selected'] : ''
                 }`}
-                onClick={() => {
-                  setSelectedTabId?.(TabId);
-                  Tab.onClick();
-                }}
+                onClick={() =>
+                  setSelectedTabId(TabId as 'home' | 'friends' | 'server')
+                }
               >
                 <div className={header['tabLable']}>{TabLable}</div>
                 <div className={header['tabBg']}></div>
-                {TabId > 2 && (
+                {TabClose && (
                   <CircleX
-                    onClick={() => {
-                      handleLeaveServer(userCurrentServerId);
-                    }}
+                    onClick={() => handleLeaveServer()}
                     size={16}
                     className={header['tabClose']}
                   />
@@ -221,7 +214,7 @@ const Header: React.FC<HeaderProps> = React.memo(
                 data-key="30066"
                 onClick={() => handleOpenDevtool()}
               >
-                系統設定
+                {lang.tr.systemSettings}
               </div>
               <div
                 className={`${header['option']} ${header['hasImage']}`}
@@ -239,43 +232,63 @@ const Header: React.FC<HeaderProps> = React.memo(
                   )
                 }
               >
-                訊息紀錄
+                {lang.tr.messageHistory}
               </div>
               <div
                 className={`${header['option']} ${header['hasImage']}`}
                 data-type="change-theme"
                 data-key="60028"
               >
-                更換主題
+                {lang.tr.changeTheme}
               </div>
               <div
                 className={header['option']}
                 data-type="feed-back"
                 data-key="30039"
               >
-                意見反饋
+                {lang.tr.feedback}
               </div>
               <div
                 className={`${header['option']} ${header['hasImage']} ${header['hasSubmenu']}`}
                 data-type="language-select"
               >
-                <span data-key="30374">語言選擇</span>
+                <span data-key="30374">{lang.tr.languageSelect}</span>
                 <div
                   className={`${header['menuDropDown']} ${header['hidden']}`}
                 >
-                  <div className={header['option']} data-lang="tw">
+                  <div
+                    className={header['option']}
+                    data-lang="tw"
+                    onClick={() => handleLanguageChange('tw')}
+                  >
                     繁體中文
                   </div>
-                  <div className={header['option']} data-lang="cn">
+                  <div
+                    className={header['option']}
+                    data-lang="cn"
+                    onClick={() => handleLanguageChange('cn')}
+                  >
                     简体中文
                   </div>
-                  <div className={header['option']} data-lang="en">
+                  <div
+                    className={header['option']}
+                    data-lang="en"
+                    onClick={() => handleLanguageChange('en')}
+                  >
                     English
                   </div>
-                  <div className={header['option']} data-lang="jp">
+                  <div
+                    className={header['option']}
+                    data-lang="jp"
+                    onClick={() => handleLanguageChange('jp')}
+                  >
                     日本語
                   </div>
-                  <div className={header['option']} data-lang="ru">
+                  <div
+                    className={header['option']}
+                    data-lang="ru"
+                    onClick={() => handleLanguageChange('ru')}
+                  >
                     русский язык
                   </div>
                 </div>
@@ -286,7 +299,7 @@ const Header: React.FC<HeaderProps> = React.memo(
                 data-key="30060"
                 onClick={() => handleLogout()}
               >
-                登出
+                {lang.tr.logout}
               </div>
               <div
                 className={`${header['option']} ${header['hasImage']}`}
@@ -294,17 +307,19 @@ const Header: React.FC<HeaderProps> = React.memo(
                 data-key="30061"
                 onClick={() => handleClose()}
               >
-                退出
+                {lang.tr.exit}
               </div>
             </div>
           </div>
-          <div className={header['minimize']} onClick={handleMinimize} />
+          <div
+            className={header['minimize']}
+            onClick={() => handleMinimize()}
+          />
           <div
             className={isFullscreen ? header['restore'] : header['maxsize']}
-            onClick={handleFullscreen}
-            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            onClick={() => handleFullscreen()}
           />
-          <div className={header['close']} onClick={handleClose} />
+          <div className={header['close']} onClick={() => handleClose()} />
         </div>
       </div>
     );
@@ -314,27 +329,28 @@ const Header: React.FC<HeaderProps> = React.memo(
 Header.displayName = 'Header';
 
 const Home = () => {
-  // Socket
+  // Hooks
   const socket = useSocket();
+  const lang = useLanguage();
 
+  // States
+  const [user, setUser] = useState<User>(createDefault.user());
+  const [server, setServer] = useState<Server>(createDefault.server());
+  const [selectedTabId, setSelectedTabId] = useState<
+    'home' | 'friends' | 'server'
+  >('home');
+
+  // Effects
   useEffect(() => {
     if (!socket) return;
 
     const eventHandlers = {
-      [SocketServerEvent.CONNECT]: () => handleConnect,
-      [SocketServerEvent.DISCONNECT]: () => handleDisconnect,
-      [SocketServerEvent.USER_CONNECT]: handleUserConnect,
-      [SocketServerEvent.USER_DISCONNECT]: handleUserDisconnect,
+      [SocketServerEvent.CONNECT]: handleConnect,
+      [SocketServerEvent.DISCONNECT]: handleDisconnect,
       [SocketServerEvent.USER_UPDATE]: handleUserUpdate,
-      [SocketServerEvent.SERVER_CONNECT]: handleServerConnect,
-      [SocketServerEvent.SERVER_DISCONNECT]: handleServerDisconnect,
       [SocketServerEvent.SERVER_UPDATE]: handleServerUpdate,
-      [SocketServerEvent.CHANNEL_CONNECT]: handleChannelConnect,
-      [SocketServerEvent.CHANNEL_DISCONNECT]: handleChannelDisconnect,
-      [SocketServerEvent.CHANNEL_UPDATE]: handleChannelUpdate,
       [SocketServerEvent.ERROR]: handleError,
     };
-
     const unsubscribe: (() => void)[] = [];
 
     Object.entries(eventHandlers).map(([event, handler]) => {
@@ -347,82 +363,50 @@ const Home = () => {
     };
   }, [socket]);
 
-  // Tab Control
-  const [selectedTabId, setSelectedTabId] = useState<number>(1);
+  useEffect(() => {
+    if (!lang) return;
+    const language = localStorage.getItem('language');
+    if (language) lang.set(language as LanguageKey);
+  }, [lang]);
 
   // Handlers
   const handleConnect = () => {
     console.log('Socket connected');
+    setSelectedTabId('home');
   };
 
   const handleDisconnect = () => {
     console.log('Socket disconnected');
+    setUser(createDefault.user());
+    setServer(createDefault.server());
+    setSelectedTabId('home');
   };
 
   const handleError = (error: StandardizedError) => {
     new errorHandler(error).show();
   };
 
-  const handleUserConnect = (user: any) => {
-    console.log('User connected: ', user);
-    store.dispatch(setUser(user));
-    setSelectedTabId(1);
+  const handleUserUpdate = (data: Partial<User> | null) => {
+    if (!data) data = createDefault.user();
+    setUser((prev) => ({ ...prev, ...data }));
   };
 
-  const handleUserDisconnect = () => {
-    console.log('User disconnected');
-    store.dispatch(clearChannel());
-    store.dispatch(clearServer());
-    store.dispatch(clearUser());
-    authService.logout();
-  };
-
-  const handleUserUpdate = (data: Partial<User>) => {
-    console.log('User update: ', data);
-    store.dispatch(setUser(data));
-  };
-
-  const handleServerConnect = (server: Server) => {
-    console.log('Server connected: ', server);
-    store.dispatch(setServer(server));
-    setSelectedTabId(3);
-  };
-
-  const handleServerDisconnect = () => {
-    console.log('Server disconnected');
-    store.dispatch(clearServer());
-    setSelectedTabId(1);
-  };
-
-  const handleServerUpdate = (data: Partial<Server>) => {
-    console.log('Server update: ', data);
-    store.dispatch(setServer(data));
-  };
-
-  const handleChannelConnect = (channel: Channel) => {
-    console.log('Channel connected: ', channel);
-    store.dispatch(setChannel(channel));
-  };
-
-  const handleChannelDisconnect = () => {
-    console.log('Channel disconnected');
-    store.dispatch(clearChannel());
-  };
-
-  const handleChannelUpdate = (data: Partial<Channel>) => {
-    console.log('Channel update: ', data);
-    store.dispatch(setChannel(data));
+  const handleServerUpdate = (data: Partial<Server> | null) => {
+    console.log('Server updated', data);
+    setSelectedTabId(data ? 'server' : 'home');
+    if (!data) data = createDefault.server();
+    setServer((prev) => ({ ...prev, ...data }));
   };
 
   const getMainContent = () => {
     if (!socket) return <LoadingSpinner />;
     switch (selectedTabId) {
-      case 1:
-        return <HomePage />;
-      case 2:
-        return <FriendPage />;
-      case 3:
-        return <ServerPage />;
+      case 'home':
+        return <HomePage user={user} />;
+      case 'friends':
+        return <FriendPage user={user} />;
+      case 'server':
+        return <ServerPage user={user} server={server} />;
     }
   };
 
@@ -430,6 +414,8 @@ const Home = () => {
     <div className="wrapper">
       <WebRTCProvider>
         <Header
+          user={user}
+          server={server}
           selectedId={selectedTabId}
           setSelectedTabId={setSelectedTabId}
         />

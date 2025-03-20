@@ -1,11 +1,103 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-require-imports */
 const path = require('path');
-const { app, BrowserWindow, ipcMain, session } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const serve = require('electron-serve');
 const net = require('net');
 const DiscordRPC = require('discord-rpc');
 const { io } = require('socket.io-client');
+const { autoUpdater } = require('electron-updater');
+
+const SocketClientEvent = {
+  // User
+  SEARCH_USER: 'searchUser',
+  REFRESH_USER: 'refreshUser',
+  UPDATE_USER: 'updateUser',
+  // Server
+  SEARCH_SERVER: 'searchServer',
+  REFRESH_SERVER: 'refreshServer',
+  CONNECT_SERVER: 'connectServer',
+  DISCONNECT_SERVER: 'disconnectServer',
+  CREATE_SERVER: 'createServer',
+  UPDATE_SERVER: 'updateServer',
+  DELETE_SERVER: 'deleteServer',
+  // Category
+  REFRESH_CATEGORY: 'refreshCategory',
+  CREATE_CATEGORY: 'createCategory',
+  UPDATE_CATEGORY: 'updateCategory',
+  DELETE_CATEGORY: 'deleteCategory',
+  // Channel
+  REFRESH_CHANNEL: 'refreshChannel',
+  CONNECT_CHANNEL: 'connectChannel',
+  DISCONNECT_CHANNEL: 'disconnectChannel',
+  CREATE_CHANNEL: 'createChannel',
+  UPDATE_CHANNEL: 'updateChannel',
+  DELETE_CHANNEL: 'deleteChannel',
+  // Friend Group
+  REFRESH_FRIEND_GROUP: 'refreshFriendGroup',
+  CREATE_FRIEND_GROUP: 'createFriendGroup',
+  UPDATE_FRIEND_GROUP: 'updateFriendGroup',
+  DELETE_FRIEND_GROUP: 'deleteFriendGroup',
+  // Member
+  REFRESH_MEMBER: 'refreshMember',
+  UPDATE_MEMBER: 'updateMember',
+  // Friend
+  REFRESH_FRIEND: 'refreshFriend',
+  UPDATE_FRIEND: 'updateFriend',
+  // Member Application
+  REFRESH_MEMBER_APPLICATION: 'refreshMemberApplication',
+  CREATE_MEMBER_APPLICATION: 'createMemberApplication',
+  UPDATE_MEMBER_APPLICATION: 'updateMemberApplication',
+  DELETE_MEMBER_APPLICATION: 'deleteMemberApplication',
+  // Friend Application
+  REFRESH_FRIEND_APPLICATION: 'refreshFriendApplication',
+  CREATE_FRIEND_APPLICATION: 'createFriendApplication',
+  UPDATE_FRIEND_APPLICATION: 'updateFriendApplication',
+  DELETE_FRIEND_APPLICATION: 'deleteFriendApplication',
+  // Message
+  SEND_MESSAGE: 'message',
+  SEND_DIRECT_MESSAGE: 'directMessage',
+  // RTC
+  RTC_OFFER: 'RTCOffer',
+  RTC_ANSWER: 'RTCAnswer',
+  RTC_ICE_CANDIDATE: 'RTCIceCandidate',
+};
+
+const SocketServerEvent = {
+  // Socket
+  CONNECT: 'connect',
+  DISCONNECT: 'disconnect',
+  // Notification
+  NOTIFICATION: 'notification', // not used yet
+  // User
+  USER_SEARCH: 'userSearch',
+  USER_UPDATE: 'userUpdate',
+  // Server
+  SERVER_SEARCH: 'serverSearch',
+  SERVER_UPDATE: 'serverUpdate',
+  // Channel
+  CHANNEL_UPDATE: 'channelUpdate',
+  // Category
+  CATEGORY_UPDATE: 'categoryUpdate',
+  // Friend Group
+  FRIEND_GROUP_UPDATE: 'friendGroupUpdate',
+  // Member
+  MEMBER_UPDATE: 'memberUpdate',
+  // Member Application
+  MEMBER_APPLICATION_UPDATE: 'memberApplicationUpdate',
+  // Friend
+  FRIEND_UPDATE: 'friendUpdate',
+  // Friend Application
+  FRIEND_APPLICATION_UPDATE: 'friendApplicationUpdate',
+  // RTC
+  RTC_OFFER: 'RTCOffer',
+  RTC_ANSWER: 'RTCAnswer',
+  RTC_ICE_CANDIDATE: 'RTCIceCandidate',
+  RTC_JOIN: 'RTCJoin',
+  RTC_LEAVE: 'RTCLeave',
+  // Error
+  ERROR: 'error',
+};
 
 let isDev = process.argv.includes('--dev');
 
@@ -36,13 +128,11 @@ let popups = {};
 const WS_URL = "wss://rc.yayacat.pp.ua/";
 let socketInstance = null;
 
-// Popup initial datas
-let initialDatas = {};
-
 // Disocrd RPC
 const clientId = '1242441392341516288';
 DiscordRPC.register(clientId);
-const rpc = new DiscordRPC.Client({ transport: 'ipc' });
+let rpc = new DiscordRPC.Client({ transport: 'ipc' });
+
 const defaultPrecence = {
   details: '正在使用應用',
   state: '準備中',
@@ -222,6 +312,8 @@ async function createPopup(type, height, width) {
     frame: false,
     transparent: true,
     hasShadow: true,
+    modal: true,
+    parent: mainWindow,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -259,154 +351,48 @@ function connectSocket(token) {
     },
   });
 
+  // 定義所有 IPC 處理器
+  const ipcHandlers = Object.values(SocketClientEvent).reduce((acc, event) => {
+    acc[event] = (_, data) => socket.emit(event, data);
+    return acc;
+  }, {});
+
   socket.on('connect', () => {
-    BrowserWindow.getAllWindows().forEach((window) => {
-      window.webContents.send('connect', socket.id);
-    });
-    socket.on('connect_error', (error) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('connect_error', error),
-      );
-    });
-    socket.on('error', (error) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('error', error),
-      );
-    });
-    socket.on('disconnect', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('disconnect', data),
-      );
-    });
-    socket.on('userConnect', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('userConnect', data),
-      );
-    });
-    socket.on('userDisconnect', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('userDisconnect', data),
-      );
-    });
-    socket.on('userUpdate', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('userUpdate', data),
-      );
-    });
-    socket.on('serverConnect', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('serverConnect', data),
-      );
-    });
-    socket.on('serverDisconnect', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('serverDisconnect', data),
-      );
-    });
-    socket.on('serverUpdate', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('serverUpdate', data),
-      );
-    });
-    socket.on('serverSearch', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) => {
-        window.webContents.send('serverSearch', data);
-      });
-    });
-    socket.on('channelConnect', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('channelConnect', data),
-      );
-    });
-    socket.on('channelDisconnect', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('channelDisconnect', data),
-      );
-    });
-    socket.on('channelUpdate', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('channelUpdate', data),
-      );
-    });
-    socket.on('RTCConnect', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('RTCConnect', data),
-      );
-    });
-    socket.on('RTCOffer', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('RTCOffer', data),
-      );
-    });
-    socket.on('RTCAnswer', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('RTCAnswer', data),
-      );
-    });
-    socket.on('RTCIceCandidate', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('RTCIceCandidate', data),
-      );
-    });
-    socket.on('RTCJoin', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('RTCJoin', data),
-      );
-    });
-    socket.on('RTCLeave', (data) => {
-      BrowserWindow.getAllWindows().forEach((window) =>
-        window.webContents.send('RTCLeave', data),
-      );
+    // 註冊 IPC 處理器
+    Object.entries(ipcHandlers).forEach(([event, handler]) => {
+      ipcMain.on(event, handler);
     });
 
-    // Socket IPC event handling
-    ipcMain.on('refreshUser', (_) => socket.emit('refreshUser'));
-    ipcMain.on('connectUser', (_, data) => socket.emit('connectUser', data));
-    ipcMain.on('updateUser', (_, data) => socket.emit('updateUser', data));
-    ipcMain.on('connectServer', (_, data) =>
-      socket.emit('connectServer', data),
-    );
-    ipcMain.on('searchServer', (_, data) => socket.emit('searchServer', data));
-    ipcMain.on('disconnectServer', (_, data) =>
-      socket.emit('disconnectServer', data),
-    );
-    ipcMain.on('createServer', (_, data) => socket.emit('createServer', data));
-    ipcMain.on('updateServer', (_, data) => socket.emit('updateServer', data));
-    ipcMain.on('deleteServer', (_, data) => socket.emit('deleteServer', data));
-    ipcMain.on('connectChannel', (_, data) =>
-      socket.emit('connectChannel', data),
-    );
-    ipcMain.on('disconnectChannel', (_, data) =>
-      socket.emit('disconnectChannel', data),
-    );
-    ipcMain.on('updateChannel', (_, data) =>
-      socket.emit('updateChannel', data),
-    );
-    ipcMain.on('createChannel', (_, data) =>
-      socket.emit('createChannel', data),
-    );
-    ipcMain.on('deleteChannel', (_, data) =>
-      socket.emit('deleteChannel', data),
-    );
-    ipcMain.on('message', (_, data) => socket.emit('message', data));
-    ipcMain.on('directMessage', (_, data) =>
-      socket.emit('directMessage', data),
-    );
-    ipcMain.on('RTCOffer', (_, data) => socket.emit('RTCOffer', data));
-    ipcMain.on('RTCAnswer', (_, data) => socket.emit('RTCAnswer', data));
-    ipcMain.on('RTCIceCandidate', (_, data) =>
-      socket.emit('RTCIceCandidate', data),
-    );
+    // 註冊所有 Socket 事件
+    Object.values(SocketServerEvent).forEach((event) => {
+      socket.on(event, (data) => {
+        console.log('Socket event:', event);
+        BrowserWindow.getAllWindows().forEach((window) => {
+          window.webContents.send(event, data);
+        });
+      });
+    });
 
     mainWindow?.show();
     authWindow?.hide();
   });
 
+  // 將處理函數存儲在 socket 實例上，以便後續清理
+  socket.ipcHandlers = ipcHandlers;
+
   return socket;
 }
 
 function disconnectSocket(socket) {
-  socket?.disconnect();
+  if (!socket) return null;
+
+  // 移除所有 IPC 事件處理函數
+  if (socket.ipcHandlers) {
+    Object.entries(socket.ipcHandlers).forEach(([event, handler]) => {
+      ipcMain.removeListener(event, handler);
+    });
+  }
+
   return null;
 }
 
@@ -427,6 +413,7 @@ rpc.on('ready', () => {
 app.on('ready', async () => {
   await createAuthWindow();
   await createMainWindow();
+  autoUpdater.checkForUpdatesAndNotify();
 
   mainWindow.hide();
   authWindow.show();
@@ -449,6 +436,7 @@ app.on('ready', async () => {
   ipcMain.on('logout', () => {
     mainWindow.hide();
     authWindow.show();
+    socketInstance.disconnect();
     socketInstance = disconnectSocket(socketInstance);
   });
 
@@ -525,4 +513,30 @@ app.on('activate', async () => {
   }
 });
 
-rpc.login({ clientId }).catch(console.error);
+autoUpdater.on('update-available', () => {
+  dialog.showMessageBox({
+    type: 'info',
+    title: '有新版本可用',
+    message: '正在下載新版本，請稍後...',
+  });
+});
+
+autoUpdater.on('update-downloaded', () => {
+  dialog
+    .showMessageBox({
+      type: 'question',
+      title: '更新已下載',
+      message: '應用程式已下載新版本，請重新啟動以完成更新。',
+      buttons: ['立即重啟'],
+    })
+    .then((result) => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+});
+
+rpc.login({ clientId }).catch(() => {
+  console.log('Discord RPC登錄失敗, 將不會顯示Discord Rich Presence');
+  rpc = null;
+});

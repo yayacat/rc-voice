@@ -88,7 +88,7 @@ export const apiService = {
       // Handle response
       return handleResponse(response);
     } catch (error: Error | any) {
-      throw new Error(error.message || '獲取資料失敗');
+      throw new Error(error.error_message || '獲取資料失敗');
     }
   },
 
@@ -114,7 +114,7 @@ export const apiService = {
       // Handle response
       return handleResponse(response);
     } catch (error: Error | any) {
-      throw new Error(error.message || '提交資料失敗');
+      throw new Error(error.error_message || '提交資料失敗');
     }
   },
 
@@ -132,7 +132,7 @@ export const apiService = {
       // Handle response
       return handleResponse(response);
     } catch (error: Error | any) {
-      throw new Error(error.message || '更新資料失敗');
+      throw new Error(error.error_message || '更新資料失敗');
     }
   },
   axiosInstance,

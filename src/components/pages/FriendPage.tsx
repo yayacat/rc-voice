@@ -1,8 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable react/display-name */
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSelector } from 'react-redux';
 
 // CSS
 import friendPage from '@/styles/friendPage.module.css';
@@ -13,177 +10,177 @@ import FriendListViewer from '@/components/viewers/FriendListViewer';
 import BadgeViewer from '@/components/viewers/BadgeViewer';
 
 // Types
-import { type User } from '@/types';
+import { User } from '@/types';
 
 // Providers
 import { useSocket } from '@/providers/SocketProvider';
+import { useLanguage } from '@/providers/LanguageProvider';
 
 // Services
 import { ipcService } from '@/services/ipc.service';
 
-const FriendPageComponent: React.FC = React.memo(() => {
-  // Redux
-  const user = useSelector((state: { user: User }) => state.user);
+interface FriendPageProps {
+  user: User;
+}
 
-  // Variables
-  const MAXLENGTH = 300;
-  const userName = user.name;
-  const userAvatarUrl = user.avatarUrl;
-  const userSignature = user.signature;
-  const userLevel = user.level;
-  const userGrade = Math.min(56, Math.ceil(userLevel / 5)); // 56 is max level
-  const userBadges = user?.badges || [];
-  const userFriends = user?.friends || [];
-  const userFriendGroups = user?.friendGroups || [];
+const FriendPageComponent: React.FC<FriendPageProps> = React.memo(
+  ({ user }) => {
+    // Hooks
+    const lang = useLanguage();
+    const socket = useSocket();
 
-  // Socket
-  const socket = useSocket();
+    // States
+    const [signatureInput, setSignatureInput] = useState<string>(
+      user.signature,
+    );
+    const [isComposing, setIsComposing] = useState<boolean>(false);
+    const [sidebarWidth, setSidebarWidth] = useState<number>(256);
+    const [isResizing, setIsResizing] = useState<boolean>(false);
 
-  // Input Control
-  const [signatureInput, setSignatureInput] = useState<string>(userSignature);
-  const [isComposing, setIsComposing] = useState<boolean>(false);
+    // Variables
+    const MAXLENGTH = 300;
+    const userId = user.id;
+    const userName = user.name;
+    const userAvatar = user.avatar;
+    const userSignature = user.signature;
+    const userLevel = user.level;
+    const userGrade = Math.min(56, Math.ceil(userLevel / 5)); // 56 is max level
+    const userBadges = user.badges || [];
 
-  // Sidebar Control
-  const [sidebarWidth, setSidebarWidth] = useState<number>(256);
-  const [isResizing, setIsResizing] = useState<boolean>(false);
-
-  const startResizing = useCallback((mouseDownEvent: React.MouseEvent) => {
-    mouseDownEvent.preventDefault();
-    setIsResizing(true);
-  }, []);
-
-  const stopResizing = useCallback(() => {
-    setIsResizing(false);
-  }, []);
-
-  const resize = useCallback(
-    (mouseMoveEvent: MouseEvent) => {
-      if (isResizing) {
-        const maxWidth = window.innerWidth * 0.3;
-        const newWidth = Math.max(
-          250,
-          Math.min(mouseMoveEvent.clientX, maxWidth),
-        );
-        setSidebarWidth(newWidth);
-      }
-    },
-    [isResizing],
-  );
-
-  useEffect(() => {
-    window.addEventListener('mousemove', resize);
-    window.addEventListener('mouseup', stopResizing);
-    return () => {
-      window.removeEventListener('mousemove', resize);
-      window.removeEventListener('mouseup', stopResizing);
+    // Handlers
+    const handleChangeSignature = (signature: User['signature']) => {
+      if (!socket) return;
+      socket.send.updateUser({ user: { id: user.id, signature } });
     };
-  }, [resize, stopResizing]);
 
-  // Update Discord Presence
-  useEffect(() => {
-    ipcService.discord.updatePresence({
-      details: `正在瀏覽好友列表`,
-      state: `使用者: ${userName}`,
-      largeImageKey: 'app_icon',
-      largeImageText: 'RC Voice',
-      smallImageKey: 'home_icon',
-      smallImageText: '好友列表',
-      timestamp: Date.now(),
-      buttons: [
-        {
-          label: '加入我們的Discord伺服器',
-          url: 'https://discord.gg/adCWzv6wwS',
-        },
-      ],
-    });
-  }, []);
+    const handleStartResizing = useCallback((e: React.MouseEvent) => {
+      e.preventDefault();
+      setIsResizing(true);
+    }, []);
 
-  // Refresh User
-  useEffect(() => {
-    socket?.send.refreshUser(null);
-  }, []);
+    const handleStopResizing = useCallback(() => {
+      setIsResizing(false);
+    }, []);
 
-  // Handlers
-  const handleChangeSignature = (signature: User['signature']) => {
-    socket?.send.updateUser({ user: { signature } });
-  };
+    const handleResize = useCallback(
+      (e: MouseEvent) => {
+        if (!isResizing) return;
+        const maxWidth = window.innerWidth * 0.3;
+        const newWidth = Math.max(250, Math.min(e.clientX, maxWidth));
+        setSidebarWidth(newWidth);
+      },
+      [isResizing],
+    );
 
-  return (
-    <div className={friendPage['friendWrapper']}>
-      {/* Header */}
-      <header className={friendPage['friendHeader']}>
-        <div
-          className={friendPage['avatarPicture']}
-          style={
-            userAvatarUrl ? { backgroundImage: `url(${userAvatarUrl})` } : {}
-          }
-        />
-        <div className={friendPage['baseInfoBox']}>
-          <div className={friendPage['container']}>
-            <div className={friendPage['levelIcon']} />
-            <div
-              className={`
+    // Effects
+    useEffect(() => {
+      window.addEventListener('mousemove', handleResize);
+      window.addEventListener('mouseup', handleStopResizing);
+      return () => {
+        window.removeEventListener('mousemove', handleResize);
+        window.removeEventListener('mouseup', handleStopResizing);
+      };
+    }, [handleResize, handleStopResizing]);
+
+    useEffect(() => {
+      if (!lang) return;
+      ipcService.discord.updatePresence({
+        details: lang.tr.RPCFriendPage,
+        state: `${lang.tr.RPCUser} ${userName}`,
+        largeImageKey: 'app_icon',
+        largeImageText: 'RC Voice',
+        smallImageKey: 'home_icon',
+        smallImageText: lang.tr.RPCFriend,
+        timestamp: Date.now(),
+        buttons: [
+          {
+            label: lang.tr.RPCJoinServer,
+            url: 'https://discord.gg/adCWzv6wwS',
+          },
+        ],
+      });
+    }, [lang, userName]);
+
+    useEffect(() => {
+      if (!socket) return;
+      if (userId) socket.send.refreshUser({ userId: userId });
+    }, [socket]);
+
+    return (
+      <div className={friendPage['friendWrapper']}>
+        {/* Header */}
+        <header className={friendPage['friendHeader']}>
+          <div
+            className={friendPage['avatarPicture']}
+            style={{ backgroundImage: `url(${userAvatar})` }}
+          />
+          <div className={friendPage['baseInfoBox']}>
+            <div className={friendPage['container']}>
+              <div className={friendPage['levelIcon']} />
+              <div
+                className={`
                 ${friendPage['userGrade']} 
                 ${grade[`lv-${userGrade}`]}
               `}
+              />
+              <div className={friendPage['wealthIcon']} />
+              <label className={friendPage['wealthValue']}>0</label>
+              <div className={friendPage['vipIcon']} />
+            </div>
+            <div className={friendPage['container']}>
+              <BadgeViewer badges={userBadges} />
+            </div>
+          </div>
+          <div className={friendPage['signatureBox']}>
+            <textarea
+              className={friendPage['signatureInput']}
+              value={signatureInput}
+              placeholder={lang.tr.signaturePlaceholder}
+              data-placeholder="30018"
+              onChange={(e) => {
+                if (signatureInput.length > MAXLENGTH) return;
+                setSignatureInput(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.shiftKey) return;
+                if (e.key !== 'Enter') return;
+                if (isComposing) return;
+                e.currentTarget.blur();
+              }}
+              onBlur={() => {
+                if (signatureInput == userSignature) return;
+                if (signatureInput.length > MAXLENGTH) return;
+                handleChangeSignature(signatureInput);
+              }}
+              onCompositionStart={() => setIsComposing(true)}
+              onCompositionEnd={() => setIsComposing(false)}
             />
-            <div className={friendPage['wealthIcon']} />
-            <label className={friendPage['wealthValue']}>0</label>
-            <div className={friendPage['vipIcon']} />
           </div>
-          <div className={friendPage['container']}>
-            <BadgeViewer badges={userBadges} />
+        </header>
+        {/* Main Content */}
+        <main className={friendPage['friendContent']}>
+          {/* Left Sidebar */}
+          <div
+            className={friendPage['sidebar']}
+            style={{ width: `${sidebarWidth}px` }}
+          >
+            <FriendListViewer user={user} />
           </div>
-        </div>
-        <div className={friendPage['signatureBox']}>
-          <textarea
-            className={friendPage['signatureInput']}
-            value={signatureInput}
-            placeholder="點擊更改簽名"
-            data-placeholder="30018"
-            onChange={(e) => {
-              if (signatureInput.length > MAXLENGTH) return;
-              const input = e.target.value;
-              setSignatureInput(input);
-            }}
-            onKeyDown={(e) => {
-              if (e.shiftKey) return;
-              if (e.key !== 'Enter') return;
-              if (isComposing) return;
-              e.currentTarget.blur();
-            }}
-            onBlur={(e) => {
-              if (signatureInput == userSignature) return;
-              if (signatureInput.length > MAXLENGTH) return;
-              handleChangeSignature(signatureInput);
-            }}
-            onCompositionStart={() => setIsComposing(true)}
-            onCompositionEnd={() => setIsComposing(false)}
+          {/* Resize Handle */}
+          <div
+            className="resizeHandle"
+            onMouseDown={handleStartResizing}
+            onMouseUp={handleStopResizing}
           />
-        </div>
-      </header>
-      {/* Main Content */}
-      <main className={friendPage['friendContent']}>
-        {/* Left Sidebar */}
-        <div
-          className={friendPage['sidebar']}
-          style={{ width: `${sidebarWidth}px` }}
-        >
-          <FriendListViewer
-            friends={userFriends}
-            friendGroups={userFriendGroups}
-          />
-        </div>
-        {/* Resize Handle */}
-        <div className="resizeHandle" onMouseDown={startResizing} />
-        {/* Right Content */}
-        <div className={friendPage['mainContent']}>
-          <div className={friendPage['header']}>{'好友動態'}</div>
-        </div>
-      </main>
-    </div>
-  );
-});
+          {/* Right Content */}
+          <div className={friendPage['mainContent']}>
+            <div className={friendPage['header']}>{lang.tr.friendActive}</div>
+          </div>
+        </main>
+      </div>
+    );
+  },
+);
 
 FriendPageComponent.displayName = 'FriendPageComponent';
 

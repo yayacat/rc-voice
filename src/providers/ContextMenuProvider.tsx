@@ -2,7 +2,7 @@
 import React, { useEffect, useContext, createContext, ReactNode } from 'react';
 
 // Types
-import { ContextMenuItem, Server, User } from '@/types';
+import { ContextMenuItem, ServerMember } from '@/types';
 
 // Components
 import ContextMenu from '@/components/ContextMenu';
@@ -10,7 +10,7 @@ import UserInfoBlock from '@/components/UserInfoBlock';
 
 interface ContextMenuContextType {
   showContextMenu: (x: number, y: number, items: ContextMenuItem[]) => void;
-  showUserInfoBlock: (x: number, y: number, user: User, server: Server) => void;
+  showUserInfoBlock: (x: number, y: number, member: ServerMember) => void;
   closeContextMenu: () => void;
 }
 
@@ -20,25 +20,14 @@ export const useContextMenu = () => {
   return useContext(ContextMenuContext);
 };
 
-enum ContextMenuTypes {
-  GENERAL = 'general',
-  USER_INFO_BLOCK = 'user-info-block',
-}
-
 interface ContextMenuProviderProps {
   children: ReactNode;
 }
 
 const ContextMenuProvider = ({ children }: ContextMenuProviderProps) => {
-  const [x, setX] = React.useState(0);
-  const [y, setY] = React.useState(0);
+  // States
   const [isVisible, setIsVisible] = React.useState(false);
-  const [type, setType] = React.useState<ContextMenuTypes | null>(null);
-  // GENERAL
-  const [items, setItems] = React.useState<ContextMenuItem[]>([]);
-  // USER_INFO_BLOCK
-  const [user, setUser] = React.useState<User | null>(null);
-  const [server, setServer] = React.useState<Server | null>(null);
+  const [content, setContent] = React.useState<ReactNode | null>(null);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -63,57 +52,31 @@ const ContextMenuProvider = ({ children }: ContextMenuProviderProps) => {
   }, []);
 
   const showContextMenu = (x: number, y: number, items: ContextMenuItem[]) => {
-    setX(x);
-    setY(y);
+    setContent(
+      <ContextMenu
+        x={x}
+        y={y}
+        items={items}
+        onClose={() => closeContextMenu}
+      />,
+    );
     setIsVisible(true);
-    setItems(items);
-    setType(ContextMenuTypes.GENERAL);
   };
 
-  const showUserInfoBlock = (
-    x: number,
-    y: number,
-    user: User,
-    server: Server,
-  ) => {
-    setX(x);
-    setY(y);
+  const showUserInfoBlock = (x: number, y: number, member: ServerMember) => {
+    setContent(<UserInfoBlock x={x} y={y} member={member} />);
     setIsVisible(true);
-    setUser(user);
-    setServer(server);
-    setType(ContextMenuTypes.USER_INFO_BLOCK);
   };
 
   const closeContextMenu = () => {
     setIsVisible(false);
   };
 
-  const getContextMenuItem = (type: ContextMenuTypes) => {
-    switch (type) {
-      case ContextMenuTypes.GENERAL:
-        return (
-          <ContextMenu x={x} y={y} items={items} onClose={closeContextMenu} />
-        );
-      case ContextMenuTypes.USER_INFO_BLOCK:
-        return (
-          <UserInfoBlock
-            x={x}
-            y={y}
-            user={user}
-            server={server}
-            onClose={closeContextMenu}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
     <ContextMenuContext.Provider
       value={{ showContextMenu, showUserInfoBlock, closeContextMenu }}
     >
-      {isVisible && getContextMenuItem(type as ContextMenuTypes)}
+      {isVisible && content}
       {children}
     </ContextMenuContext.Provider>
   );

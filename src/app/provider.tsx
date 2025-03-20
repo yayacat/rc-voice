@@ -1,14 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Provider } from 'react-redux';
 
 // Providers
 import SocketProvider from '@/providers/SocketProvider';
 import ContextMenuProvider from '@/providers/ContextMenuProvider';
-
-// Redux
-import store from '@/redux/store';
+import { LanguageProvider } from '@/providers/LanguageProvider';
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -16,11 +13,11 @@ interface ProvidersProps {
 
 const Providers = ({ children }: ProvidersProps) => {
   return (
-    <Provider store={store}>
+    <LanguageProvider>
       <SocketProvider>
         <ContextMenuProvider>{children}</ContextMenuProvider>
       </SocketProvider>
-    </Provider>
+    </LanguageProvider>
   );
 };
 

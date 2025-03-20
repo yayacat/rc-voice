@@ -1,103 +1,155 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { FormEvent, useState } from 'react';
-import { useSelector } from 'react-redux';
-
-// Components
-import Modal from '@/components/Modal';
-
-// Types
-import { Channel, Visibility } from '@/types';
-
-// Providers
-import { useSocket } from '@/providers/SocketProvider';
+import React, { useEffect, useState } from 'react';
 
 // CSS
-import EditChannel from '../../styles/popups/editChannel.module.css';
-import Popup from '../../styles/common/popup.module.css';
+import Popup from '@/styles/common/popup.module.css';
+import editChannel from '@/styles/popups/editChannel.module.css';
+
+// Types
+import { Channel, SocketServerEvent, User, Visibility } from '@/types';
+
+// Providers
+import { useLanguage } from '@/providers/LanguageProvider';
+import { useSocket } from '@/providers/SocketProvider';
+
+// Services
+import { ipcService } from '@/services/ipc.service';
+
+// Utils
+import { createDefault } from '@/utils/default';
 
 interface EditChannelModalProps {
-  onClose: () => void;
-  channel: Channel;
+  userId: string;
+  channelId: string;
 }
 
 const EditChannelModal: React.FC<EditChannelModalProps> = React.memo(
-  ({ onClose, channel }) => {
-    // Socket
+  (initialData: EditChannelModalProps) => {
+    // Hooks
+    const lang = useLanguage();
     const socket = useSocket();
 
-    // Form Control
-    const [editedChannel, setEditedChannel] = useState<Partial<Channel>>({
-      name: channel?.name,
-      settings: {
-        ...channel?.settings,
-      },
-    });
+    // States
+    const [user, setUser] = useState<User>(createDefault.user());
+    const [channel, setChannel] = useState<Channel>(createDefault.channel());
 
-    const handleSubmit = async (e: FormEvent<Element>) => {
-      e.preventDefault();
-      socket?.send.updateChannel({ channel: editedChannel });
-      onClose();
+    // Variables
+    const userId = initialData.userId;
+    const channelId = initialData.channelId;
+    const channelName = channel.name;
+    const channelVisibility = channel.visibility;
+    // const isCategory = channel.isCategory;
+
+    // Handlers
+    const handleClose = () => {
+      ipcService.window.close();
     };
 
+    const handleUpdateChannel = async () => {
+      if (!socket) return;
+      socket.send.updateChannel({ channel: channel, userId: user.id });
+    };
+
+    const handleChannelUpdate = (data: Partial<Channel> | null) => {
+      if (!data) data = createDefault.channel();
+      setChannel((prev) => ({ ...prev, ...data }));
+    };
+
+    const handleUserUpdate = (data: Partial<User> | null) => {
+      if (!data) data = createDefault.user();
+      setUser((prev) => ({ ...prev, ...data }));
+    };
+
+    // Effects
+    useEffect(() => {
+      if (!socket) return;
+
+      const eventHandlers = {
+        [SocketServerEvent.CHANNEL_UPDATE]: handleChannelUpdate,
+        [SocketServerEvent.USER_UPDATE]: handleUserUpdate,
+      };
+      const unsubscribe: (() => void)[] = [];
+
+      Object.entries(eventHandlers).map(([event, handler]) => {
+        const unsub = socket.on[event as SocketServerEvent](handler);
+        unsubscribe.push(unsub);
+      });
+
+      return () => {
+        unsubscribe.forEach((unsub) => unsub());
+      };
+    }, [socket]);
+
+    useEffect(() => {
+      if (!socket) return;
+      if (channelId) socket.send.refreshChannel({ channelId: channelId });
+      if (userId) socket.send.refreshUser({ userId: userId });
+    }, [socket]);
+
     return (
-      <form className={Popup['popupContainer']} onSubmit={handleSubmit}>
-        <div className={Popup['popupMessageWrapper']}>
-          <div className={EditChannel['popupBody']}>
-            <div className={Popup['inputBox']}>
-              <div className={Popup['title']}>
-                {`${channel?.isCategory ? '類別' : '頻道'}`}名稱
+      <div className={Popup['popupContainer']}>
+        <div className={Popup['popupBody']}>
+          <div className={editChannel['body']}>
+            <div className={editChannel['inputGroup']}>
+              <div className={Popup['inputBox']}>
+                <div className={Popup['label']}>
+                  {`${lang.tr.channel}${lang.tr.name}`}
+                </div>
+                <div className={Popup['input']}>
+                  <input
+                    type="text"
+                    value={channelName}
+                    onChange={(e) =>
+                      setChannel((prev) => ({
+                        ...prev,
+                        name: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
               </div>
-              <div className={Popup['inputBorder']}>
-                <input
-                  type="text"
-                  value={editedChannel?.name}
-                  onChange={(e) =>
-                    setEditedChannel((prev) => ({
-                      ...prev,
-                      name: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-            <div className={Popup['inputBox']}>
-              <div className={Popup['title']}>訪問受限</div>
-              <div className={Popup['inputBorder']}>
+              <div className={Popup['inputBox']}>
+                <div className={Popup['label']}>
+                  {lang.tr.channelPermission}
+                </div>
                 <select
-                  value={editedChannel?.settings?.visibility}
+                  className={Popup['input']}
+                  value={channelVisibility}
                   onChange={(e) =>
-                    setEditedChannel((prev) => {
-                      const settings = prev?.settings ?? channel?.settings;
+                    setChannel((prev) => {
                       return {
                         ...prev,
-                        settings: {
-                          ...settings,
-                          visibility: e.target.value as Visibility,
-                        },
+                        visibility: e.target.value as Visibility,
                       };
                     })
                   }
                 >
-                  <option value="public">任何人可以訪問</option>
-                  <option value="private">禁止遊客訪問</option>
-                  <option value="readonly">唯讀</option>
+                  <option value="public">{lang.tr.channelPublic}</option>
+                  <option value="private">{lang.tr.channelPrivate}</option>
+                  <option value="readonly">{lang.tr.channelReadonly}</option>
                 </select>
               </div>
             </div>
           </div>
-          <div className={Popup['popupFooter']}>
-            <button type="submit" className={Popup['button']}>
-              確定
-            </button>
-            <button type="button" className={Popup['button']} onClick={onClose}>
-              取消
-            </button>
-          </div>
         </div>
-      </form>
+        <div className={Popup['popupFooter']}>
+          <button
+            className={Popup['button']}
+            onClick={() => {
+              handleUpdateChannel();
+              handleClose();
+            }}
+          >
+            {lang.tr.confirm}
+          </button>
+          <button className={Popup['button']} onClick={() => handleClose()}>
+            {lang.tr.cancel}
+          </button>
+        </div>
+      </div>
     );
   },
 );
 
 EditChannelModal.displayName = 'EditChannelModal';
+
 export default EditChannelModal;

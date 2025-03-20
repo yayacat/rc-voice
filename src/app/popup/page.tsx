@@ -1,33 +1,33 @@
-/* eslint-disable react/display-name */
-/* eslint-disable @typescript-eslint/no-unused-expressions */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, ReactNode } from 'react';
 
 // CSS
 import header from '@/styles/common/header.module.css';
 
 // Types
-import { popupType } from '@/types';
+import { PopupType } from '@/types';
 
-// Modals
+// Components
 import CreateServerModal from '@/components/modals/CreateServerModal';
 import EditServerModal from '@/components/modals/EditServerModal';
 import AddChannelModal from '@/components/modals/AddChannelModal';
-import DeleteChannelModal from '@/components/modals/DeleteChannelModal';
 import EditChannelModal from '@/components/modals/EditChannelModal';
+import UserSettingModal from '@/components/modals/UserSettingModal';
 import ServerApplication from '@/components/modals/ServerApplicationModal';
 import ApplyFriend from '@/components/modals/ApplyFriend';
+import Dialog from '@/components/modals/Dialog';
 
 // Services
 import { ipcService } from '@/services/ipc.service';
-import Dialog from '@/components/modals/Dialog';
+
+// Providers
+import { useLanguage } from '@/providers/LanguageProvider';
 
 interface HeaderProps {
-  title?: string;
-  buttons?: string[];
+  title: string;
+  buttons: ('minimize' | 'maxsize' | 'close')[];
 }
 
 const Header: React.FC<HeaderProps> = React.memo(({ title, buttons }) => {
@@ -36,9 +36,8 @@ const Header: React.FC<HeaderProps> = React.memo(({ title, buttons }) => {
 
   // Handlers
   const handleFullscreen = () => {
-    isFullscreen
-      ? ipcService.window.unmaximize()
-      : ipcService.window.maximize();
+    if (isFullscreen) ipcService.window.unmaximize();
+    else ipcService.window.maximize();
     setIsFullscreen(!isFullscreen);
   };
 
@@ -53,109 +52,133 @@ const Header: React.FC<HeaderProps> = React.memo(({ title, buttons }) => {
   return (
     <div className={header['header']}>
       <div className={header['titleBox']}>
-        {title && <span className={header['title']}>{title}</span>}
+        <span className={header['title']}>{title}</span>
       </div>
       <div className={header['buttons']}>
-        {buttons?.includes('minimize') && (
-          <div className={header['minimize']} onClick={handleMinimize} />
-        )}
-        {buttons?.includes('maxsize') && (
+        {buttons.includes('minimize') && (
           <div
-            className={isFullscreen ? header['restore'] : header['maxsize']}
-            onClick={handleFullscreen}
-            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            className={header['minimize']}
+            onClick={() => handleMinimize()}
           />
         )}
-        {buttons?.includes('close') && (
-          <div className={header['close']} onClick={handleClose} />
+        {buttons.includes('maxsize') && (
+          <div
+            className={isFullscreen ? header['restore'] : header['maxsize']}
+            onClick={() => handleFullscreen()}
+          />
+        )}
+        {buttons.includes('close') && (
+          <div className={header['close']} onClick={() => handleClose()} />
         )}
       </div>
     </div>
   );
 });
 
+Header.displayName = 'Header';
+
 const Modal = React.memo(() => {
-  const [type, setType] = useState<popupType | null>(null);
+  // Language
+  const lang = useLanguage();
+
+  // States
+  const [header, setHeader] = useState<ReactNode | null>(null);
+  const [content, setContent] = useState<ReactNode | null>(null);
   const [initialData, setInitialData] = useState<any | null>(null);
 
+  // Effects
   useEffect(() => {
     if (window.location.search) {
       const params = new URLSearchParams(window.location.search);
-      const newType = params.get('type') as popupType;
-      setType(newType);
+      const type = params.get('type') as PopupType;
+      if (!type) return;
 
-      if (newType) {
-        ipcService.initialData.request(newType, (data) => {
-          setInitialData(data);
-        });
+      ipcService.initialData.request(type, (data) => {
+        setInitialData(data);
+      });
+
+      if (!initialData) return;
+
+      switch (type) {
+        case PopupType.EDIT_USER:
+          setHeader(<Header title={lang.tr.editUser} buttons={['close']} />);
+          setContent(<UserSettingModal {...initialData} />);
+          break;
+        case PopupType.CREATE_SERVER:
+          setHeader(
+            <Header title={lang.tr.createServer} buttons={['close']} />,
+          );
+          setContent(<CreateServerModal {...initialData} />);
+          break;
+        case PopupType.EDIT_SERVER:
+          setHeader(<Header title={lang.tr.editServer} buttons={['close']} />);
+          setContent(<EditServerModal {...initialData} />);
+          break;
+        case PopupType.DELETE_SERVER:
+          // This doesn't exist lol
+          break;
+        case PopupType.CREATE_CHANNEL:
+          setHeader(
+            <Header title={lang.tr.createChannel} buttons={['close']} />,
+          );
+          setContent(<AddChannelModal {...initialData} />);
+          break;
+        case PopupType.EDIT_CHANNEL:
+          setHeader(<Header title={lang.tr.editChannel} buttons={['close']} />);
+          setContent(<EditChannelModal {...initialData} />);
+          break;
+        case PopupType.DELETE_CHANNEL:
+          // This doesn't exist lol
+          break;
+        case PopupType.APPLY_MEMBER:
+          setHeader(<Header title={lang.tr.applyMember} buttons={['close']} />);
+          setContent(<ServerApplication {...initialData} />);
+          break;
+        case PopupType.APPLY_FRIEND:
+          setHeader(<Header title={lang.tr.applyFriend} buttons={['close']} />);
+          setContent(<ApplyFriend {...initialData} />);
+          break;
+        case PopupType.DIRECT_MESSAGE:
+          // setHeader(<Header title={lang.tr.directMessage} buttons={['close']} />);
+          // setContent(<DirectMessageModal onClose={() => {}} />);
+          break;
+        case PopupType.DIALOG_ALERT:
+        case PopupType.DIALOG_ALERT2:
+          setHeader(<Header title={lang.tr.dialogAlert} buttons={['close']} />);
+          setContent(<Dialog {...{ ...initialData, iconType: 'ALERT' }} />);
+          break;
+        case PopupType.DIALOG_SUCCESS:
+          setHeader(
+            <Header title={lang.tr.dialogSuccess} buttons={['close']} />,
+          );
+          setContent(<Dialog {...{ ...initialData, iconType: 'SUCCESS' }} />);
+          break;
+        case PopupType.DIALOG_WARNING:
+          setHeader(
+            <Header title={lang.tr.dialogWarning} buttons={['close']} />,
+          );
+          setContent(<Dialog {...{ ...initialData, iconType: 'WARNING' }} />);
+          break;
+        case PopupType.DIALOG_ERROR:
+          setHeader(<Header title={lang.tr.dialogError} buttons={['close']} />);
+          setContent(<Dialog {...{ ...initialData, iconType: 'ERROR' }} />);
+          break;
+        case PopupType.DIALOG_INFO:
+          setHeader(<Header title={lang.tr.dialogInfo} buttons={['close']} />);
+          setContent(<Dialog {...{ ...initialData, iconType: 'INFO' }} />);
+          break;
+        default:
+          break;
       }
     }
-  }, []);
-
-  const getTitle = () => {
-    switch (type) {
-      case popupType.EDIT_USER:
-        return { title: '編輯個人資料', button: ['close'] };
-      case popupType.CREATE_SERVER:
-        return { title: '創建語音群', button: ['close'] };
-      case popupType.EDIT_SERVER:
-        return { title: '編輯語音群', button: ['close'] };
-      case popupType.DELETE_SERVER:
-        return { title: '刪除語音群', button: ['close'] };
-      case popupType.CREATE_CHANNEL:
-        return { title: '創建頻道', button: ['close'] };
-      case popupType.EDIT_CHANNEL:
-        return { title: `編輯頻道`, button: ['close'] };
-      case popupType.DELETE_CHANNEL:
-        return { title: '刪除頻道', button: ['close'] };
-      case popupType.APPLY_MEMBER:
-        return { title: '申請會員', button: ['close'] };
-      case popupType.APPLY_FRIEND:
-        return { title: '好友請求', button: ['close'] };
-      case popupType.DIRECT_MESSAGE:
-        return { title: '私訊', button: ['close'] };
-      case popupType.DIALOG:
-        return { title: '錯誤', button: ['close'] };
-      default:
-        return undefined;
-    }
-  };
-
-  const getMainContent = () => {
-    switch (type) {
-      case popupType.EDIT_USER:
-        return; // <EditUserModal {...initialData} />;
-      case popupType.CREATE_SERVER:
-        return <CreateServerModal {...initialData} />;
-      case popupType.EDIT_SERVER:
-        return <EditServerModal {...initialData} />;
-      case popupType.DELETE_SERVER:
-        return; // This one doesn't exist :D
-      case popupType.CREATE_CHANNEL:
-        return <AddChannelModal {...initialData} />;
-      case popupType.EDIT_CHANNEL:
-      // return <EditChannelModal onClose={() => {}} channel={} />;
-      case popupType.DELETE_CHANNEL:
-      // return <DeleteChannelModal onClose={() => {}} channel={} />;
-      case popupType.APPLY_MEMBER:
-        return <ServerApplication onClose={() => {}} server={undefined} />;
-      case popupType.APPLY_FRIEND:
-        return <ApplyFriend onClose={() => {}} />;
-      case popupType.DIRECT_MESSAGE:
-        return; // <DirectMessageModal onClose={() => {}} />;
-      case popupType.DIALOG:
-        return <Dialog {...initialData} />;
-      default:
-        return <></>;
-    }
-  };
+  }, [lang, initialData]);
 
   return (
     <div className="wrapper">
       {/* Top Nevigation */}
-      <Header title={getTitle()?.title} buttons={getTitle()?.button} />
+      {header}
       {/* Main Content */}
-      {getMainContent()}
+      {content}
     </div>
   );
 });

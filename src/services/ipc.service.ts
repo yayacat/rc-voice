@@ -1,5 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { discordPresence, SocketClientEvent, SocketServerEvent } from '@/types';
+import {
+  DiscordPresence,
+  PopupType,
+  SocketClientEvent,
+  SocketServerEvent,
+} from '@/types';
 
 // Safe reference to electron's ipcRenderer
 let ipcRenderer: any = null;
@@ -131,9 +136,34 @@ export const ipcService = {
   },
 
   popup: {
-    open: (type: string, height?: number, width?: number) => {
+    open: (type: PopupType) => {
+      const PopupSize = {
+        // [PopupType.CREATE_FRIEND_GROUP]: { height: 600, width: 450 },
+        [PopupType.EDIT_USER]: { height: 650, width: 500 },
+        [PopupType.CREATE_SERVER]: { height: 430, width: 520 },
+        [PopupType.EDIT_SERVER]: { height: 450, width: 600 },
+        [PopupType.DELETE_SERVER]: { height: 300, width: 200 },
+        [PopupType.CREATE_CHANNEL]: { height: 220, width: 320 },
+        [PopupType.EDIT_CHANNEL]: { height: 220, width: 320 },
+        [PopupType.DELETE_CHANNEL]: { height: 300, width: 200 },
+        [PopupType.APPLY_FRIEND]: { height: 420, width: 540 },
+        [PopupType.APPLY_MEMBER]: { height: 420, width: 540 },
+        [PopupType.DIRECT_MESSAGE]: { height: 200, width: 300 },
+        [PopupType.DIALOG_ALERT]: { height: 200, width: 400 },
+        [PopupType.DIALOG_ALERT2]: { height: 200, width: 400 },
+        [PopupType.DIALOG_SUCCESS]: { height: 200, width: 400 },
+        [PopupType.DIALOG_WARNING]: { height: 200, width: 400 },
+        [PopupType.DIALOG_ERROR]: { height: 200, width: 400 },
+        [PopupType.DIALOG_INFO]: { height: 200, width: 400 },
+      };
+
       if (isElectron) {
-        ipcRenderer.send('open-popup', type, height, width);
+        ipcRenderer.send(
+          'open-popup',
+          type,
+          PopupSize[type].height,
+          PopupSize[type].width,
+        );
       }
     },
     submit: (to: string) => {
@@ -167,7 +197,7 @@ export const ipcService = {
   },
 
   discord: {
-    updatePresence: (presence: discordPresence) => {
+    updatePresence: (presence: DiscordPresence) => {
       if (isElectron) {
         ipcRenderer.send('update-discord-presence', presence);
       }
