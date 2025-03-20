@@ -14,7 +14,6 @@ import BadgeViewer from '@/components/viewers/BadgeViewer';
 
 // Types
 import type { ServerMember } from '@/types';
-import { getPermissionText } from '@/utils/formatters';
 
 // Providers
 import { useLanguage } from '@/providers/LanguageProvider';
@@ -30,17 +29,19 @@ const MemberInfoBlock: React.FC<MemberInfoBlockProps> = React.memo(
     // Language
     const lang = useLanguage();
 
-    const memberName = member.name;
-    const memberAvatar = member.avatar;
-    const memberGender = member.gender;
-    const memberLevel = member.level;
+    const {
+      name: memberName,
+      avatar: memberAvatar,
+      gender: memberGender,
+      level: memberLevel,
+      xp: memberXp,
+      progress: memberXpProgress,
+      requiredXp: memberRequiredXp,
+      badges: memberBadges = [],
+      permissionLevel: memberPermission,
+      contribution: memberContributions,
+    } = member;
     const memberGrade = Math.min(56, Math.ceil(memberLevel / 5));
-    const memberXp = member.xp;
-    const memberXpProgress = member.progress;
-    const memberRequiredXp = member.requiredXp;
-    const memberBadges = member.badges || [];
-    const memberPermission = member.permissionLevel;
-    const memberContributions = member.contribution;
 
     return (
       <div
@@ -103,7 +104,7 @@ const MemberInfoBlock: React.FC<MemberInfoBlockProps> = React.memo(
               } ${Permission[`lv-${memberPermission}`]}`}
             ></div>
             <div className={UserInfoCard['userInfoPermissionText']}>
-              {getPermissionText(memberPermission, lang.tr)}
+              {lang.getPermissionText(memberPermission)}
             </div>
             <div className={styles['saperator']}></div>
             <div className={UserInfoCard['userInfoContributionBox']}>

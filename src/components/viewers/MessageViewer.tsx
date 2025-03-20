@@ -11,9 +11,6 @@ import MarkdownViewer from '@/components/viewers/MarkdownViewer';
 // Types
 import type { DirectMessage, Message } from '@/types';
 
-// Util
-import { formatTimestamp } from '@/utils/formatters';
-
 // Providers
 import { useLanguage } from '@/providers/LanguageProvider';
 
@@ -26,15 +23,14 @@ const MessageTab: React.FC<MessageTabProps> = React.memo(({ messageGroup }) => {
   const lang = useLanguage();
 
   // Variables
-  const senderGender = messageGroup.gender;
-  const senderName = messageGroup.name;
-  const messagePermission = messageGroup.permissionLevel;
-  const messageContents = messageGroup.contents;
-  const messageTimestamp = formatTimestamp(
-    messageGroup.timestamp,
-    lang.key,
-    lang.tr,
-  );
+  const {
+    gender: senderGender,
+    name: senderName,
+    permissionLevel: messagePermission,
+    contents: messageContents,
+    timestamp: messageTimestamp,
+  } = messageGroup;
+  const timestamp = lang.getFormatTimestamp(messageTimestamp);
 
   return (
     <>
@@ -46,7 +42,7 @@ const MessageTab: React.FC<MessageTabProps> = React.memo(({ messageGroup }) => {
       <div className={styles['messageBox']}>
         <div className={styles['header']}>
           <span className={styles['name']}>{senderName}</span>
-          <span className={styles['timestamp']}>{messageTimestamp}</span>
+          <span className={styles['timestamp']}>{timestamp}</span>
         </div>
         {messageContents.map((content, index) => (
           <div key={index} className={styles['content']}>
@@ -66,7 +62,7 @@ interface InfoTabProps {
 
 const InfoTab: React.FC<InfoTabProps> = React.memo(({ messageGroup }) => {
   // Variables
-  const messageContents = messageGroup.contents;
+  const { contents: messageContents } = messageGroup;
 
   return (
     <>
