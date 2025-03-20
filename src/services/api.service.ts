@@ -3,7 +3,7 @@ import axios from 'axios';
 import { authService } from './auth.service';
 // export const API_URL = "http://localhost:4500";
 // export const API_URL = "https://rc.yayacat.us.kg/server";
-export const API_URL = "https://rc.yayacat.pp.ua/server";
+export const API_URL = "https://rc.yayacat.pp.ua";
 
 const axiosInstance = axios.create({
   baseURL: API_URL,

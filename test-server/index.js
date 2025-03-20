@@ -266,5 +266,5 @@ process.on('unhandledRejection', (error) => {
 
 // Start Server
 server.listen(PORT, () => {
-  new Logger('Server').success(`Server is running on port ${PORT} #04806c5`);
+  new Logger('Server').success(`Server is running on port ${PORT} #c84177b`);
 });
