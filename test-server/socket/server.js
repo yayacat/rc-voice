@@ -37,46 +37,7 @@ const serverHandler = {
       // Validate operation
       await Func.validate.socket(socket);
 
-      // FIXME: search logic
-      const isServerMatch = (server, query) => {
-        const queryStr = query.trim().toLowerCase();
-        return (
-          String(server.displayId).trim().toLowerCase() === queryStr ||
-          server.name.toLowerCase().includes(queryStr) ||
-          Func.calculateSimilarity(server.name.toLowerCase(), queryStr) >= 0.6
-        );
-      };
-
-      const maxResults = 20;
-
-      const exactMatch = Object.values(servers).find(
-        (server) =>
-          String(server.displayId).trim().toLowerCase() ===
-          query.trim().toLowerCase(),
-      );
-
-      const searchResults = exactMatch
-        ? [exactMatch]
-        : Object.values(servers)
-            .filter(
-              (server) =>
-                isServerMatch(server, query) &&
-                (server.settings.visibility === 'public' ||
-                  server.settings.visibility === 'private' ||
-                  server.ownerId === userId ||
-                  members[`mb_${userId}-${server.id}`]?.permissionLevel > 1),
-            )
-            .slice(0, maxResults);
-      const results = await Promise.all(
-        searchResults.map(async (server) => ({
-          ...server,
-          avatar: server.avatarUrl
-            ? `data:image/png;base64,${server.avatarUrl}`
-            : null,
-        })),
-      );
-
-      io.to(socket.id).emit('serverSearch', results);
+      io.to(socket.id).emit('serverSearch', await Get.searchServer(query));
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
         error = new StandardizedError(
@@ -164,9 +125,6 @@ const serverHandler = {
       }
       const user = await Func.validate.user(users[userId]);
       const server = await Func.validate.server(servers[serverId]);
-      const member = await Func.validate.member(
-        members[`mb_${user.id}-${server.id}`],
-      );
 
       // Validate operation
       await Func.validate.socket(socket);
@@ -194,6 +152,7 @@ const serverHandler = {
       // }
 
       // Create new membership if there isn't one
+      const member = members[`mb_${user.id}-${server.id}`];
       if (!member) {
         await Set.member(`mb_${user.id}-${server.id}`, {
           nickname: user.name,
@@ -379,10 +338,6 @@ const serverHandler = {
         displayId: await Func.generateUniqueDisplayId(),
         lobbyId: channelId,
         ownerId: user.id,
-        settings: {
-          ...newServer.settings,
-          defaultChannelId: channelId,
-        },
         createdAt: Date.now(),
       });
 
@@ -390,7 +345,7 @@ const serverHandler = {
       await Set.channel(channelId, {
         name: '大廳',
         isLobby: true,
-        isMain: true,
+        isRoot: true,
         serverId: serverId,
         createdAt: Date.now(),
       });
@@ -398,17 +353,17 @@ const serverHandler = {
       // Create member
       await Set.member(`mb_${user.id}-${serverId}`, {
         permissionLevel: 6,
-        serverId: serverId,
         userId: user.id,
+        serverId: serverId,
         createdAt: Date.now(),
       });
 
       // Create user-server
       await Set.userServer(`us_${user.id}-${serverId}`, {
-        userId: user.id,
-        serverId: serverId,
         recent: true,
         owned: true,
+        userId: user.id,
+        serverId: serverId,
         timestamp: Date.now(),
       });
 
