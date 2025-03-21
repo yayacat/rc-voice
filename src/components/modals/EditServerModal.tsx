@@ -11,17 +11,7 @@ import permission from '@/styles/common/permission.module.css';
 import MarkdownViewer from '@/components/viewers/MarkdownViewer';
 
 // Types
-import {
-  MemberApplication,
-  Server,
-  PopupType,
-  ServerMember,
-  SocketServerEvent,
-  User,
-  Member,
-  Channel,
-  Permission,
-} from '@/types';
+import { MemberApplication, Server, PopupType, ServerMember } from '@/types';
 
 // Providers
 import { useSocket } from '@/providers/SocketProvider';
@@ -30,6 +20,7 @@ import { useLanguage } from '@/providers/LanguageProvider';
 
 // Services
 import { ipcService } from '@/services/ipc.service';
+import { apiService } from '@/services/api.service';
 
 // Utils
 import { createDefault } from '@/utils/default';
@@ -87,34 +78,36 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
     const refreshRef = useRef(false);
 
     // States
-    const [user, setUser] = useState<User>(createDefault.user());
-    const [server, setServer] = useState<Server>(createDefault.server());
+    const [serverName, setServerName] = useState<Server['name']>('');
+    const [serverAvatar, setServerAvatar] = useState<Server['avatar']>('');
+    const [serverAnnouncement, setServerAnnouncement] =
+      useState<Server['announcement']>('');
+    const [serverDescription, setServerDescription] =
+      useState<Server['description']>('');
+    const [serverType, setServerType] = useState<Server['type']>('other');
+    const [serverDisplayId, setServerDisplayId] =
+      useState<Server['displayId']>('');
+    const [serverSlogan, setServerSlogan] = useState<Server['slogan']>('');
+    const [serverLevel, setServerLevel] = useState<Server['level']>(0);
+    const [serverWealth, setServerWealth] = useState<Server['wealth']>(0);
+    const [serverCreatedAt, setServerCreatedAt] =
+      useState<Server['createdAt']>(0);
+    const [serverVisibility, setServerVisibility] =
+      useState<Server['visibility']>('public');
+    const [serverMembers, setServerMembers] = useState<ServerMember[]>([]);
+    const [serverApplications, setServerApplications] = useState<
+      MemberApplication[]
+    >([]);
+    const [serverBlockMembers, setServerBlockMembers] = useState<
+      ServerMember[]
+    >([]);
 
     const [activeTabIndex, setActiveTabIndex] = useState<number>(0);
-
-    const setServerIcon = useRef<HTMLInputElement>(null);
-
     const [sortState, setSortState] = useState<1 | -1>(-1);
     const [sortField, setSortField] = useState<string>('');
 
     // Variables
     const { serverId, userId } = initialData;
-    const {
-      name: serverName,
-      avatar: serverAvatar,
-      announcement: serverAnnouncement,
-      description: serverDescription,
-      type: serverType,
-      displayId: serverDisplayId,
-      slogan: serverSlogan,
-      level: serverLevel,
-      wealth: serverWealth,
-      createdAt: serverCreatedAt,
-      visibility: serverVisibility,
-      members: serverMembers = [],
-      memberApplications: serverApplications = [],
-    } = server;
-    const serverBlockMembers = serverMembers.filter((mb) => mb.isBlocked);
 
     // Handlers
     const handleSort = <T extends ServerMember | MemberApplication>(
@@ -130,26 +123,17 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
 
     const handleBlockMemberSort = (field: keyof ServerMember) => {
       const sortedMembers = handleSort(field, [...serverBlockMembers]);
-      setServer((prev) => ({
-        ...prev,
-        blockMembers: sortedMembers,
-      }));
+      setServerBlockMembers(sortedMembers);
     };
 
     const handleMemberSort = (field: keyof ServerMember) => {
       const sortedMembers = handleSort(field, [...serverMembers]);
-      setServer((prev) => ({
-        ...prev,
-        members: sortedMembers,
-      }));
+      setServerMembers(sortedMembers);
     };
 
     const handleApplicationSort = (field: keyof MemberApplication) => {
       const sortedApplications = handleSort(field, [...serverApplications]);
-      setServer((prev) => ({
-        ...prev,
-        memberApplications: sortedApplications,
-      }));
+      setServerApplications(sortedApplications);
     };
 
     const handleOpenErrorDialog = (message: string) => {
@@ -166,8 +150,23 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
 
     const handleUpdateServer = () => {
       if (!socket) return;
-      socket.send.updateServer({ server: server, userId: userId });
-      handleClose();
+      socket.send.updateServer({
+        server: {
+          id: serverId,
+          name: serverName,
+          avatar: serverAvatar,
+          announcement: serverAnnouncement,
+          description: serverDescription,
+          type: serverType,
+          displayId: serverDisplayId,
+          slogan: serverSlogan,
+          level: serverLevel,
+          wealth: serverWealth,
+          createdAt: serverCreatedAt,
+          visibility: serverVisibility,
+        },
+        userId: userId,
+      });
     };
 
     const handleApplicationAction = (action: 'accept' | 'reject') => {};
@@ -178,43 +177,37 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
 
     const handleBlockUser = () => {};
 
-    const handleServerUpdate = (data: Partial<Server> | null) => {
+    const handleServerUpdate = (data: Server | null) => {
       if (!data) data = createDefault.server();
-      setServer((prev) => ({ ...prev, ...data }));
-    };
-
-    const handleUserUpdate = (data: Partial<User> | null) => {
-      if (!data) data = createDefault.user();
-      setUser((prev) => ({ ...prev, ...data }));
+      setServerName(data.name);
+      setServerAvatar(data.avatar);
+      setServerAnnouncement(data.announcement);
+      setServerDescription(data.description);
+      setServerType(data.type);
+      setServerDisplayId(data.displayId);
+      setServerSlogan(data.slogan);
+      setServerLevel(data.level);
+      setServerWealth(data.wealth);
+      setServerCreatedAt(data.createdAt);
+      setServerVisibility(data.visibility);
+      setServerMembers(data.members || []);
+      setServerApplications(data.memberApplications || []);
+      setServerBlockMembers(data.members?.filter((mb) => mb.isBlocked) || []);
     };
 
     // Effects
     useEffect(() => {
-      if (!socket) return;
-
-      const eventHandlers = {
-        [SocketServerEvent.SERVER_UPDATE]: handleServerUpdate,
-        [SocketServerEvent.USER_UPDATE]: handleUserUpdate,
-      };
-      const unsubscribe: (() => void)[] = [];
-
-      Object.entries(eventHandlers).map(([event, handler]) => {
-        const unsub = socket.on[event as SocketServerEvent](handler);
-        unsubscribe.push(unsub);
-      });
-
-      return () => {
-        unsubscribe.forEach((unsub) => unsub());
-      };
-    }, [socket]);
-
-    useEffect(() => {
-      if (!socket || !serverId || !userId) return;
+      if (!serverId) return;
       if (refreshRef.current) return;
-      socket.send.refreshServer({ serverId: serverId });
-      socket.send.refreshUser({ userId: userId });
-      refreshRef.current = true;
-    }, [socket, serverId, userId]);
+      const refresh = async () => {
+        refreshRef.current = true;
+        const server = await apiService.post('/refresh/server', {
+          serverId: serverId,
+        });
+        handleServerUpdate(server);
+      };
+      refresh();
+    }, [serverId]);
 
     return (
       <div className={Popup['popupContainer']}>
@@ -265,10 +258,7 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                               type="text"
                               value={serverName}
                               onChange={(e) => {
-                                setServer((prev) => ({
-                                  ...prev,
-                                  name: e.target.value,
-                                }));
+                                setServerName(e.target.value);
                               }}
                             />
                           </div>
@@ -289,10 +279,7 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                             type="text"
                             value={serverSlogan}
                             onChange={(e) => {
-                              setServer((prev) => ({
-                                ...prev,
-                                slogan: e.target.value,
-                              }));
+                              setServerSlogan(e.target.value);
                             }}
                           />
                         </div>
@@ -301,10 +288,7 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                           <select
                             value={serverType}
                             onChange={(e) => {
-                              setServer((prev) => ({
-                                ...prev,
-                                type: e.target.value as Server['type'],
-                              }));
+                              setServerType(e.target.value as Server['type']);
                             }}
                           >
                             <option>{lang.tr.other}</option>
@@ -327,7 +311,6 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                           id="avatar-upload"
                           className="hidden"
                           accept="image/jpeg,image/png,image/gif,image/webp"
-                          ref={setServerIcon}
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) {
@@ -340,10 +323,7 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                             }
                             const reader = new FileReader();
                             reader.onloadend = () => {
-                              setServer((prev) => ({
-                                ...prev,
-                                avatar: reader.result as string,
-                              }));
+                              setServerAvatar(reader.result as string);
                             };
                             reader.readAsDataURL(file);
                           }}
@@ -352,10 +332,6 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                           htmlFor="avatar-upload"
                           className={Popup['button']}
                           style={{ marginTop: '10px' }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setServerIcon.current?.click();
-                          }}
                         >
                           {lang.tr.changeImage}
                         </label>
@@ -397,12 +373,7 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                         </div>
                         <textarea
                           value={serverDescription}
-                          onChange={(e) =>
-                            setServer((prev) => ({
-                              ...prev,
-                              description: e.target.value,
-                            }))
-                          }
+                          onChange={(e) => setServerDescription(e.target.value)}
                         />
                       </div>
                     </div>
@@ -416,12 +387,7 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                       <textarea
                         style={{ minHeight: '200px' }}
                         value={serverAnnouncement}
-                        onChange={(e) =>
-                          setServer((prev) => ({
-                            ...prev,
-                            announcement: e.target.value,
-                          }))
-                        }
+                        onChange={(e) => setServerAnnouncement(e.target.value)}
                       />
                       <div className={Popup['label']}>
                         {lang.tr.markdownSupport}
@@ -593,11 +559,7 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                           className="mr-3"
                           checked={serverVisibility === 'public'}
                           onChange={(e) => {
-                            if (e.target.checked)
-                              setServer((prev) => ({
-                                ...prev,
-                                visibility: 'public',
-                              }));
+                            if (e.target.checked) setServerVisibility('public');
                           }}
                         />
                         <div className={Popup['label']}>
@@ -614,10 +576,7 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                           checked={serverVisibility === 'private'}
                           onChange={(e) => {
                             if (e.target.checked)
-                              setServer((prev) => ({
-                                ...prev,
-                                visibility: 'private',
-                              }));
+                              setServerVisibility('private');
                           }}
                         />
                         <div>
@@ -639,10 +598,7 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                           checked={serverVisibility === 'invisible'}
                           onChange={(e) => {
                             if (e.target.checked)
-                              setServer((prev) => ({
-                                ...prev,
-                                visibility: 'invisible',
-                              }));
+                              setServerVisibility('invisible');
                           }}
                         />
                         <div>
@@ -814,7 +770,10 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
         <div className={Popup['popupFooter']}>
           <button
             className={Popup['button']}
-            onClick={() => handleUpdateServer()}
+            onClick={() => {
+              handleUpdateServer();
+              handleClose();
+            }}
           >
             {lang.tr.confirm}
           </button>

@@ -11,46 +11,37 @@ const { autoUpdater } = require('electron-updater');
 const SocketClientEvent = {
   // User
   SEARCH_USER: 'searchUser',
-  REFRESH_USER: 'refreshUser',
   UPDATE_USER: 'updateUser',
   // Server
   SEARCH_SERVER: 'searchServer',
-  REFRESH_SERVER: 'refreshServer',
   CONNECT_SERVER: 'connectServer',
   DISCONNECT_SERVER: 'disconnectServer',
   CREATE_SERVER: 'createServer',
   UPDATE_SERVER: 'updateServer',
   DELETE_SERVER: 'deleteServer',
   // Category
-  REFRESH_CATEGORY: 'refreshCategory',
   CREATE_CATEGORY: 'createCategory',
   UPDATE_CATEGORY: 'updateCategory',
   DELETE_CATEGORY: 'deleteCategory',
   // Channel
-  REFRESH_CHANNEL: 'refreshChannel',
   CONNECT_CHANNEL: 'connectChannel',
   DISCONNECT_CHANNEL: 'disconnectChannel',
   CREATE_CHANNEL: 'createChannel',
   UPDATE_CHANNEL: 'updateChannel',
   DELETE_CHANNEL: 'deleteChannel',
   // Friend Group
-  REFRESH_FRIEND_GROUP: 'refreshFriendGroup',
   CREATE_FRIEND_GROUP: 'createFriendGroup',
   UPDATE_FRIEND_GROUP: 'updateFriendGroup',
   DELETE_FRIEND_GROUP: 'deleteFriendGroup',
   // Member
-  REFRESH_MEMBER: 'refreshMember',
   UPDATE_MEMBER: 'updateMember',
   // Friend
-  REFRESH_FRIEND: 'refreshFriend',
   UPDATE_FRIEND: 'updateFriend',
   // Member Application
-  REFRESH_MEMBER_APPLICATION: 'refreshMemberApplication',
   CREATE_MEMBER_APPLICATION: 'createMemberApplication',
   UPDATE_MEMBER_APPLICATION: 'updateMemberApplication',
   DELETE_MEMBER_APPLICATION: 'deleteMemberApplication',
   // Friend Application
-  REFRESH_FRIEND_APPLICATION: 'refreshFriendApplication',
   CREATE_FRIEND_APPLICATION: 'createFriendApplication',
   UPDATE_FRIEND_APPLICATION: 'updateFriendApplication',
   DELETE_FRIEND_APPLICATION: 'deleteFriendApplication',
@@ -89,6 +80,8 @@ const SocketServerEvent = {
   FRIEND_UPDATE: 'friendUpdate',
   // Friend Application
   FRIEND_APPLICATION_UPDATE: 'friendApplicationUpdate',
+  // Popup
+  OPEN_POPUP: 'openPopup',
   // RTC
   RTC_OFFER: 'RTCOffer',
   RTC_ANSWER: 'RTCAnswer',
@@ -313,7 +306,7 @@ async function createPopup(type, height, width) {
     transparent: true,
     hasShadow: true,
     modal: true,
-    parent: mainWindow,
+    parent: null,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -366,7 +359,6 @@ function connectSocket(token) {
     // 註冊所有 Socket 事件
     Object.values(SocketServerEvent).forEach((event) => {
       socket.on(event, (data) => {
-        console.log('Socket event:', event);
         BrowserWindow.getAllWindows().forEach((window) => {
           window.webContents.send(event, data);
         });

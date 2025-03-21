@@ -12,32 +12,28 @@ import ChannelViewer from '@/components/viewers/ChannelViewer';
 import MessageInputBox from '@/components/MessageInputBox';
 
 // Types
-import {
-  PopupType,
-  User,
-  Server,
-  Message,
-  Channel,
-  SocketServerEvent,
-  Member,
-} from '@/types';
+import { PopupType, User, Server, Message, Channel, Member } from '@/types';
 
 // Providers
 import { useLanguage } from '@/providers/LanguageProvider';
 import { useSocket } from '@/providers/SocketProvider';
+import { useWebRTC } from '@/providers/WebRTCProvider';
 
 // Services
 import { ipcService } from '@/services/ipc.service';
-import { useWebRTC } from '@/providers/WebRTCProvider';
+import { apiService } from '@/services/api.service';
+
+// Utils
 import { createDefault } from '@/utils/default';
 
 interface ServerPageProps {
   user: User;
   server: Server;
+  setServer: (server: Server) => void;
 }
 
 const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
-  ({ user, server }) => {
+  ({ user, server, setServer }) => {
     // Hooks
     const lang = useLanguage();
     const socket = useSocket();
@@ -53,10 +49,9 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       createDefault.channel(),
     );
     const [member, setMember] = useState<Member>(createDefault.member());
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     // Variables
-    const { messages: channelMessages = [], bitrate: channelBitrate } =
-      currentChannel;
     const { id: userId, currentChannelId: userCurrentChannelId } = user;
     const {
       id: serverId,
@@ -66,6 +61,12 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       announcement: serverAnnouncement,
       members: serverMembers = [],
     } = server;
+    const {
+      id: currentChannelId,
+      messages: channelMessages = [],
+      bitrate: channelBitrate,
+      chatMode: channelChatMode,
+    } = currentChannel;
 
     // Handlers
     const handleSendMessage = (message: Message): void => {
@@ -95,16 +96,6 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       });
     };
 
-    const handleChannelUpdate = (channel: Partial<Channel>) => {
-      if (!channel) channel = createDefault.channel();
-      setCurrentChannel((prev) => ({ ...prev, ...channel }));
-    };
-
-    const handleMemberUpdate = (member: Partial<Member>) => {
-      if (!member) member = createDefault.member();
-      setMember((prev) => ({ ...prev, ...member }));
-    };
-
     const handleStartResizing = useCallback((e: React.MouseEvent) => {
       e.preventDefault();
       setIsResizing(true);
@@ -124,6 +115,31 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       [isResizing],
     );
 
+    const handleChangeChatMode = (mode: Channel['chatMode']) => {
+      if (!socket) return;
+      socket.send.updateChannel({
+        channel: {
+          id: currentChannelId,
+          serverId: serverId,
+          chatMode: mode,
+        },
+        userId: userId,
+      });
+
+      handleSendMessage({
+        id: '',
+        type: 'info',
+        content:
+          mode === 'free'
+            ? lang.tr.changeToFreeSpeech
+            : lang.tr.changeToForbiddenSpeech,
+        senderId: userId,
+        recieverId: serverId,
+        channelId: currentChannelId,
+        timestamp: 0,
+      });
+    };
+
     // Effects
     useEffect(() => {
       window.addEventListener('mousemove', handleResize);
@@ -135,32 +151,26 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     }, [handleResize, handleStopResizing]);
 
     useEffect(() => {
-      if (!socket) return;
-
-      const eventHandlers = {
-        [SocketServerEvent.CHANNEL_UPDATE]: handleChannelUpdate,
-        [SocketServerEvent.MEMBER_UPDATE]: handleMemberUpdate,
-      };
-      const unsubscribe: (() => void)[] = [];
-
-      Object.entries(eventHandlers).map(([event, handler]) => {
-        const unsub = socket.on[event as SocketServerEvent](handler);
-        unsubscribe.push(unsub);
-      });
-
-      return () => {
-        unsubscribe.forEach((unsub) => unsub());
-      };
-    }, [socket]);
-
-    useEffect(() => {
-      if (!socket || !userId) return;
+      if (!userId || !serverId || !setServer) return;
       if (refreshed.current) return;
-      socket.send.refreshServer({ serverId: serverId });
-      socket.send.refreshChannel({ channelId: userCurrentChannelId });
-      socket.send.refreshMember({ userId: userId, serverId: serverId });
-      refreshed.current = true;
-    }, [socket, userId, serverId, userCurrentChannelId]);
+      const refresh = async () => {
+        refreshed.current = true;
+        const server = await apiService.post('/refresh/server', {
+          serverId: serverId,
+        });
+        setServer(server);
+        const channel = await apiService.post('/refresh/channel', {
+          channelId: userCurrentChannelId,
+        });
+        setCurrentChannel(channel);
+        const member = await apiService.post('/refresh/member', {
+          userId: userId,
+          serverId: serverId,
+        });
+        setMember(member);
+      };
+      refresh();
+    }, [userId, serverId, setServer]);
 
     useEffect(() => {
       ipcService.discord.updatePresence({
@@ -215,7 +225,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                 </div>
               </div>
               <div className={styles['optionBox']}>
-                {!member && (
+                {(!member || member?.permissionLevel < 2) && (
                   <>
                     <div
                       className={styles['invitation']}
@@ -223,7 +233,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                         handleOpenApplyMember(userId, serverId);
                       }}
                     />
-                    <div className={styles['saperator']} />
+                    {/* <div className={styles['saperator']} /> */}
                   </>
                 )}
                 {member && member.permissionLevel > 4 && (
@@ -261,23 +271,62 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
               <MessageInputBox
                 onSendMessage={(msg) => {
                   handleSendMessage({
+                    id: '',
                     type: 'general',
                     content: msg,
                     senderId: userId,
-                    channelId: userCurrentChannelId,
+                    recieverId: serverId,
+                    channelId: currentChannelId,
                     timestamp: 0,
-                    ...member,
-                    ...user,
                   });
                 }}
+                locked={
+                  channelChatMode === 'forbidden' && member.permissionLevel < 3
+                }
               />
             </div>
             <div className={styles['buttonArea']}>
               <div className={styles['buttons']}>
-                <div className={styles['voiceModeButton']}>
-                  {lang.tr.freeSpeech}
+                <div
+                  className={styles['voiceModeDropdown']}
+                  onClick={() =>
+                    member &&
+                    member.permissionLevel > 2 &&
+                    setIsDropdownOpen(!isDropdownOpen)
+                  }
+                >
+                  {channelChatMode === 'free'
+                    ? lang.tr.freeSpeech
+                    : lang.tr.forbiddenSpeech}
+                  {isDropdownOpen && (
+                    <div className={styles['dropdownMenu']}>
+                      {channelChatMode === 'forbidden' && (
+                        <div
+                          className={styles['dropdownItem']}
+                          onClick={() => {
+                            handleChangeChatMode('free');
+                            setIsDropdownOpen(false);
+                          }}
+                        >
+                          {lang.tr.freeSpeech}
+                        </div>
+                      )}
+                      {channelChatMode === 'free' && (
+                        <div
+                          className={styles['dropdownItem']}
+                          onClick={() => {
+                            handleChangeChatMode('forbidden');
+                            setIsDropdownOpen(false);
+                          }}
+                        >
+                          {lang.tr.forbiddenSpeech}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
+
               <div
                 className={`${styles['micButton']} ${
                   webRTC.isMute ? '' : styles['active']

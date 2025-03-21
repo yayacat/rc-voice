@@ -1,9 +1,9 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Types
-import { User, UserFriend, DirectMessage, SocketServerEvent } from '@/types';
+import { User, DirectMessage } from '@/types';
 
 // Providers
 import { useLanguage } from '@/providers/LanguageProvider';
@@ -12,6 +12,9 @@ import { useSocket } from '@/providers/SocketProvider';
 // Components
 import MessageViewer from '@/components/viewers/MessageViewer';
 import MessageInputBox from '@/components/MessageInputBox';
+
+// Services
+import { apiService } from '@/services/api.service';
 
 // Utils
 import { createDefault } from '@/utils/default';
@@ -27,18 +30,17 @@ const DirectMessageModal: React.FC<DirectMessageModalProps> = React.memo(
     const lang = useLanguage();
     const socket = useSocket();
 
+    // Refs
+    const refreshRef = useRef(false);
+
     // States
-    const [user, setUser] = useState<User>(createDefault.user());
-    const [friend, setFriend] = useState<User>(createDefault.user());
+    const [friendAvatar, setFriendAvatar] = useState<User['avatar']>('');
+    const [friendName, setFriendName] = useState<User['name']>('');
+    const [friendLevel, setFriendLevel] = useState<User['level']>(0);
 
     // Variables
-    const userId = user.id;
-    const friendId = friend.id;
-    const friendAvatar = friend.avatar;
-    const friendName = friend.name;
-    const friendLevel = friend.level;
+    const { friendId, userId } = initialData;
     const friendGrade = Math.min(56, Math.ceil(friendLevel / 5)); // 56 is max level
-    // const friendDirectMessages = friend.directMessages || [];
 
     // Handlers
     const handleSendMessage = (directMessage: DirectMessage) => {
@@ -46,36 +48,28 @@ const DirectMessageModal: React.FC<DirectMessageModalProps> = React.memo(
       socket.send.directMessage({ directMessage });
     };
 
-    const handleUserUpdate = (data: Partial<User> | null) => {
+    const handleUserUpdate = (data: User | null) => {
       if (!data) data = createDefault.user();
-      if (data.id === userId) setUser((prev) => ({ ...prev, ...data }));
-      if (data.id === friendId) setFriend((prev) => ({ ...prev, ...data }));
+      if (data.id === friendId) {
+        setFriendAvatar(data.avatar);
+        setFriendName(data.name);
+        setFriendLevel(data.level);
+      }
     };
 
     // Effects
     useEffect(() => {
-      if (!socket) return;
-
-      const eventHandlers = {
-        [SocketServerEvent.USER_UPDATE]: handleUserUpdate,
+      if (!userId) return;
+      if (refreshRef.current) return;
+      const refresh = async () => {
+        refreshRef.current = true;
+        const friend = await apiService.post('/refresh/user', {
+          userId: friendId,
+        });
+        handleUserUpdate(friend);
       };
-      const unsubscribe: (() => void)[] = [];
-
-      Object.entries(eventHandlers).map(([event, handler]) => {
-        const unsub = socket.on[event as SocketServerEvent](handler);
-        unsubscribe.push(unsub);
-      });
-
-      return () => {
-        unsubscribe.forEach((unsub) => unsub());
-      };
-    }, [socket]);
-
-    useEffect(() => {
-      if (!socket) return;
-      socket.send.refreshUser({ userId: userId });
-      socket.send.refreshUser({ userId: friendId });
-    }, [socket]);
+      refresh();
+    }, [userId]);
 
     return null;
     // <Modal title={friendName} onClose={onClose} width="600px" height="600px">

@@ -125,11 +125,14 @@ const get = {
       const _query = String(query).trim().toLowerCase();
       const _name = String(server.name).trim().toLowerCase();
       const _displayId = String(server.displayId).trim().toLowerCase();
-      let isMatch = false;
-      if (server.visibility != 'invisible')
-        isMatch = isMatch || Func.calculateSimilarity(_name, _query) >= 0.6; // FIXME: THIS HAS ISSUE
-      isMatch = isMatch || _displayId === _query;
-      return isMatch;
+
+      if (server.visibility === 'invisible' && _displayId !== _query)
+        return false;
+      return (
+        Func.calculateSimilarity(_name, _query) >= 0.5 ||
+        _name.includes(_query) ||
+        _displayId === _query
+      );
     };
 
     return Object.values(servers)
@@ -143,13 +146,20 @@ const get = {
     if (!server) return null;
     return {
       ...server,
-      lobby: await get.channel(server.lobbyId),
-      owner: await get.user(server.ownerId),
+      lobby: await get.serverChannel(serverId, server.lobbyId),
+      owner: await get.serverUser(serverId, server.ownerId),
       users: await get.serverUsers(serverId),
       channels: await get.serverChannels(serverId),
       members: await get.serverMembers(serverId),
       memberApplications: await get.serverApplications(serverId),
     };
+  },
+  serverUser: async (serverId, userId) => {
+    const users = (await db.get('users')) || {};
+    return Object.values(users)
+      .filter((u) => u.currentServerId === serverId && u.id === userId)
+      .sort((a, b) => b.lastActiveAt - a.lastActiveAt)
+      .filter((u) => u);
   },
   serverUsers: async (serverId) => {
     const users = (await db.get('users')) || {};
@@ -157,6 +167,13 @@ const get = {
       .filter((u) => u.currentServerId === serverId)
       .sort((a, b) => b.lastActiveAt - a.lastActiveAt)
       .filter((u) => u);
+  },
+  serverChannel: async (serverId, channelId) => {
+    const channels = (await db.get('channels')) || {};
+    const categories = (await db.get('categories')) || {};
+    return Object.values({ ...channels, ...categories })
+      .filter((ch) => ch.serverId === serverId && ch.id === channelId)
+      .filter((ch) => ch);
   },
   serverChannels: async (serverId) => {
     const channels = (await db.get('channels')) || {};
@@ -208,18 +225,32 @@ const get = {
     if (!channel) return null;
     return {
       ...channel,
-      messages: await get.channelMessages(channelId),
+      messages: [
+        ...(await get.channelMessages(channelId)),
+        ...(await get.channelInfoMessages(channelId)),
+      ],
     };
   },
   channelMessages: async (channelId) => {
     const messages = (await db.get('messages')) || {};
+    const members = (await db.get('members')) || {};
     const users = (await db.get('users')) || {};
     return Object.values(messages)
-      .filter((msg) => msg.channelId === channelId)
+      .filter((msg) => msg.channelId === channelId && msg.type === 'general')
       .map((msg) => {
-        // Concat user data with message data
+        // Concat user and member data with message data
+        const member = members[`mb_${msg.senderId}-${msg.recieverId}`];
         const user = users[msg.senderId];
-        return { ...user, ...msg };
+        return { ...user, ...member, ...msg };
+      })
+      .filter((msg) => msg);
+  },
+  channelInfoMessages: async (channelId) => {
+    const messages = (await db.get('messages')) || {};
+    return Object.values(messages)
+      .filter((msg) => msg.channelId === channelId && msg.type === 'info')
+      .map((msg) => {
+        return { ...msg };
       })
       .filter((msg) => msg);
   },
@@ -257,14 +288,18 @@ const get = {
     };
   },
   friendDirectMessages: async (friendId) => {
-    const directMessages = (await db.get('directMessages')) || {};
+    const messages = (await db.get('messages')) || {};
+    const friends = (await db.get('friends')) || {};
     const users = (await db.get('users')) || {};
-    return Object.values(directMessages)
-      .filter((dm) => dm.friendId === friendId)
+    return Object.values(messages)
+      .filter((dm) => dm.channelId === friendId && dm.type === 'dm')
       .map((dm) => {
         // Concat user data with direct message data
+        const friend =
+          friends[`fd_${dm.senderId}-${dm.recieverId}`] ||
+          friends[`fd_${dm.recieverId}-${dm.senderId}`];
         const user = users[dm.senderId];
-        return { ...user, ...dm };
+        return { ...user, ...friend, ...dm };
       })
       .filter((dm) => dm);
   },

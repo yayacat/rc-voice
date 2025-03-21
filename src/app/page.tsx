@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -347,6 +348,7 @@ const Home = () => {
       [SocketServerEvent.DISCONNECT]: handleDisconnect,
       [SocketServerEvent.USER_UPDATE]: handleUserUpdate,
       [SocketServerEvent.SERVER_UPDATE]: handleServerUpdate,
+      [SocketServerEvent.OPEN_POPUP]: handleOpenPopup,
       [SocketServerEvent.ERROR]: handleError,
     };
     const unsubscribe: (() => void)[] = [];
@@ -395,15 +397,21 @@ const Home = () => {
     setServer((prev) => ({ ...prev, ...data }));
   };
 
+  const handleOpenPopup = (data: any) => {
+    const { popupType, initialData } = data;
+    ipcService.popup.open(popupType);
+    ipcService.initialData.onRequest(popupType, initialData);
+  };
+
   const getMainContent = () => {
     if (!socket) return <LoadingSpinner />;
     switch (selectedTabId) {
       case 'home':
-        return <HomePage user={user} />;
+        return <HomePage user={user} setUser={setUser} />;
       case 'friends':
-        return <FriendPage user={user} />;
+        return <FriendPage user={user} setUser={setUser} />;
       case 'server':
-        return <ServerPage user={user} server={server} />;
+        return <ServerPage user={user} server={server} setServer={setServer} />;
     }
   };
 

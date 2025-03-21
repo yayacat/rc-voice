@@ -14,9 +14,6 @@ const channelHandler = require('./channel');
 
 const serverHandler = {
   searchServer: async (io, socket, data) => {
-    const servers = (await db.get('servers')) || {};
-    const members = (await db.get('members')) || {};
-
     try {
       // data = {
       //   query:
@@ -54,51 +51,6 @@ const serverHandler = {
       );
     }
   },
-  refreshServer: async (io, socket, data) => {
-    const servers = (await db.get('servers')) || {};
-
-    try {
-      // data = {
-      //   serverId:
-      // }
-
-      // Validate data
-      const { serverId } = data;
-      if (!serverId) {
-        throw new StandardizedError(
-          '無效的資料',
-          'ValidationError',
-          'REFRESHSERVER',
-          'DATA_INVALID',
-          401,
-        );
-      }
-      const server = await Func.validate.server(servers[serverId]);
-
-      // Validate operation
-      await Func.validate.socket(socket);
-
-      // Emit data (only to the user)
-      io.to(socket.id).emit('serverUpdate', await Get.server(server.id));
-    } catch (error) {
-      if (!(error instanceof StandardizedError)) {
-        error = new StandardizedError(
-          `刷新群組時發生錯誤: ${error.message}`,
-          'ServerError',
-          'REFRESHSERVER',
-          'EXCEPTION_ERROR',
-          500,
-        );
-      }
-
-      // Emit error data (only to the user)
-      io.to(socket.id).emit('error', error);
-
-      new Logger('WebSocket').error(
-        `Error refreshing server: ${error.error_message}`,
-      );
-    }
-  },
   connectServer: async (io, socket, data) => {
     // Get database
     const users = (await db.get('users')) || {};
@@ -131,6 +83,20 @@ const serverHandler = {
 
       // Create new membership if there isn't one
       const member = members[`mb_${user.id}-${server.id}`];
+      if (
+        server.visibility == 'invisible' &&
+        (!member || member.permissionLevel < 2)
+      ) {
+        io.to(socket.id).emit('openPopup', {
+          popupType: 'applyMember',
+          initialData: {
+            serverId: server.id,
+            userId: user.id,
+          },
+        });
+        return;
+      }
+
       if (!member) {
         await Set.member(`mb_${user.id}-${server.id}`, {
           nickname: user.name,
@@ -377,7 +343,6 @@ const serverHandler = {
     // Get database
     const users = (await db.get('users')) || {};
     const servers = (await db.get('servers')) || {};
-    // const members = (await db.get('members')) || {};
 
     try {
       // data = {
@@ -406,20 +371,17 @@ const serverHandler = {
       // Validate operation
       await Func.validate.socket(socket);
 
-      // const member = await Func.validate.member(
-      //   members[`mb_${user.id}-${server.id}`],
-      // );
-
-      // const permission = member.permissionLevel;
-      // if (!permission || permission < 4) {
-      //   throw new StandardizedError(
-      //     '您沒有權限更新群組',
-      //     'ValidationError',
-      //     'UPDATESERVER',
-      //     'USER_PERMISSION',
-      //     403,
-      //   );
-      // }
+      const member = await Get.member(user.id, server.id);
+      const permission = member.permissionLevel;
+      if (!permission || permission < 5) {
+        throw new StandardizedError(
+          '您沒有權限更新群組',
+          'ValidationError',
+          'UPDATESERVER',
+          'USER_PERMISSION',
+          403,
+        );
+      }
 
       if (editedServer.avatar) {
         editedServer.avatar = await Func.generateImageData(editedServer.avatar);

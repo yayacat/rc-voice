@@ -14,57 +14,11 @@ const XP = utils.xp;
 const rtcHandler = require('./rtc');
 
 const channelHandler = {
-  refreshChannel: async (io, socket, data) => {
-    // Get database
-    const channels = (await db.get('channels')) || {};
-
-    try {
-      // data = {
-      //   channelId:
-      // }
-      // console.log(data);
-
-      // Validate data
-      const { channelId } = data;
-      if (!channelId) {
-        throw new StandardizedError(
-          '無效的資料',
-          'ValidationError',
-          'REFRESHCHANNEL',
-          'DATA_INVALID',
-          401,
-        );
-      }
-      const channel = await Func.validate.channel(channels[channelId]);
-
-      // Validate operation
-      await Func.validate.socket(socket);
-
-      // Emit updated data (only to the user)
-      io.to(socket.id).emit('channelUpdate', await Get.channel(channel.id));
-    } catch (error) {
-      if (!(error instanceof StandardizedError)) {
-        error = new StandardizedError(
-          `刷新頻道時發生無法預期的錯誤: ${error.message}`,
-          'ServerError',
-          'REFRESHCHANNEL',
-          'EXCEPTION_ERROR',
-          500,
-        );
-      }
-
-      // Emit error data (only to the user)
-      io.to(socket.id).emit('error', error);
-
-      new Logger('WebSocket').error(
-        `Error refreshing channel: ${error.error_message}`,
-      );
-    }
-  },
   connectChannel: async (io, socket, data) => {
     // Get database
     const users = (await db.get('users')) || {};
     const channels = (await db.get('channels')) || {};
+    const servers = (await db.get('servers')) || {};
 
     try {
       // data = {
@@ -86,9 +40,37 @@ const channelHandler = {
       }
       const user = await Func.validate.user(users[userId]);
       const channel = await Func.validate.channel(channels[channelId]);
+      const server = await Func.validate.server(servers[channel.serverId]);
 
       // Validate operation
       await Func.validate.socket(socket);
+
+      if (!channel.isLobby) {
+        if (server.visibility === 'readonly') {
+          throw new StandardizedError(
+            '該頻道為唯獨頻道',
+            'ValidationError',
+            'CONNECTCHANNEL',
+            'SERVER_READONLY',
+            403,
+          );
+        }
+
+        const member = await Get.member(user.id, server.id);
+        if (
+          (server.visibility === 'private' ||
+            channel.visibility === 'private') &&
+          (!member || member.permissionLevel < 2)
+        ) {
+          throw new StandardizedError(
+            '您需要成為該群組的會員才能加入該頻道',
+            'ValidationError',
+            'CONNECTCHANNEL',
+            'SERVER_PRIVATE',
+            403,
+          );
+        }
+      }
 
       // Disconnect the user from the current channel
       if (user.currentChannelId) {
@@ -257,20 +239,17 @@ const channelHandler = {
       // Validate operation
       await Func.validate.socket(socket);
 
-      // const member = await Func.validate.member(
-      //   members[`mb_${user.id}-${server.id}`],
-      // );
-
-      // const permission = member.permissionLevel;
-      // if (!permission || permission < 4) {
-      //   throw new StandardizedError(
-      //     '無足夠的權限',
-      //     'ValidationError',
-      //     'CREATECHANNEL',
-      //     'USER_PERMISSION',
-      //     403,
-      //   );
-      // }
+      const member = await Get.member(user.id, server.id);
+      const permission = member.permissionLevel;
+      if (!permission || permission < 4) {
+        throw new StandardizedError(
+          '無足夠的權限',
+          'ValidationError',
+          'CREATECHANNEL',
+          'USER_PERMISSION',
+          403,
+        );
+      }
 
       // Create new channel
       const channelId = uuidv4();
@@ -313,7 +292,7 @@ const channelHandler = {
     // Get database
     const users = (await db.get('users')) || {};
     const channels = (await db.get('channels')) || {};
-    // const members = (await db.get('members')) || {};
+    const servers = (await db.get('servers')) || {};
 
     try {
       // data = {
@@ -324,7 +303,7 @@ const channelHandler = {
       // };
       // console.log(data);
 
-      // Validate data
+      // Validate
       const { userId, channel: _editedChannel } = data;
       if (!userId || !_editedChannel) {
         throw new StandardizedError(
@@ -335,6 +314,9 @@ const channelHandler = {
           401,
         );
       }
+      const server = await Func.validate.server(
+        servers[_editedChannel.serverId],
+      );
       const user = await Func.validate.user(users[userId]);
       const editedChannel = await Func.validate.channel(_editedChannel);
       const channel = await Func.validate.channel(channels[editedChannel.id]);
@@ -342,20 +324,17 @@ const channelHandler = {
       // Validate operation
       await Func.validate.socket(socket);
 
-      // const member = await Func.validate.member(
-      //   members[`mb_${user.id}-${server.id}`],
-      // );
-
-      // const permission = member.permissionLevel;
-      // if (!permission || permission < 4) {
-      //   throw new StandardizedError(
-      //     '無足夠的權限',
-      //     'ValidationError',
-      //     'UPDATECHANNEL',
-      //     'USER_PERMISSION',
-      //     403,
-      //   );
-      // }
+      const member = await Get.member(user.id, server.id);
+      const permission = member.permissionLevel;
+      if (!permission || permission < 3) {
+        throw new StandardizedError(
+          '無足夠的權限',
+          'ValidationError',
+          'UPDATECHANNEL',
+          'USER_PERMISSION',
+          403,
+        );
+      }
 
       // Update channel
       await Set.channel(channel.id, editedChannel);
@@ -395,7 +374,7 @@ const channelHandler = {
     // Get database
     const users = (await db.get('users')) || {};
     const channels = (await db.get('channels')) || {};
-    // const members = (await db.get('members')) || {};
+    const servers = (await db.get('servers')) || {};
 
     try {
       // data = {
@@ -417,24 +396,22 @@ const channelHandler = {
       }
       const user = await Func.validate.user(users[userId]);
       const channel = await Func.validate.channel(channels[channelId]);
+      const server = await Func.validate.server(servers[channel.serverId]);
 
       // Validate operation
       await Func.validate.socket(socket);
 
-      // const member = await Func.validate.member(
-      //   members[`mb_${user.id}-${server.id}`],
-      // );
-
-      // const permission = member.permissionLevel;
-      // if (!permission || permission < 4) {
-      //   throw new StandardizedError(
-      //     '無足夠的權限',
-      //     'ValidationError',
-      //     'DELETECHANNEL',
-      //     'USER_PERMISSION',
-      //     403,
-      //   );
-      // }
+      const member = await Get.member(user.id, server.id);
+      const permission = member.permissionLevel;
+      if (!permission || permission < 4) {
+        throw new StandardizedError(
+          '無足夠的權限',
+          'ValidationError',
+          'DELETECHANNEL',
+          'USER_PERMISSION',
+          403,
+        );
+      }
 
       // Update channel
       await Set.channel(channelId, { serverId: null });

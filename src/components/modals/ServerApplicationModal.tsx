@@ -6,13 +6,7 @@ import Popup from '@/styles/common/popup.module.css';
 import applyMember from '@/styles/popups/serverApplication.module.css';
 
 // Types
-import {
-  PopupType,
-  User,
-  Server,
-  SocketServerEvent,
-  MemberApplication,
-} from '@/types';
+import { PopupType, Server, MemberApplication } from '@/types';
 
 // Providers
 import { useLanguage } from '@/providers/LanguageProvider';
@@ -20,6 +14,7 @@ import { useSocket } from '@/providers/SocketProvider';
 
 // Services
 import { ipcService } from '@/services/ipc.service';
+import { apiService } from '@/services/api.service';
 
 // Utils
 import { createDefault } from '@/utils/default';
@@ -39,25 +34,22 @@ const ServerApplicationModal: React.FC<ServerApplicationModalProps> =
     const refreshRef = useRef(false);
 
     // State
-    const [user, setUser] = useState<User>(createDefault.user());
-    const [server, setServer] = useState<Server>(createDefault.server());
-    const [application, setApplication] = useState<MemberApplication>(
-      createDefault.memberApplication(),
-    );
+    const [serverName, setServerName] = useState<Server['name']>('');
+    const [serverAvatar, setServerAvatar] = useState<Server['avatar']>('');
+    const [serverDisplayId, setServerDisplayId] =
+      useState<Server['displayId']>('');
+    const [applicationDescription, setApplicationDescription] =
+      useState<MemberApplication['description']>('');
 
     // Variables
     const { userId, serverId } = initialData;
-    const {
-      name: serverName,
-      displayId: serverDisplayId,
-      avatar: serverAvatar,
-    } = server;
-    const { description: applicationDescription } = application;
 
     // Section Control
     const [section, setSection] = useState<number>(0);
 
-    const handleCreatMemberApplication = (application: MemberApplication) => {
+    const handleCreatMemberApplication = (
+      application: Partial<MemberApplication>,
+    ) => {
       if (!socket) return;
       socket.send.createMemberApplication({ memberApplication: application });
     };
@@ -77,56 +69,39 @@ const ServerApplicationModal: React.FC<ServerApplicationModalProps> =
       ipcService.window.close();
     };
 
-    const handleUserUpdate = (data: Partial<User> | null) => {
-      if (!data) data = createDefault.user();
-      setUser((prev) => ({ ...prev, ...data }));
-    };
-
-    const handleServerUpdate = (data: Partial<Server> | null) => {
+    const handleServerUpdate = (data: Server | null) => {
       if (!data) data = createDefault.server();
-      setServer((prev) => ({ ...prev, ...data }));
+      setServerName(data.name);
+      setServerDisplayId(data.displayId);
+      setServerAvatar(data.avatar);
     };
 
-    const handleMemberApplicationUpdate = (
-      data: Partial<MemberApplication> | null,
-    ) => {
+    const handleMemberApplicationUpdate = (data: MemberApplication | null) => {
       if (!data) data = createDefault.memberApplication();
-      setApplication((prev) => ({ ...prev, ...data }));
+      setApplicationDescription(data.description);
     };
 
     // UseEffect
     useEffect(() => {
-      if (!socket) return;
-
-      const eventHandlers = {
-        [SocketServerEvent.USER_UPDATE]: handleUserUpdate,
-        [SocketServerEvent.SERVER_UPDATE]: handleServerUpdate,
-        // [SocketServerEvent.MEMBER_APPLICATION_UPDATE]:
-        //   handleMemberApplicationUpdate,
-      };
-      const unsubscribe: (() => void)[] = [];
-
-      Object.entries(eventHandlers).map(([event, handler]) => {
-        const unsub = socket.on[event as SocketServerEvent](handler);
-        unsubscribe.push(unsub);
-      });
-
-      return () => {
-        unsubscribe.forEach((unsub) => unsub());
-      };
-    }, [socket]);
-
-    useEffect(() => {
-      if (!socket || !userId || !serverId) return;
+      if (!serverId || !userId) return;
       if (refreshRef.current) return;
-      socket.send.refreshUser({ userId: userId });
-      socket.send.refreshServer({ serverId: serverId });
-      socket.send.refreshMemberApplication({
-        senderId: userId,
-        receiverId: serverId,
-      });
-      refreshRef.current = true;
-    }, [socket, userId, serverId]);
+      const refresh = async () => {
+        const server = await apiService.post('/refresh/server', {
+          serverId: serverId,
+        });
+        handleServerUpdate(server);
+        const memberApplication = await apiService.post(
+          '/refresh/memberApplication',
+          {
+            senderId: userId,
+            receiverId: serverId,
+          },
+        );
+        handleMemberApplicationUpdate(memberApplication);
+        refreshRef.current = true;
+      };
+      refresh();
+    }, [serverId, userId]);
 
     switch (section) {
       // Member Application Form
@@ -166,10 +141,7 @@ const ServerApplicationModal: React.FC<ServerApplicationModalProps> =
                     <textarea
                       rows={2}
                       onChange={(e) =>
-                        setApplication((prev) => ({
-                          ...prev,
-                          description: e.target.value,
-                        }))
+                        setApplicationDescription(e.target.value)
                       }
                       value={applicationDescription}
                     />
@@ -183,9 +155,9 @@ const ServerApplicationModal: React.FC<ServerApplicationModalProps> =
                 className={Popup['button']}
                 onClick={() => {
                   handleCreatMemberApplication({
-                    ...application,
-                    serverId: serverId,
                     userId: userId,
+                    serverId: serverId,
+                    description: applicationDescription,
                   });
                   handleOpenSuccessDialog();
                 }}
@@ -213,11 +185,7 @@ const ServerApplicationModal: React.FC<ServerApplicationModalProps> =
                   <div className={applyMember['avatarWrapper']}>
                     <div
                       className={applyMember['avatarPicture']}
-                      style={
-                        serverAvatar
-                          ? { backgroundImage: `url(${serverAvatar})` }
-                          : {}
-                      }
+                      style={{ backgroundImage: `url(${serverAvatar})` }}
                     />
                   </div>
                   <div className={applyMember['serverInfoWrapper']}>

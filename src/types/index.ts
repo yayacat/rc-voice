@@ -148,6 +148,9 @@ export interface Translation {
   nicknameHint: string;
   register: string;
   freeSpeech: string;
+  forbiddenSpeech: string;
+  changeToFreeSpeech: string;
+  changeToForbiddenSpeech: string;
   takeMic: string;
   takenMic: string;
   mixing: string;
@@ -338,6 +341,9 @@ export const translations: Record<LanguageKey, Translation> = {
     nicknameHint: '2-10位，支持中英文',
     register: '註冊',
     freeSpeech: '自由發言',
+    forbiddenSpeech: '限制發言',
+    changeToFreeSpeech: '該頻道已被設為自由發言',
+    changeToForbiddenSpeech: '該頻道已被設為僅管理員發言',
     takeMic: '拿麥發言',
     takenMic: '已拿麥',
     mixing: '混音',
@@ -524,6 +530,9 @@ export const translations: Record<LanguageKey, Translation> = {
     nicknameHint: '2-10位，支持中英文',
     register: '注册',
     freeSpeech: '自由发言',
+    forbiddenSpeech: '限制发言',
+    changeToFreeSpeech: '该频道已被设为自由发言',
+    changeToForbiddenSpeech: '该频道已被设为仅管理员发言',
     takeMic: '拿麦发言',
     takenMic: '已拿麦',
     mixing: '混音',
@@ -712,6 +721,9 @@ export const translations: Record<LanguageKey, Translation> = {
     nicknameHint: '2-10 characters, supports Chinese and English',
     register: 'Register',
     freeSpeech: 'Free speech',
+    forbiddenSpeech: 'Restricted speech',
+    changeToFreeSpeech: 'The channel has been set to free speech',
+    changeToForbiddenSpeech: 'The channel has been set to admin-only speech',
     takeMic: 'Take mic',
     takenMic: 'Mic taken',
     mixing: 'Mixing',
@@ -898,6 +910,9 @@ export const translations: Record<LanguageKey, Translation> = {
     nicknameHint: '2〜10文字、中国語と英語をサポート',
     register: '登録',
     freeSpeech: '自由な発言',
+    forbiddenSpeech: '発言を制限',
+    changeToFreeSpeech: 'チャンネルは自由な発言に設定されています',
+    changeToForbiddenSpeech: 'チャンネルは管理者のみの発言に設定されています',
     takeMic: 'マイクを取る',
     takenMic: 'マイクを取った',
     mixing: 'ミキシング',
@@ -1087,6 +1102,10 @@ export const translations: Record<LanguageKey, Translation> = {
     nicknameHint: '2-10 символов, поддерживает китайский и английский',
     register: 'Зарегистрироваться',
     freeSpeech: 'Свободная речь',
+    forbiddenSpeech: 'Ограниченная речь',
+    changeToFreeSpeech: 'Канал установлен на свободную речь',
+    changeToForbiddenSpeech:
+      'Канал установлен на речь только для администраторов',
     takeMic: 'Взять микрофон',
     takenMic: 'Микрофон взят',
     mixing: 'Смешивание',
@@ -1138,14 +1157,13 @@ export type User = {
   id: string;
   name: string;
   avatar: string;
-  // avatarUrl: string;
   signature: string;
-  status: 'online' | 'dnd' | 'idle' | 'gn';
-  gender: 'Male' | 'Female';
   level: number;
   xp: number;
   requiredXp: number;
   progress: number;
+  status: 'online' | 'dnd' | 'idle' | 'gn';
+  gender: 'Male' | 'Female';
   currentChannelId: string;
   currentServerId: string;
   lastActiveAt: number;
@@ -1179,9 +1197,9 @@ export type FriendGroup = {
 };
 
 export type FriendApplication = User & {
+  description: string;
   senderId: string;
   receiverId: string;
-  description: string;
   createdAt: number;
 };
 
@@ -1189,15 +1207,14 @@ export type Server = {
   id: string;
   name: string;
   avatar: string;
-  // avatarUrl: string;
   announcement: string;
   description: string;
-  type: 'game' | 'entertainment' | 'other';
   displayId: string;
   slogan: string;
   level: number;
   wealth: number;
   allowDirectMessage: boolean;
+  type: 'game' | 'entertainment' | 'other';
   visibility: 'public' | 'private' | 'invisible';
   lobbyId: string;
   ownerId: string;
@@ -1220,10 +1237,11 @@ export type MemberApplication = User & {
 export type BaseChannel = {
   id: string;
   name: string;
+  order: number;
   isRoot: boolean;
   type: 'category' | 'channel';
-  order: number;
   serverId: string;
+  createdAt: number;
 };
 
 export type Category = BaseChannel & {
@@ -1232,17 +1250,25 @@ export type Category = BaseChannel & {
 
 export type Channel = BaseChannel & {
   type: 'channel';
+  bitrate: number;
+  userLimit: number;
   isLobby: boolean;
+  slowmode: boolean;
   voiceMode: 'free' | 'queue' | 'forbidden';
   chatMode: 'free' | 'forbidden';
-  bitrate: number;
-  slowmode: boolean;
-  userLimit: number;
-  visibility: Visibility;
+  visibility: 'public' | 'private' | 'readonly';
   categoryId: string | null;
-  createdAt: number;
   // THESE WERE NOT SAVE IN THE DATABASE
-  messages?: Message[];
+  messages?: ChannelMessage[];
+};
+
+export type ChannelMessage = Message &
+  ServerMember & {
+    type: 'general';
+  };
+
+export type InfoMessage = Message & {
+  type: 'info';
 };
 
 export type Member = {
@@ -1270,21 +1296,20 @@ export type Friend = {
   directMessages?: DirectMessage[]; // Change to another sheet
 };
 
+export type DirectMessage = Message &
+  UserFriend & {
+    type: 'dm';
+  };
+
 export type UserFriend = Friend & User;
 
-export type Message = ServerMember & {
+export type Message = {
+  id: string;
   content: string;
-  type: 'general' | 'info';
+  type: 'general' | 'dm' | 'info';
   senderId: string;
+  recieverId: string;
   channelId: string;
-  timestamp: number;
-};
-
-export type DirectMessage = UserFriend & {
-  content: string;
-  type: 'general' | 'info';
-  senderId: string;
-  friendId: string;
   timestamp: number;
 };
 
@@ -1321,46 +1346,37 @@ export type DiscordPresence = {
 export enum SocketClientEvent {
   // User
   SEARCH_USER = 'searchUser',
-  REFRESH_USER = 'refreshUser',
   UPDATE_USER = 'updateUser',
   // Server
   SEARCH_SERVER = 'searchServer',
-  REFRESH_SERVER = 'refreshServer',
   CONNECT_SERVER = 'connectServer',
   DISCONNECT_SERVER = 'disconnectServer',
   CREATE_SERVER = 'createServer',
   UPDATE_SERVER = 'updateServer',
   DELETE_SERVER = 'deleteServer',
   // Category
-  REFRESH_CATEGORY = 'refreshCategory',
   CREATE_CATEGORY = 'createCategory',
   UPDATE_CATEGORY = 'updateCategory',
   DELETE_CATEGORY = 'deleteCategory',
   // Channel
-  REFRESH_CHANNEL = 'refreshChannel',
   CONNECT_CHANNEL = 'connectChannel',
   DISCONNECT_CHANNEL = 'disconnectChannel',
   CREATE_CHANNEL = 'createChannel',
   UPDATE_CHANNEL = 'updateChannel',
   DELETE_CHANNEL = 'deleteChannel',
   // Friend Group
-  REFRESH_FRIEND_GROUP = 'refreshFriendGroup',
   CREATE_FRIEND_GROUP = 'createFriendGroup',
   UPDATE_FRIEND_GROUP = 'updateFriendGroup',
   DELETE_FRIEND_GROUP = 'deleteFriendGroup',
   // Member
-  REFRESH_MEMBER = 'refreshMember',
   UPDATE_MEMBER = 'updateMember',
   // Friend
-  REFRESH_FRIEND = 'refreshFriend',
   UPDATE_FRIEND = 'updateFriend',
   // Member Application
-  REFRESH_MEMBER_APPLICATION = 'refreshMemberApplication',
   CREATE_MEMBER_APPLICATION = 'createMemberApplication',
   UPDATE_MEMBER_APPLICATION = 'updateMemberApplication',
   DELETE_MEMBER_APPLICATION = 'deleteMemberApplication',
   // Friend Application
-  REFRESH_FRIEND_APPLICATION = 'refreshFriendApplication',
   CREATE_FRIEND_APPLICATION = 'createFriendApplication',
   UPDATE_FRIEND_APPLICATION = 'updateFriendApplication',
   DELETE_FRIEND_APPLICATION = 'deleteFriendApplication',
@@ -1399,6 +1415,8 @@ export enum SocketServerEvent {
   FRIEND_UPDATE = 'friendUpdate',
   // Friend Application
   FRIEND_APPLICATION_UPDATE = 'friendApplicationUpdate',
+  // Popup
+  OPEN_POPUP = 'openPopup',
   // RTC
   RTC_OFFER = 'RTCOffer',
   RTC_ANSWER = 'RTCAnswer',
