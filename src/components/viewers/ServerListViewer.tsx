@@ -23,7 +23,7 @@ const ServerCard: React.FC<ServerCardProps> = React.memo(({ user, server }) => {
   const {
     id: serverId,
     name: serverName,
-    avatar: serverAvatar,
+    avatarUrl: serverAvatarUrl,
     displayId: serverDisplayId,
     slogan: serverSlogan,
     ownerId: serverOwnerId,
@@ -31,19 +31,19 @@ const ServerCard: React.FC<ServerCardProps> = React.memo(({ user, server }) => {
   const isOwner = serverOwnerId === userId;
 
   // Handlers
-  const handleServerSelect = () => {
+  const handleServerSelect = (userId: User['id'], serverId: Server['id']) => {
     if (!socket || user.currentServerId === serverId) return;
-    socket.send.connectServer({ serverId: serverId, userId: userId });
+    socket.send.connectServer({ userId, serverId });
   };
 
   return (
     <div
       className={homePage['myGroupsRoomItemBox']}
-      onClick={() => handleServerSelect()}
+      onClick={() => handleServerSelect(userId, serverId)}
     >
       <div
         className={homePage['myGroupsRoomAvatarPicture']}
-        style={{ backgroundImage: `url(${serverAvatar})` }}
+        style={{ backgroundImage: `url(${serverAvatarUrl})` }}
       ></div>
       <div className={homePage['myGroupsRoomInfo']}>
         <div className={homePage['myGroupsRoomName']}>{serverName}</div>

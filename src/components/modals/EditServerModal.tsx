@@ -8,10 +8,18 @@ import Popup from '@/styles/common/popup.module.css';
 import permission from '@/styles/common/permission.module.css';
 
 // Components
-import MarkdownViewer from '@/components/viewers/MarkdownViewer';
+// import MarkdownViewer from '@/components/viewers/MarkdownViewer';
 
 // Types
-import { MemberApplication, Server, PopupType, ServerMember } from '@/types';
+import {
+  MemberApplication,
+  Server,
+  PopupType,
+  ServerMember,
+  Member,
+  Permission,
+  User,
+} from '@/types';
 
 // Providers
 import { useSocket } from '@/providers/SocketProvider';
@@ -19,12 +27,13 @@ import { useContextMenu } from '@/providers/ContextMenuProvider';
 import { useLanguage } from '@/providers/LanguageProvider';
 
 // Services
-import { ipcService } from '@/services/ipc.service';
-import { apiService } from '@/services/api.service';
+import ipcService from '@/services/ipc.service';
+import apiService from '@/services/api.service';
+import refreshService from '@/services/refresh.service';
 
 // Utils
-import { createDefault } from '@/utils/default';
-import { createSorter } from '@/utils/sort';
+import { createDefault } from '@/utils/createDefault';
+import { createSorter } from '@/utils/createSorter';
 
 interface ServerSettingModalProps {
   serverId: string;
@@ -41,35 +50,39 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
     // Constants
     const MEMBER_FIELDS = [
       {
-        name: `名字`,
+        name: lang.tr.name,
         field: 'name',
       },
       {
-        name: `權限`,
+        name: lang.tr.permission,
         field: 'permissionLevel',
       },
       {
-        name: `貢獻`,
+        name: lang.tr.contribution,
         field: 'contribution',
       },
       {
-        name: `加入時間`,
+        name: lang.tr.joinDate,
         field: 'createdAt',
       },
     ];
     const APPLICATION_FIELDS = [
       {
-        name: `名字`,
+        name: lang.tr.name,
         field: 'name',
       },
       {
-        name: `描述`,
+        name: lang.tr.description,
         field: 'description',
+      },
+      {
+        name: lang.tr.creationTime,
+        field: 'createdAt',
       },
     ];
     const BLOCK_MEMBER_FIELDS = [
       {
-        name: `名字`,
+        name: lang.tr.name,
         field: 'name',
       },
     ];
@@ -78,29 +91,51 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
     const refreshRef = useRef(false);
 
     // States
-    const [serverName, setServerName] = useState<Server['name']>('');
-    const [serverAvatar, setServerAvatar] = useState<Server['avatar']>('');
-    const [serverAnnouncement, setServerAnnouncement] =
-      useState<Server['announcement']>('');
-    const [serverDescription, setServerDescription] =
-      useState<Server['description']>('');
-    const [serverType, setServerType] = useState<Server['type']>('other');
-    const [serverDisplayId, setServerDisplayId] =
-      useState<Server['displayId']>('');
-    const [serverSlogan, setServerSlogan] = useState<Server['slogan']>('');
-    const [serverLevel, setServerLevel] = useState<Server['level']>(0);
-    const [serverWealth, setServerWealth] = useState<Server['wealth']>(0);
-    const [serverCreatedAt, setServerCreatedAt] =
-      useState<Server['createdAt']>(0);
-    const [serverVisibility, setServerVisibility] =
-      useState<Server['visibility']>('public');
-    const [serverMembers, setServerMembers] = useState<ServerMember[]>([]);
+    const [serverName, setServerName] = useState<Server['name']>(
+      createDefault.server().name,
+    );
+    const [serverAvatar, setServerAvatar] = useState<Server['avatar']>(
+      createDefault.server().avatar,
+    );
+    const [serverAvatarUrl, setServerAvatarUrl] = useState<Server['avatarUrl']>(
+      createDefault.server().avatarUrl,
+    );
+    const [serverAnnouncement, setServerAnnouncement] = useState<
+      Server['announcement']
+    >(createDefault.server().announcement);
+    const [serverDescription, setServerDescription] = useState<
+      Server['description']
+    >(createDefault.server().description);
+    const [serverType, setServerType] = useState<Server['type']>(
+      createDefault.server().type,
+    );
+    const [serverDisplayId, setServerDisplayId] = useState<Server['displayId']>(
+      createDefault.server().displayId,
+    );
+    const [serverSlogan, setServerSlogan] = useState<Server['slogan']>(
+      createDefault.server().slogan,
+    );
+    const [serverLevel, setServerLevel] = useState<Server['level']>(
+      createDefault.server().level,
+    );
+    const [serverWealth, setServerWealth] = useState<Server['wealth']>(
+      createDefault.server().wealth,
+    );
+    const [serverCreatedAt, setServerCreatedAt] = useState<Server['createdAt']>(
+      createDefault.server().createdAt,
+    );
+    const [serverVisibility, setServerVisibility] = useState<
+      Server['visibility']
+    >(createDefault.server().visibility);
+    const [serverMembers, setServerMembers] = useState<ServerMember[]>(
+      createDefault.server().members || [],
+    );
     const [serverApplications, setServerApplications] = useState<
       MemberApplication[]
-    >([]);
+    >(createDefault.server().memberApplications || []);
     const [serverBlockMembers, setServerBlockMembers] = useState<
       ServerMember[]
-    >([]);
+    >(createDefault.server().members?.filter((mb) => mb.isBlocked) || []);
 
     const [activeTabIndex, setActiveTabIndex] = useState<number>(0);
     const [sortState, setSortState] = useState<1 | -1>(-1);
@@ -121,6 +156,64 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
       return [...array].sort(createSorter(field, newDirection));
     };
 
+    const handleUpdateServer = (
+      server: Partial<Server>,
+      serverId: Server['id'],
+    ) => {
+      if (!socket) return;
+      socket.send.updateServer({ server, serverId });
+    };
+
+    const handleUpdateApplication = (
+      memberApplication: Partial<MemberApplication>,
+      userId: User['id'],
+      serverId: Server['id'],
+    ) => {
+      if (!socket) return;
+      socket.send.updateMemberApplication({
+        memberApplication,
+        userId,
+        serverId,
+      });
+    };
+
+    const handleUpdateMember = (
+      member: Partial<Member>,
+      userId: User['id'],
+      serverId: Server['id'],
+    ) => {
+      if (!socket) return;
+      socket.send.updateMember({ member, userId, serverId });
+    };
+
+    const handleCreateMember = (
+      member: Partial<Member>,
+      userId: User['id'],
+      serverId: Server['id'],
+    ) => {
+      if (!socket) return;
+      socket.send.createMember({ member, userId, serverId });
+    };
+
+    const handleServerUpdate = (data: Server | null) => {
+      if (!data) data = createDefault.server();
+      setServerName(data.name);
+      setServerAvatar(data.avatar);
+      setServerAvatarUrl(data.avatarUrl);
+      setServerAnnouncement(data.announcement);
+      setServerDescription(data.description);
+      setServerType(data.type);
+      setServerDisplayId(data.displayId);
+      setServerSlogan(data.slogan);
+      setServerLevel(data.level);
+      setServerWealth(data.wealth);
+      setServerCreatedAt(data.createdAt);
+      setServerVisibility(data.visibility);
+      setServerMembers(data.members || []);
+      setServerApplications(data.memberApplications || []);
+      setServerBlockMembers(data.members?.filter((mb) => mb.isBlocked) || []);
+    };
+
     const handleBlockMemberSort = (field: keyof ServerMember) => {
       const sortedMembers = handleSort(field, [...serverBlockMembers]);
       setServerBlockMembers(sortedMembers);
@@ -136,6 +229,68 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
       setServerApplications(sortedApplications);
     };
 
+    const handleClose = () => {
+      ipcService.window.close();
+    };
+
+    const handleUserMove = () => {};
+
+    const handleKickServer = (member: ServerMember) => {
+      if (!socket) return;
+      ipcService.popup.open(PopupType.DIALOG_WARNING);
+      ipcService.initialData.onRequest(PopupType.DIALOG_WARNING, {
+        iconType: 'warning',
+        title: `確定要踢出 ${member.name} 嗎？使用者可以再次加入。`,
+        submitTo: PopupType.DIALOG_WARNING,
+      });
+      ipcService.popup.onSubmit(PopupType.DIALOG_WARNING, () => {
+        handleUpdateMember(
+          {
+            id: member.id,
+            permissionLevel: Permission.Guest,
+            createdAt: 0,
+            nickname: '',
+          },
+          member.userId,
+          member.serverId,
+        );
+      });
+    };
+
+    const handleBlockUser = (member: ServerMember) => {
+      if (!socket) return;
+      ipcService.popup.open(PopupType.DIALOG_WARNING);
+      ipcService.initialData.onRequest(PopupType.DIALOG_WARNING, {
+        iconType: 'warning',
+        title: `確定要封鎖 ${member.name} 嗎？使用者將無法再次加入。`,
+        submitTo: PopupType.DIALOG_WARNING,
+      });
+      ipcService.popup.onSubmit(PopupType.DIALOG_WARNING, () => {
+        handleUpdateMember(
+          {
+            id: member.id,
+            permissionLevel: Permission.Guest,
+            nickname: '',
+            isBlocked: true,
+          },
+          member.userId,
+          member.serverId,
+        );
+      });
+    };
+
+    const handleOpenEditMember = (
+      serverId: Server['id'],
+      userId: User['id'],
+    ) => {
+      if (!socket) return;
+      ipcService.popup.open(PopupType.EDIT_MEMBER);
+      ipcService.initialData.onRequest(PopupType.EDIT_MEMBER, {
+        serverId,
+        userId,
+      });
+    };
+
     const handleOpenErrorDialog = (message: string) => {
       ipcService.popup.open(PopupType.DIALOG_ERROR);
       ipcService.initialData.onRequest(PopupType.DIALOG_ERROR, {
@@ -144,66 +299,12 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
       });
     };
 
-    const handleClose = () => {
-      ipcService.window.close();
-    };
-
-    const handleUpdateServer = () => {
-      if (!socket) return;
-      socket.send.updateServer({
-        server: {
-          id: serverId,
-          name: serverName,
-          avatar: serverAvatar,
-          announcement: serverAnnouncement,
-          description: serverDescription,
-          type: serverType,
-          displayId: serverDisplayId,
-          slogan: serverSlogan,
-          level: serverLevel,
-          wealth: serverWealth,
-          createdAt: serverCreatedAt,
-          visibility: serverVisibility,
-        },
-        userId: userId,
-      });
-    };
-
-    const handleApplicationAction = (action: 'accept' | 'reject') => {};
-
-    const handleUserMove = () => {};
-
-    const handleKickServer = () => {};
-
-    const handleBlockUser = () => {};
-
-    const handleServerUpdate = (data: Server | null) => {
-      if (!data) data = createDefault.server();
-      setServerName(data.name);
-      setServerAvatar(data.avatar);
-      setServerAnnouncement(data.announcement);
-      setServerDescription(data.description);
-      setServerType(data.type);
-      setServerDisplayId(data.displayId);
-      setServerSlogan(data.slogan);
-      setServerLevel(data.level);
-      setServerWealth(data.wealth);
-      setServerCreatedAt(data.createdAt);
-      setServerVisibility(data.visibility);
-      setServerMembers(data.members || []);
-      setServerApplications(data.memberApplications || []);
-      setServerBlockMembers(data.members?.filter((mb) => mb.isBlocked) || []);
-    };
-
     // Effects
     useEffect(() => {
-      if (!serverId) return;
-      if (refreshRef.current) return;
+      if (!serverId || refreshRef.current) return;
       const refresh = async () => {
         refreshRef.current = true;
-        const server = await apiService.post('/refresh/server', {
-          serverId: serverId,
-        });
+        const server = await refreshService.server({ serverId: serverId });
         handleServerUpdate(server);
       };
       refresh();
@@ -301,16 +402,14 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                         <div
                           className={EditServer['avatarPicture']}
                           style={{
-                            backgroundImage: `url(${serverAvatar})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
+                            backgroundImage: `url(${serverAvatarUrl})`,
                           }}
                         />
                         <input
                           type="file"
                           id="avatar-upload"
                           className="hidden"
-                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          accept="image/*"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) {
@@ -321,9 +420,21 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                               handleOpenErrorDialog(lang.tr.imageTooLarge);
                               return;
                             }
+
                             const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setServerAvatar(reader.result as string);
+                            reader.onloadend = async () => {
+                              const formData = new FormData();
+                              formData.append('_type', 'server');
+                              formData.append('_fileName', serverAvatar);
+                              formData.append('_file', reader.result as string);
+                              const data = await apiService.post(
+                                '/upload',
+                                formData,
+                              );
+                              if (data) {
+                                setServerAvatar(data.avatar);
+                                setServerAvatarUrl(data.avatarUrl);
+                              }
                             };
                             reader.readAsDataURL(file);
                           }}
@@ -441,17 +552,17 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                             ))}
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody className={EditServer['tableContainer']}>
                           {serverMembers.map((member) => {
                             const {
                               id: memberId,
-                              userId: memberUserId,
-                              serverId: memberServerId,
-                              nickname: memberNickname,
                               name: memberName,
+                              nickname: memberNickname,
                               gender: memberGender,
                               permissionLevel: memberPermissionLevel,
                               contribution: memberContribution,
+                              userId: memberUserId,
+                              serverId: memberServerId,
                               createdAt: memberJoinDate,
                             } = member;
                             return (
@@ -475,42 +586,46 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                                         label: '新增好友',
                                         onClick: () => {},
                                       },
-                                      {
-                                        label: '拒聽此人語音',
-                                        onClick: () => {},
-                                      },
+                                      // {
+                                      //   label: '拒聽此人語音',
+                                      //   onClick: () => {},
+                                      // },
                                       {
                                         label: '修改群名片',
-                                        onClick: () => {},
+                                        onClick: () =>
+                                          handleOpenEditMember(
+                                            memberServerId,
+                                            memberUserId,
+                                          ),
                                       },
                                       {
                                         label: lang.tr.moveToMyChannel,
                                         onClick: () => handleUserMove(),
                                       },
-                                      {
-                                        label: '禁止此人語音',
-                                        onClick: () => {},
-                                      },
-                                      {
-                                        label: '禁止文字',
-                                        onClick: () => {},
-                                      },
+                                      // {
+                                      //   label: '禁止此人語音',
+                                      //   onClick: () => {},
+                                      // },
+                                      // {
+                                      //   label: '禁止文字',
+                                      //   onClick: () => {},
+                                      // },
                                       {
                                         label: lang.tr.kickOut,
-                                        onClick: () => handleKickServer(),
+                                        onClick: () => handleKickServer(member),
                                       },
                                       {
                                         label: lang.tr.block,
-                                        onClick: () => handleBlockUser(),
+                                        onClick: () => handleBlockUser(member),
                                       },
                                       {
                                         label: lang.tr.memberManagement,
                                         onClick: () => {},
                                       },
-                                      {
-                                        label: lang.tr.inviteToBeMember,
-                                        onClick: () => {},
-                                      },
+                                      // {
+                                      //   label: lang.tr.inviteToBeMember,
+                                      //   onClick: () => {},
+                                      // },
                                     ],
                                   );
                                 }}
@@ -653,14 +768,15 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                             ))}
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody className={EditServer['tableContainer']}>
                           {serverApplications.map((application) => {
                             const {
                               id: applicationId,
-                              userId: applicationUserId,
-                              serverId: applicationServerId,
                               name: applicationName,
                               description: applicationDescription,
+                              createdAt: applicationCreatedDate,
+                              userId: applicationUserId,
+                              serverId: applicationServerId,
                             } = application;
                             return (
                               <tr
@@ -669,12 +785,43 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                                   contextMenu.showContextMenu(
                                     e.pageX,
                                     e.pageY,
-                                    [],
+                                    [
+                                      {
+                                        label: '接受申請',
+                                        onClick: () => {
+                                          handleUpdateApplication(
+                                            { applicationStatus: 'accepted' },
+                                            applicationUserId,
+                                            applicationServerId,
+                                          );
+                                          handleCreateMember(
+                                            { permissionLevel: 2 },
+                                            applicationUserId,
+                                            applicationServerId,
+                                          );
+                                        },
+                                      },
+                                      {
+                                        label: '拒絕申請',
+                                        onClick: () => {
+                                          handleUpdateApplication(
+                                            { applicationStatus: 'rejected' },
+                                            applicationUserId,
+                                            applicationServerId,
+                                          );
+                                        },
+                                      },
+                                    ],
                                   );
                                 }}
                               >
                                 <td>{applicationName}</td>
                                 <td>{applicationDescription}</td>
+                                <td>
+                                  {new Date(
+                                    applicationCreatedDate,
+                                  ).toLocaleString()}
+                                </td>
                               </tr>
                             );
                           })}
@@ -726,7 +873,7 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                             ))}
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody className={EditServer['tableContainer']}>
                           {serverBlockMembers.map((blockMember) => {
                             const {
                               id: blockMemberId,
@@ -771,7 +918,23 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
           <button
             className={Popup['button']}
             onClick={() => {
-              handleUpdateServer();
+              handleUpdateServer(
+                {
+                  name: serverName,
+                  avatar: serverAvatar,
+                  avatarUrl: serverAvatarUrl,
+                  announcement: serverAnnouncement,
+                  description: serverDescription,
+                  type: serverType,
+                  displayId: serverDisplayId,
+                  slogan: serverSlogan,
+                  level: serverLevel,
+                  wealth: serverWealth,
+                  createdAt: serverCreatedAt,
+                  visibility: serverVisibility,
+                },
+                serverId,
+              );
               handleClose();
             }}
           >

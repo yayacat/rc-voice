@@ -12,11 +12,12 @@ import { useSocket } from '@/providers/SocketProvider';
 import { useLanguage } from '@/providers/LanguageProvider';
 
 // Services
-import { ipcService } from '@/services/ipc.service';
-import { apiService } from '@/services/api.service';
+import ipcService from '@/services/ipc.service';
+import apiService from '@/services/api.service';
+import refreshService from '@/services/refresh.service';
 
 // Utils
-import { createDefault } from '@/utils/default';
+import { createDefault } from '@/utils/createDefault';
 
 interface CreateServerModalProps {
   userId: string;
@@ -32,7 +33,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = React.memo(
     const refreshRef = useRef(false);
 
     // Constant
-    const MAX_GROUPS = 3;
+    const MAX_GROUPS = 999;
     const SERVER_TYPES: { value: Server['type']; name: string }[] = [
       {
         value: 'game',
@@ -49,12 +50,24 @@ const CreateServerModal: React.FC<CreateServerModalProps> = React.memo(
     ];
 
     // States
-    const [userOwnedServers, setUserOwnedServers] = useState<Server[]>([]);
-    const [serverName, setServerName] = useState<Server['name']>('');
-    const [serverType, setServerType] = useState<Server['type']>('game');
-    const [serverAvatar, setServerAvatar] = useState<Server['avatar']>('');
-    const [serverDescription, setServerDescription] =
-      useState<Server['description']>('');
+    const [userOwnedServers, setUserOwnedServers] = useState<Server[]>(
+      createDefault.user().ownedServers || [],
+    );
+    const [serverName, setServerName] = useState<Server['name']>(
+      createDefault.server().name,
+    );
+    const [serverType, setServerType] = useState<Server['type']>(
+      createDefault.server().type,
+    );
+    const [serverAvatar, setServerAvatar] = useState<Server['avatar']>(
+      createDefault.server().avatar,
+    );
+    const [serverAvatarUrl, setServerAvatarUrl] = useState<Server['avatarUrl']>(
+      createDefault.server().avatarUrl,
+    );
+    const [serverDescription, setServerDescription] = useState<
+      Server['description']
+    >(createDefault.server().description);
     const [section, setSection] = useState<number>(0);
 
     // Variables
@@ -63,13 +76,14 @@ const CreateServerModal: React.FC<CreateServerModalProps> = React.memo(
     const canCreate = remainingGroups > 0;
 
     // Handlers
-    const handleClose = () => {
-      ipcService.window.close();
-    };
-
     const handleCreateServer = (server: Partial<Server>) => {
       if (!socket) return;
-      socket.send.createServer({ server: server, userId: userId });
+      socket.send.createServer({ server });
+    };
+
+    const handleUserUpdate = (data: User | null) => {
+      if (!data) data = createDefault.user();
+      setUserOwnedServers(data.ownedServers || []);
     };
 
     const handleOpenErrorDialog = (message: string) => {
@@ -80,20 +94,16 @@ const CreateServerModal: React.FC<CreateServerModalProps> = React.memo(
       });
     };
 
-    const handleUserUpdate = (data: User | null) => {
-      if (!data) data = createDefault.user();
-      setUserOwnedServers(data.ownedServers || []);
+    const handleClose = () => {
+      ipcService.window.close();
     };
 
     // Effects
     useEffect(() => {
-      if (!userId) return;
-      if (refreshRef.current) return;
+      if (!userId || refreshRef.current) return;
       const refresh = async () => {
         refreshRef.current = true;
-        const user = await apiService.post('/refresh/user', {
-          userId: userId,
-        });
+        const user = await refreshService.user({ userId: userId });
         handleUserUpdate(user);
       };
       refresh();
@@ -177,7 +187,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = React.memo(
                 <div className={createServer['avatarWrapper']}>
                   <div
                     className={createServer['avatarPicture']}
-                    style={{ backgroundImage: `url(${serverAvatar})` }}
+                    style={{ backgroundImage: `url(${serverAvatarUrl})` }}
                   />
                   <input
                     type="file"
@@ -194,9 +204,19 @@ const CreateServerModal: React.FC<CreateServerModalProps> = React.memo(
                         handleOpenErrorDialog(lang.tr.imageTooLarge);
                         return;
                       }
+
                       const reader = new FileReader();
-                      reader.onloadend = () =>
-                        setServerAvatar(reader.result as string);
+                      reader.onloadend = async () => {
+                        const formData = new FormData();
+                        formData.append('_type', 'server');
+                        formData.append('_fileName', serverAvatar);
+                        formData.append('_file', reader.result as string);
+                        const data = await apiService.post('/upload', formData);
+                        if (data) {
+                          setServerAvatar(data.avatar);
+                          setServerAvatarUrl(data.avatarUrl);
+                        }
+                      };
                       reader.readAsDataURL(file);
                     }}
                   />
@@ -231,8 +251,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = React.memo(
                       //   setErrors((prev) => ({
                       //     ...prev,
                       //     name: validateName(serverName),
-                      //   }))
-                      // }
+                      //   }))}
                       placeholder={lang.tr.groupNamePlaceholder}
                     />
                     {/* {errors.name && <p className="text-red-500">{errors.name}</p>} */}
@@ -247,8 +266,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = React.memo(
                       //   setErrors((prev) => ({
                       //     ...prev,
                       //     description: validateDescription(serverDescription),
-                      //   }))
-                      // }
+                      //   }))}
                       placeholder={lang.tr.groupSloganPlaceholder}
                     />
                     {/* {errors.description && (
@@ -271,6 +289,7 @@ const CreateServerModal: React.FC<CreateServerModalProps> = React.memo(
                   handleCreateServer({
                     name: serverName,
                     avatar: serverAvatar,
+                    avatarUrl: serverAvatarUrl,
                     description: serverDescription,
                     type: serverType,
                     ownerId: userId,

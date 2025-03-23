@@ -2,9 +2,7 @@
 const { v4: uuidv4 } = require('uuid');
 // Utils
 const utils = require('../utils');
-const StandardizedError = utils.standardizedError;
-const Map = utils.map;
-const JWT = utils.jwt;
+const { standardizedError: StandardizedError, map: Map, jwt: JWT } = utils;
 // Handlers
 const userHandler = require('./user');
 const serverHandler = require('./server');
@@ -61,6 +59,7 @@ module.exports = (io) => {
       const sessionId = uuidv4();
 
       socket.jwt = jwt;
+      socket.userId = userId;
       socket.sessionId = sessionId;
 
       // Save maps
@@ -138,12 +137,24 @@ module.exports = (io) => {
       friendGroupHandler.deleteFriendGroup(io, socket, data),
     );
     // Member
+    socket.on('createMember', async (data) =>
+      memberHandler.createMember(io, socket, data),
+    );
     socket.on('updateMember', async (data) =>
       memberHandler.updateMember(io, socket, data),
     );
+    socket.on('deleteMember', async (data) =>
+      memberHandler.deleteMember(io, socket, data),
+    );
     // Friend
+    socket.on('createFriend', async (data) =>
+      friendHandler.createFriend(io, socket, data),
+    );
     socket.on('updateFriend', async (data) =>
       friendHandler.updateFriend(io, socket, data),
+    );
+    socket.on('deleteFriend', async (data) =>
+      friendHandler.deleteFriend(io, socket, data),
     );
     // Member Application
     socket.on('createMemberApplication', async (data) =>

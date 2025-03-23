@@ -17,16 +17,16 @@ import { useSocket } from '@/providers/SocketProvider';
 import { useLanguage } from '@/providers/LanguageProvider';
 
 // Services
-import { ipcService } from '@/services/ipc.service';
-import { apiService } from '@/services/api.service';
+import ipcService from '@/services/ipc.service';
+import refreshService from '@/services/refresh.service';
 
 interface FriendPageProps {
   user: User;
-  setUser: (user: User) => void;
+  handleUserUpdate: (data: Partial<User> | null) => void;
 }
 
 const FriendPageComponent: React.FC<FriendPageProps> = React.memo(
-  ({ user, setUser }) => {
+  ({ user, handleUserUpdate }) => {
     // Hooks
     const lang = useLanguage();
     const socket = useSocket();
@@ -38,9 +38,7 @@ const FriendPageComponent: React.FC<FriendPageProps> = React.memo(
     const refreshed = useRef(false);
 
     // States
-    const [signatureInput, setSignatureInput] = useState<string>(
-      user.signature,
-    );
+    const [input, setInput] = useState<string>(user.signature);
     const [isComposing, setIsComposing] = useState<boolean>(false);
     const [sidebarWidth, setSidebarWidth] = useState<number>(256);
     const [isResizing, setIsResizing] = useState<boolean>(false);
@@ -49,7 +47,7 @@ const FriendPageComponent: React.FC<FriendPageProps> = React.memo(
     const {
       id: userId,
       name: userName,
-      avatar: userAvatar,
+      avatarUrl: userAvatarUrl,
       signature: userSignature,
       level: userLevel,
       badges: userBadges = [],
@@ -57,9 +55,12 @@ const FriendPageComponent: React.FC<FriendPageProps> = React.memo(
     const userGrade = Math.min(56, Math.ceil(userLevel / 5)); // 56 is max level
 
     // Handlers
-    const handleChangeSignature = (signature: User['signature']) => {
+    const handleChangeSignature = (
+      signature: User['signature'],
+      userId: User['id'],
+    ) => {
       if (!socket) return;
-      socket.send.updateUser({ user: { id: userId, signature } });
+      socket.send.updateUser({ user: { signature }, userId });
     };
 
     const handleStartResizing = useCallback((e: React.MouseEvent) => {
@@ -111,17 +112,14 @@ const FriendPageComponent: React.FC<FriendPageProps> = React.memo(
     }, [lang, userName]);
 
     useEffect(() => {
-      if (!userId || !setUser) return;
-      if (refreshed.current) return;
+      if (!userId || refreshed.current) return;
       const refresh = async () => {
         refreshed.current = true;
-        const user = await apiService.post('/refresh/user', {
-          userId: userId,
-        });
-        setUser(user);
+        const user = await refreshService.user({ userId: userId });
+        handleUserUpdate(user);
       };
       refresh();
-    }, [userId, setUser]);
+    }, [userId, handleUserUpdate]);
 
     return (
       <div className={friendPage['friendWrapper']}>
@@ -129,7 +127,7 @@ const FriendPageComponent: React.FC<FriendPageProps> = React.memo(
         <header className={friendPage['friendHeader']}>
           <div
             className={friendPage['avatarPicture']}
-            style={{ backgroundImage: `url(${userAvatar})` }}
+            style={{ backgroundImage: `url(${userAvatarUrl})` }}
           />
           <div className={friendPage['baseInfoBox']}>
             <div className={friendPage['container']}>
@@ -151,12 +149,12 @@ const FriendPageComponent: React.FC<FriendPageProps> = React.memo(
           <div className={friendPage['signatureBox']}>
             <textarea
               className={friendPage['signatureInput']}
-              value={signatureInput}
+              value={input}
               placeholder={lang.tr.signaturePlaceholder}
               data-placeholder="30018"
               onChange={(e) => {
-                if (signatureInput.length > MAXLENGTH) return;
-                setSignatureInput(e.target.value);
+                if (input.length > MAXLENGTH) return;
+                setInput(e.target.value);
               }}
               onKeyDown={(e) => {
                 if (e.shiftKey) return;
@@ -165,9 +163,9 @@ const FriendPageComponent: React.FC<FriendPageProps> = React.memo(
                 e.currentTarget.blur();
               }}
               onBlur={() => {
-                if (signatureInput == userSignature) return;
-                if (signatureInput.length > MAXLENGTH) return;
-                handleChangeSignature(signatureInput);
+                if (input == userSignature) return;
+                if (input.length > MAXLENGTH) return;
+                handleChangeSignature(input, userId);
               }}
               onCompositionStart={() => setIsComposing(true)}
               onCompositionEnd={() => setIsComposing(false)}

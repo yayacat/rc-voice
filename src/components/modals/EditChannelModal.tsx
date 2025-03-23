@@ -5,21 +5,21 @@ import Popup from '@/styles/common/popup.module.css';
 import editChannel from '@/styles/popups/editChannel.module.css';
 
 // Types
-import { Channel } from '@/types';
+import { Channel, Server } from '@/types';
 
 // Providers
 import { useLanguage } from '@/providers/LanguageProvider';
 import { useSocket } from '@/providers/SocketProvider';
 
 // Services
-import { ipcService } from '@/services/ipc.service';
-import { apiService } from '@/services/api.service';
+import ipcService from '@/services/ipc.service';
+import refreshService from '@/services/refresh.service';
 
 // Utils
-import { createDefault } from '@/utils/default';
+import { createDefault } from '@/utils/createDefault';
 
 interface EditChannelModalProps {
-  userId: string;
+  serverId: string;
   channelId: string;
 }
 
@@ -33,30 +33,27 @@ const EditChannelModal: React.FC<EditChannelModalProps> = React.memo(
     const refreshRef = useRef(false);
 
     // States
-    const [channelName, setChannelName] = useState<Channel['name']>('');
-    const [channelIsLobby, setChannelIsLobby] =
-      useState<Channel['isLobby']>(false);
-    const [channelVisibility, setChannelVisibility] =
-      useState<Channel['visibility']>('public');
+    const [channelName, setChannelName] = useState<Channel['name']>(
+      createDefault.channel().name,
+    );
+    const [channelIsLobby, setChannelIsLobby] = useState<Channel['isLobby']>(
+      createDefault.channel().isLobby,
+    );
+    const [channelVisibility, setChannelVisibility] = useState<
+      Channel['visibility']
+    >(createDefault.channel().visibility);
 
     // Variables
-    const { userId, channelId } = initialData;
+    const { channelId, serverId } = initialData;
 
     // Handlers
-    const handleClose = () => {
-      ipcService.window.close();
-    };
-
-    const handleUpdateChannel = () => {
+    const handleUpdateChannel = (
+      channel: Partial<Channel>,
+      channelId: Channel['id'],
+      serverId: Server['id'],
+    ) => {
       if (!socket) return;
-      socket.send.updateChannel({
-        channel: {
-          id: channelId,
-          name: channelName,
-          visibility: channelVisibility,
-        },
-        userId: userId,
-      });
+      socket.send.updateChannel({ channel, channelId, serverId });
     };
 
     const handleChannelUpdate = (data: Channel | null) => {
@@ -66,15 +63,16 @@ const EditChannelModal: React.FC<EditChannelModalProps> = React.memo(
       setChannelVisibility(data.visibility);
     };
 
+    const handleClose = () => {
+      ipcService.window.close();
+    };
+
     // Effects
     useEffect(() => {
-      if (!channelId) return;
-      if (refreshRef.current) return;
+      if (!channelId || refreshRef.current) return;
       const refresh = async () => {
         refreshRef.current = true;
-        const channel = await apiService.post('/refresh/channel', {
-          channelId: channelId,
-        });
+        const channel = await refreshService.channel({ channelId: channelId });
         handleChannelUpdate(channel);
       };
       refresh();
@@ -124,7 +122,15 @@ const EditChannelModal: React.FC<EditChannelModalProps> = React.memo(
           <button
             className={Popup['button']}
             onClick={() => {
-              handleUpdateChannel();
+              handleUpdateChannel(
+                {
+                  id: channelId,
+                  name: channelName,
+                  visibility: channelVisibility,
+                },
+                channelId,
+                serverId,
+              );
               handleClose();
             }}
           >

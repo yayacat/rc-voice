@@ -4,16 +4,34 @@ const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const { QuickDB } = require('quick.db');
 const db = new QuickDB();
+const fs = require('fs').promises;
+const path = require('path');
+const formidable = require('formidable');
+
 // Utils
 const utils = require('./utils');
-const StandardizedError = utils.standardizedError;
-const Logger = utils.logger;
-const Func = utils.func;
-const Set = utils.set;
-const Get = utils.get;
-const JWT = utils.jwt;
+const {
+  standardizedError: StandardizedError,
+  logger: Logger,
+  get: Get,
+  set: Set,
+  func: Func,
+  jwt: JWT,
+  clean: Clean,
+} = utils;
 
-const { PORT, CONTENT_TYPE_JSON } = require('./constant');
+// Constants
+const {
+  PORT,
+  CONTENT_TYPE_JSON,
+  MIME_TYPES,
+  UPLOADS_PATH,
+  SERVER_AVATAR_PATH,
+  USER_AVATAR_PATH,
+  UPLOADS_DIR,
+  SERVER_AVATAR_DIR,
+  USER_AVATAR_DIR,
+} = require('./constant');
 
 // Send Error/Success Response
 const sendError = (res, statusCode, message) => {
@@ -50,7 +68,6 @@ const server = http.createServer((req, res) => {
         //   "password": "123456",
         //   "account": "test",
         // }
-        // console.log(data);
 
         // Get database
         const accountPasswords = (await db.get(`accountPasswords`)) || {};
@@ -154,7 +171,6 @@ const server = http.createServer((req, res) => {
         //   "password": "123456",
         //   "username": "test",
         // }
-        // console.log(data);
 
         // Get database
         const accountPasswords = (await db.get(`accountPasswords`)) || {};
@@ -250,6 +266,7 @@ const server = http.createServer((req, res) => {
       });
       return;
     }
+
     if (req.url == '/refresh/server') {
       let body = '';
       req.on('data', (chunk) => {
@@ -287,6 +304,7 @@ const server = http.createServer((req, res) => {
       });
       return;
     }
+
     if (req.url == '/refresh/channel') {
       let body = '';
       req.on('data', (chunk) => {
@@ -324,6 +342,7 @@ const server = http.createServer((req, res) => {
       });
       return;
     }
+
     if (req.url == '/refresh/member') {
       let body = '';
       req.on('data', (chunk) => {
@@ -361,6 +380,7 @@ const server = http.createServer((req, res) => {
       });
       return;
     }
+
     if (req.url == '/refresh/memberApplication') {
       let body = '';
       req.on('data', (chunk) => {
@@ -369,8 +389,8 @@ const server = http.createServer((req, res) => {
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
-          const { senderId, receiverId } = data;
-          if (!senderId || !receiverId) {
+          const { userId, serverId } = data;
+          if (!userId || !serverId) {
             throw new StandardizedError(
               '無效的資料',
               'ValidationError',
@@ -380,7 +400,7 @@ const server = http.createServer((req, res) => {
           }
           sendSuccess(res, {
             message: 'success',
-            data: await Get.memberApplication(senderId, receiverId),
+            data: await Get.memberApplication(userId, serverId),
           });
         } catch (error) {
           if (!(error instanceof StandardizedError)) {
@@ -398,6 +418,7 @@ const server = http.createServer((req, res) => {
       });
       return;
     }
+
     if (req.url == '/refresh/friend') {
       let body = '';
       req.on('data', (chunk) => {
@@ -435,6 +456,7 @@ const server = http.createServer((req, res) => {
       });
       return;
     }
+
     if (req.url == '/refresh/friendApplication') {
       let body = '';
       req.on('data', (chunk) => {
@@ -472,6 +494,232 @@ const server = http.createServer((req, res) => {
       });
       return;
     }
+    return;
+  }
+
+  if (req.method === 'GET' && req.url.startsWith('/images/')) {
+    try {
+      // Get the file path relative to uploads directory
+      const filePath = req.url
+        .replace('/images/', '/')
+        .split('?')[0]
+        .split('/');
+      const fileName = filePath.pop() || '__default.png';
+      const filePrefix = fileName.startsWith('__') ? '' : `upload-`;
+      const relativePath = path.join(...filePath);
+      const fullFilePath = path.join(
+        UPLOADS_DIR,
+        relativePath,
+        `${filePrefix}${fileName}`,
+      );
+
+      // console.log('req.url: ', req.url);
+      // console.log('filePath: ', filePath);
+      // console.log('fileName: ', fileName);
+      // console.log('relativePath: ', relativePath);
+      // console.log('fullFilePath: ', fullFilePath);
+
+      // Validate file path to prevent directory traversal
+      if (!fullFilePath.startsWith(UPLOADS_DIR)) {
+        throw new StandardizedError(
+          '無權限存取此檔案',
+          'ServerError',
+          'GETFILE',
+          'FILE_ACCESS_DENIED',
+          403,
+        );
+      }
+
+      // Read and serve the file
+      fs.readFile(fullFilePath)
+        .then((data) => {
+          res.writeHead(200, {
+            'Content-Type':
+              MIME_TYPES[path.extname(fileName).toLowerCase()] ||
+              'application/octet-stream',
+            'Cache-Control':
+              'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Expires': '0',
+            'Pragma': 'no-cache',
+          });
+
+          res.end(data);
+        })
+        .catch((error) => {
+          if (error.code === 'ENOENT') {
+            throw new StandardizedError(
+              '找不到檔案',
+              'ServerError',
+              'GETFILE',
+              'FILE_NOT_FOUND',
+              404,
+            );
+          } else {
+            throw new StandardizedError(
+              `讀取檔案失敗: ${error.message}`,
+              'ServerError',
+              'GETFILE',
+              'READ_FILE_FAILED',
+              500,
+            );
+          }
+        });
+    } catch (error) {
+      if (!(error instanceof StandardizedError)) {
+        error = new StandardizedError(
+          `讀取檔案時發生預期外的錯誤: ${error.message}`,
+          'ServerError',
+          'GETFILE',
+          'EXCEPTION_ERROR',
+          500,
+        );
+      }
+      sendError(res, error.status_code, error.error_message);
+      new Logger('Server').error(`Get file error: ${error.error_message}`);
+    }
+    return;
+  }
+
+  if (req.method == 'POST' && req.url == '/upload') {
+    const form = new formidable.IncomingForm();
+    form.parse(req, async (err, fields) => {
+      try {
+        if (err) throw new Error('Error parsing form data');
+
+        const { _type, _fileName, _file } = fields;
+        if (!_type || !_fileName || !_file) {
+          throw new StandardizedError(
+            '無效的資料',
+            'ValidationError',
+            'UPLOADAVATAR',
+            'DATA_INVALID',
+            400,
+          );
+        }
+        const { type, fileName, file } = {
+          type: _type[0],
+          fileName: _fileName[0],
+          file: _file[0],
+        };
+        if (!type || !fileName || !file) {
+          throw new StandardizedError(
+            '無效的資料',
+            'ValidationError',
+            'UPLOADAVATAR',
+            'DATA_INVALID',
+            400,
+          );
+        }
+        const matches = file.match(/^data:image\/(.*?);base64,/);
+        if (!matches) {
+          throw new StandardizedError(
+            '無效的檔案',
+            'ValidationError',
+            'UPLOADAVATAR',
+            'INVALID_FILE_TYPE',
+            400,
+          );
+        }
+        const ext = matches[1];
+        if (!MIME_TYPES[`.${ext}`]) {
+          throw new StandardizedError(
+            '無效的檔案類型',
+            'ValidationError',
+            'UPLOADAVATAR',
+            'INVALID_FILE_TYPE',
+            400,
+          );
+        }
+        const base64Data = file.replace(/^data:image\/\w+;base64,/, '');
+        const dataBuffer = Buffer.from(base64Data, 'base64');
+        if (dataBuffer.size > 5 * 1024 * 1024) {
+          throw new StandardizedError(
+            '檔案過大',
+            'ValidationError',
+            'UPLOADAVATAR',
+            'FILE_TOO_LARGE',
+            400,
+          );
+        }
+
+        const Path = () => {
+          switch (type) {
+            case 'server':
+              return SERVER_AVATAR_PATH;
+            case 'user':
+              return USER_AVATAR_PATH;
+            default:
+              return UPLOADS_PATH;
+          }
+        };
+
+        const Dir = () => {
+          switch (type) {
+            case 'server':
+              return SERVER_AVATAR_DIR;
+            case 'user':
+              return USER_AVATAR_DIR;
+            default:
+              return UPLOADS_DIR;
+          }
+        };
+
+        const filePrefix = 'upload-';
+        const fullFileName = `${fileName}.${ext}`;
+        const filePath = path.join(Dir(), `${filePrefix}${fullFileName}`);
+
+        try {
+          const files = await fs.readdir(Dir());
+          const matchingFiles = files.filter(
+            (file) =>
+              file.startsWith(`${filePrefix}${fileName}`) &&
+              !file.startsWith('__'),
+          );
+          await Promise.all(
+            matchingFiles.map((file) => fs.unlink(path.join(Dir(), file))),
+          );
+        } catch (error) {
+          if (error.code !== 'ENOENT') {
+            throw new StandardizedError(
+              '刪除檔案時發生預期外的錯誤',
+              'ServerError',
+              'UPLOADAVATAR',
+              'DELETE_FILE_FAILED',
+              500,
+            );
+          }
+        }
+
+        // Return Avatar Example:
+        // "test.jpg"
+
+        // Return Avatar URL Example:
+        // 'http://localhost:4500/images/serverAvatars/test.jpg'
+
+        await fs.writeFile(filePath, dataBuffer);
+        sendSuccess(res, {
+          message: 'success',
+          data: {
+            avatar: fileName,
+            avatarUrl: `http://localhost:4500/images/${Path()}/${fullFileName}`,
+          },
+        });
+      } catch (error) {
+        if (!(error instanceof StandardizedError)) {
+          error = new StandardizedError(
+            `上傳頭像時發生預期外的錯誤: ${error.message}`,
+            'ServerError',
+            'UPLOADAVATAR',
+            'EXCEPTION_ERROR',
+            500,
+          );
+        }
+        sendError(res, error.status_code, error.error_message);
+        new Logger('Server').error(
+          `Upload avatar error: ${error.error_message}`,
+        );
+      }
+    });
     return;
   }
 
@@ -532,4 +780,5 @@ process.on('unhandledRejection', (error) => {
 // Start Server
 server.listen(PORT, () => {
   new Logger('Server').success(`Server is running on port ${PORT} #2613216`);
+  Clean.setup();
 });

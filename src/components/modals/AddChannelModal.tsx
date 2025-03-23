@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useRef, useState } from 'react';
 
 // Types
-import { Channel, SocketServerEvent, User } from '@/types';
+import { Channel, Server } from '@/types';
 
 // Providers
 import { useSocket } from '@/providers/SocketProvider';
@@ -13,10 +12,11 @@ import popup from '@/styles/common/popup.module.css';
 import addChannel from '@/styles/popups/addChannel.module.css';
 
 // Services
-import { ipcService } from '@/services/ipc.service';
-import { apiService } from '@/services/api.service';
+import ipcService from '@/services/ipc.service';
+import refreshService from '@/services/refresh.service';
+
 // Utils
-import { createDefault } from '@/utils/default';
+import { createDefault } from '@/utils/createDefault';
 
 interface AddChannelModalProps {
   userId: string;
@@ -34,21 +34,24 @@ const AddChannelModal: React.FC<AddChannelModalProps> = React.memo(
     const refreshRef = useRef(false);
 
     // States
-    const [parentName, setParentName] = useState<Channel['name']>('');
-    const [channelName, setChannelName] = useState<Channel['name']>('');
+    const [parentName, setParentName] = useState<Channel['name']>(
+      createDefault.channel().name,
+    );
+    const [channelName, setChannelName] = useState<Channel['name']>(
+      createDefault.channel().name,
+    );
 
     // Variables
-    const { userId, categoryId, serverId } = initialData;
+    const { categoryId, serverId } = initialData;
     const isRoot = !categoryId;
 
     // Handlers
-    const handleClose = () => {
-      ipcService.window.close();
-    };
-
-    const handleCreateChannel = (channel: Partial<Channel>) => {
+    const handleCreateChannel = (
+      channel: Partial<Channel>,
+      serverId: Server['id'],
+    ) => {
       if (!socket) return;
-      socket.send.createChannel({ channel: channel, userId: userId });
+      socket.send.createChannel({ channel, serverId });
     };
 
     const handleChannelUpdate = (data: Channel | null) => {
@@ -56,15 +59,16 @@ const AddChannelModal: React.FC<AddChannelModalProps> = React.memo(
       setParentName(data.name);
     };
 
+    const handleClose = () => {
+      ipcService.window.close();
+    };
+
     // Effects
     useEffect(() => {
-      if (!categoryId) return;
-      if (refreshRef.current) return;
+      if (!categoryId || refreshRef.current) return;
       const refresh = async () => {
         refreshRef.current = true;
-        const channel = await apiService.post('/refresh/channel', {
-          channelId: categoryId,
-        });
+        const channel = await refreshService.channel({ channelId: categoryId });
         handleChannelUpdate(channel);
       };
       refresh();
@@ -104,12 +108,14 @@ const AddChannelModal: React.FC<AddChannelModalProps> = React.memo(
             }`}
             disabled={!channelName.trim()}
             onClick={() => {
-              handleCreateChannel({
-                name: channelName,
-                isRoot: isRoot,
-                categoryId: categoryId,
-                serverId: serverId,
-              });
+              handleCreateChannel(
+                {
+                  name: channelName,
+                  isRoot: isRoot,
+                  categoryId: categoryId,
+                },
+                serverId,
+              );
               handleClose();
             }}
           >

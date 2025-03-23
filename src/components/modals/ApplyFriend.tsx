@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -14,11 +13,11 @@ import { useSocket } from '@/providers/SocketProvider';
 import { useLanguage } from '@/providers/LanguageProvider';
 
 // Services
-import { ipcService } from '@/services/ipc.service';
-import { apiService } from '@/services/api.service';
+import ipcService from '@/services/ipc.service';
+import refreshService from '@/services/refresh.service';
 
 // Utils
-import { createDefault } from '@/utils/default';
+import { createDefault } from '@/utils/createDefault';
 
 interface ApplyFriendModalProps {
   userId: string;
@@ -35,20 +34,56 @@ const ApplyFriendModal: React.FC<ApplyFriendModalProps> = React.memo(
     const refreshRef = useRef(false);
 
     // State
-    const [userFriendGroups, setUserFriendGroups] = useState<FriendGroup[]>([]);
-    const [targetName, setTargetName] = useState<User['name']>('');
-    const [targetAvatar, setTargetAvatar] = useState<User['avatar']>('');
-    const [applicationDescription, setApplicationDescription] =
-      useState<FriendApplication['description']>('');
+    const [userFriendGroups, setUserFriendGroups] = useState<FriendGroup[]>(
+      createDefault.user().friendGroups || [],
+    );
+    const [targetName, setTargetName] = useState<User['name']>(
+      createDefault.user().name,
+    );
+    const [targetAvatar, setTargetAvatar] = useState<User['avatar']>(
+      createDefault.user().avatar,
+    );
+    const [applicationDescription, setApplicationDescription] = useState<
+      FriendApplication['description']
+    >(createDefault.friendApplication().description);
 
     // Variables
     const { userId, targetId } = initialData;
 
     // Handlers
-    const handleOpenSuccessDialog = () => {
+    const handleCreateFriendApplication = (
+      friendApplication: Partial<FriendApplication>,
+      userId: User['id'],
+      targetId: User['id'],
+    ) => {
+      if (!socket) return;
+      socket.send.createFriendApplication({
+        friendApplication,
+        userId,
+        targetId,
+      });
+    };
+
+    const handleUserUpdate = (data: User | null) => {
+      if (!data) data = createDefault.user();
+      setUserFriendGroups(data.friendGroups || []);
+    };
+
+    const handleTargetUpdate = (data: User | null) => {
+      if (!data) data = createDefault.user();
+      setTargetName(data.name);
+      setTargetAvatar(data.avatar);
+    };
+
+    const handleFriendApplicationUpdate = (data: FriendApplication | null) => {
+      if (!data) data = createDefault.friendApplication();
+      setApplicationDescription(data.description);
+    };
+
+    const handleOpenSuccessDialog = (message: string) => {
       ipcService.popup.open(PopupType.DIALOG_SUCCESS);
       ipcService.initialData.onRequest(PopupType.DIALOG_SUCCESS, {
-        title: lang.tr.friendApply,
+        title: message,
         submitTo: PopupType.DIALOG_SUCCESS,
       });
       ipcService.popup.onSubmit(PopupType.DIALOG_SUCCESS, () => {
@@ -60,50 +95,19 @@ const ApplyFriendModal: React.FC<ApplyFriendModalProps> = React.memo(
       ipcService.window.close();
     };
 
-    const handleCreateFriendApplication = (
-      application: Partial<FriendApplication>,
-    ) => {
-      if (!socket) return;
-      socket.send.createFriendApplication({ friendApplication: application });
-    };
-
-    const handleUserUpdate = (data: User | null) => {
-      if (!data) data = createDefault.user();
-      if (data.id === userId) {
-        setUserFriendGroups(data.friendGroups || []);
-      }
-      if (data.id === targetId) {
-        setTargetName(data.name);
-        setTargetAvatar(data.avatar);
-      }
-    };
-
-    const handleFriendApplicationUpdate = (data: FriendApplication | null) => {
-      if (!data) data = createDefault.friendApplication();
-      setApplicationDescription(data.description);
-    };
-
     // Effects
     useEffect(() => {
-      if (!userId || !targetId) return;
-      if (refreshRef.current) return;
+      if (!userId || !targetId || refreshRef.current) return;
       const refresh = async () => {
         refreshRef.current = true;
-        const user = await apiService.post('/refresh/user', {
-          userId: userId,
-        });
+        const user = await refreshService.user({ userId: userId });
         handleUserUpdate(user);
-        const target = await apiService.post('/refresh/user', {
-          userId: targetId,
+        const target = await refreshService.user({ userId: targetId });
+        handleTargetUpdate(target);
+        const friendApplication = await refreshService.friendApplication({
+          senderId: userId,
+          receiverId: targetId,
         });
-        handleUserUpdate(target);
-        const friendApplication = await apiService.post(
-          '/refresh/friendApplication',
-          {
-            senderId: userId,
-            receiverId: targetId,
-          },
-        );
         handleFriendApplicationUpdate(friendApplication);
       };
       refresh();
@@ -163,12 +167,12 @@ const ApplyFriendModal: React.FC<ApplyFriendModalProps> = React.memo(
             }`}
             disabled={!applicationDescription.trim()}
             onClick={() => {
-              handleCreateFriendApplication({
-                senderId: userId,
-                receiverId: targetId,
-                description: applicationDescription,
-              });
-              handleOpenSuccessDialog();
+              handleCreateFriendApplication(
+                { description: applicationDescription },
+                userId,
+                targetId,
+              );
+              handleOpenSuccessDialog(lang.tr.friendApply);
             }}
           >
             {lang.tr.sendRequest}

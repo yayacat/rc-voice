@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
@@ -12,7 +11,15 @@ import ChannelViewer from '@/components/viewers/ChannelViewer';
 import MessageInputBox from '@/components/MessageInputBox';
 
 // Types
-import { PopupType, User, Server, Message, Channel, Member } from '@/types';
+import {
+  PopupType,
+  User,
+  Server,
+  Message,
+  Channel,
+  Member,
+  SocketServerEvent,
+} from '@/types';
 
 // Providers
 import { useLanguage } from '@/providers/LanguageProvider';
@@ -20,20 +27,20 @@ import { useSocket } from '@/providers/SocketProvider';
 import { useWebRTC } from '@/providers/WebRTCProvider';
 
 // Services
-import { ipcService } from '@/services/ipc.service';
-import { apiService } from '@/services/api.service';
+import ipcService from '@/services/ipc.service';
+import refreshService from '@/services/refresh.service';
 
 // Utils
-import { createDefault } from '@/utils/default';
+import { createDefault } from '@/utils/createDefault';
 
 interface ServerPageProps {
   user: User;
   server: Server;
-  setServer: (server: Server) => void;
+  handleServerUpdate: (data: Partial<Server> | null) => void;
 }
 
 const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
-  ({ user, server, setServer }) => {
+  ({ user, server, handleServerUpdate }) => {
     // Hooks
     const lang = useLanguage();
     const socket = useSocket();
@@ -56,7 +63,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     const {
       id: serverId,
       name: serverName,
-      avatar: serverAvatar,
+      avatarUrl: serverAvatarUrl,
       displayId: serverDisplayId,
       announcement: serverAnnouncement,
       members: serverMembers = [],
@@ -69,9 +76,31 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     } = currentChannel;
 
     // Handlers
-    const handleSendMessage = (message: Message): void => {
+    const handleSendMessage = (
+      message: Partial<Message>,
+      channelId: Channel['id'],
+    ): void => {
       if (!socket) return;
-      socket.send.message({ message });
+      socket.send.message({ message, channelId });
+    };
+
+    const handleUpdateChannel = (
+      channel: Partial<Channel>,
+      channelId: Channel['id'],
+      serverId: Server['id'],
+    ) => {
+      if (!socket) return;
+      socket.send.updateChannel({ channel, channelId, serverId });
+    };
+
+    const handleChannelUpdate = (data: Partial<Channel> | null): void => {
+      if (!data) data = createDefault.channel();
+      setCurrentChannel((prev) => ({ ...prev, ...data }));
+    };
+
+    const handleMemberUpdate = (data: Partial<Member> | null): void => {
+      if (!data) data = createDefault.member();
+      setMember((prev) => ({ ...prev, ...data }));
     };
 
     const handleOpenServerSettings = (
@@ -80,8 +109,8 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     ) => {
       ipcService.popup.open(PopupType.EDIT_SERVER);
       ipcService.initialData.onRequest(PopupType.EDIT_SERVER, {
-        serverId: serverId,
-        userId: userId,
+        serverId,
+        userId,
       });
     };
 
@@ -91,8 +120,8 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     ) => {
       ipcService.popup.open(PopupType.APPLY_MEMBER);
       ipcService.initialData.onRequest(PopupType.APPLY_MEMBER, {
-        userId: userId,
-        serverId: serverId,
+        userId,
+        serverId,
       });
     };
 
@@ -115,31 +144,6 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       [isResizing],
     );
 
-    const handleChangeChatMode = (mode: Channel['chatMode']) => {
-      if (!socket) return;
-      socket.send.updateChannel({
-        channel: {
-          id: currentChannelId,
-          serverId: serverId,
-          chatMode: mode,
-        },
-        userId: userId,
-      });
-
-      handleSendMessage({
-        id: '',
-        type: 'info',
-        content:
-          mode === 'free'
-            ? lang.tr.changeToFreeSpeech
-            : lang.tr.changeToForbiddenSpeech,
-        senderId: userId,
-        recieverId: serverId,
-        channelId: currentChannelId,
-        timestamp: 0,
-      });
-    };
-
     // Effects
     useEffect(() => {
       window.addEventListener('mousemove', handleResize);
@@ -151,26 +155,41 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     }, [handleResize, handleStopResizing]);
 
     useEffect(() => {
-      if (!userId || !serverId || !setServer) return;
-      if (refreshed.current) return;
+      if (!socket) return;
+
+      const eventHandlers = {
+        [SocketServerEvent.CHANNEL_UPDATE]: handleChannelUpdate,
+      };
+      const unsubscribe: (() => void)[] = [];
+
+      Object.entries(eventHandlers).map(([event, handler]) => {
+        const unsub = socket.on[event as SocketServerEvent](handler);
+        unsubscribe.push(unsub);
+      });
+
+      return () => {
+        unsubscribe.forEach((unsub) => unsub());
+      };
+    }, [socket]);
+
+    useEffect(() => {
+      if (!userId || !serverId || refreshed.current) return;
       const refresh = async () => {
         refreshed.current = true;
-        const server = await apiService.post('/refresh/server', {
-          serverId: serverId,
-        });
-        setServer(server);
-        const channel = await apiService.post('/refresh/channel', {
+        const server = await refreshService.server({ serverId: serverId });
+        handleServerUpdate(server);
+        const channel = await refreshService.channel({
           channelId: userCurrentChannelId,
         });
-        setCurrentChannel(channel);
-        const member = await apiService.post('/refresh/member', {
+        handleChannelUpdate(channel);
+        const member = await refreshService.member({
           userId: userId,
           serverId: serverId,
         });
-        setMember(member);
+        handleMemberUpdate(member);
       };
       refresh();
-    }, [userId, serverId, setServer]);
+    }, [userId, serverId, userCurrentChannelId, handleServerUpdate]);
 
     useEffect(() => {
       ipcService.discord.updatePresence({
@@ -193,7 +212,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     useEffect(() => {
       if (!webRTC.updateBitrate || !channelBitrate) return;
       webRTC.updateBitrate(channelBitrate);
-    }, [webRTC.updateBitrate, channelBitrate]);
+    }, [webRTC, webRTC.updateBitrate, channelBitrate]);
 
     return (
       <div className={styles['serverWrapper']}>
@@ -208,7 +227,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
               <div className={styles['avatarBox']}>
                 <div
                   className={styles['avatarPicture']}
-                  style={{ backgroundImage: `url(${serverAvatar})` }}
+                  style={{ backgroundImage: `url(${serverAvatarUrl})` }}
                 />
               </div>
               <div className={styles['baseInfoBox']}>
@@ -270,15 +289,16 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
             <div className={styles['inputArea']}>
               <MessageInputBox
                 onSendMessage={(msg) => {
-                  handleSendMessage({
-                    id: '',
-                    type: 'general',
-                    content: msg,
-                    senderId: userId,
-                    recieverId: serverId,
-                    channelId: currentChannelId,
-                    timestamp: 0,
-                  });
+                  handleSendMessage(
+                    {
+                      id: '',
+                      type: 'general',
+                      content: msg,
+                      recieverId: serverId,
+                      timestamp: 0,
+                    },
+                    currentChannelId,
+                  );
                 }}
                 locked={
                   channelChatMode === 'forbidden' && member.permissionLevel < 3
@@ -304,7 +324,20 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                         <div
                           className={styles['dropdownItem']}
                           onClick={() => {
-                            handleChangeChatMode('free');
+                            handleUpdateChannel(
+                              { chatMode: 'free' },
+                              currentChannelId,
+                              serverId,
+                            );
+                            handleSendMessage(
+                              {
+                                id: '',
+                                type: 'info',
+                                content: lang.tr.changeToFreeSpeech,
+                                timestamp: 0,
+                              },
+                              currentChannelId,
+                            );
                             setIsDropdownOpen(false);
                           }}
                         >
@@ -315,7 +348,20 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                         <div
                           className={styles['dropdownItem']}
                           onClick={() => {
-                            handleChangeChatMode('forbidden');
+                            handleUpdateChannel(
+                              { chatMode: 'forbidden' },
+                              currentChannelId,
+                              serverId,
+                            );
+                            handleSendMessage(
+                              {
+                                id: '',
+                                type: 'info',
+                                content: lang.tr.changeToForbiddenSpeech,
+                                timestamp: 0,
+                              },
+                              currentChannelId,
+                            );
                             setIsDropdownOpen(false);
                           }}
                         >

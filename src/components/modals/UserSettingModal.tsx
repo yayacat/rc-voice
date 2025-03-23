@@ -9,15 +9,15 @@ import { useSocket } from '@/providers/SocketProvider';
 import { useLanguage } from '@/providers/LanguageProvider';
 
 // Services
-import { ipcService } from '@/services/ipc.service';
-import { apiService } from '@/services/api.service';
+import ipcService from '@/services/ipc.service';
 
 // CSS
 import UserSetting from '@/styles/popups/userSetting.module.css';
 import grade from '@/styles/common/grade.module.css';
 
 // Utils
-import { createDefault } from '@/utils/default';
+import { createDefault } from '@/utils/createDefault';
+import refreshService from '@/services/refresh.service';
 
 interface UserSettingModalProps {
   userId: string;
@@ -33,11 +33,21 @@ const UserSettingModal: React.FC<UserSettingModalProps> = React.memo(
     const refreshRef = useRef(false);
 
     // States
-    const [userName, setUserName] = useState<User['name']>('');
-    const [userGender, setUserGender] = useState<User['gender']>('Male');
-    const [userSignature, setUserSignature] = useState<User['signature']>('');
-    const [userAvatar, setUserAvatar] = useState<User['avatar']>('');
-    const [userLevel, setUserLevel] = useState<User['level']>(0);
+    const [userName, setUserName] = useState<User['name']>(
+      createDefault.user().name,
+    );
+    const [userGender, setUserGender] = useState<User['gender']>(
+      createDefault.user().gender,
+    );
+    const [userSignature, setUserSignature] = useState<User['signature']>(
+      createDefault.user().signature,
+    );
+    const [userAvatarUrl, setUserAvatarUrl] = useState<User['avatarUrl']>(
+      createDefault.user().avatarUrl,
+    );
+    const [userLevel, setUserLevel] = useState<User['level']>(
+      createDefault.user().level,
+    );
 
     // Variables
     const { userId } = initialData;
@@ -51,20 +61,9 @@ const UserSettingModal: React.FC<UserSettingModalProps> = React.memo(
     const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
     // Handlers
-    const handleClose = () => {
-      ipcService.window.close();
-    };
-
-    const handleUpdateUser = () => {
+    const handleUpdateUser = (user: Partial<User>, userId: User['id']) => {
       if (!socket) return;
-      socket.send.updateUser({
-        user: {
-          id: userId,
-          name: userName,
-          gender: userGender,
-          signature: userSignature,
-        },
-      });
+      socket.send.updateUser({ user, userId });
     };
 
     const handleUserUpdate = (data: User | null) => {
@@ -72,17 +71,19 @@ const UserSettingModal: React.FC<UserSettingModalProps> = React.memo(
       setUserName(data.name);
       setUserGender(data.gender);
       setUserSignature(data.signature);
+      setUserAvatarUrl(data.avatarUrl);
+    };
+
+    const handleClose = () => {
+      ipcService.window.close();
     };
 
     // Effects
     useEffect(() => {
-      if (!userId) return;
-      if (refreshRef.current) return;
+      if (!userId || refreshRef.current) return;
       const refresh = async () => {
         refreshRef.current = true;
-        const user = await apiService.post('/refresh/user', {
-          userId: userId,
-        });
+        const user = await refreshService.user({ userId: userId });
         handleUserUpdate(user);
       };
       refresh();
@@ -99,9 +100,7 @@ const UserSettingModal: React.FC<UserSettingModalProps> = React.memo(
             <div className={UserSetting['profile-header-avatar-border']}></div>
             <div
               className={UserSetting['profile-header-avatar']}
-              style={
-                userAvatar ? { backgroundImage: `url(${userAvatar})` } : {}
-              }
+              style={{ backgroundImage: `url(${userAvatarUrl})` }}
             />
             <div className={UserSetting['profile-header-user-info']}>
               <span className={UserSetting['profile-header-display-name']}>
@@ -126,7 +125,7 @@ const UserSettingModal: React.FC<UserSettingModalProps> = React.memo(
                   0
                 </span>
                 <span className={UserSetting['profile-header-country']}>
-                  台灣
+                  {/* {createDefault.user().country} */}
                 </span>
               </div>
             </div>
@@ -142,7 +141,14 @@ const UserSettingModal: React.FC<UserSettingModalProps> = React.memo(
               <div
                 className={`${UserSetting['profile-form-button']} ${UserSetting.blue}`}
                 onClick={() => {
-                  handleUpdateUser();
+                  handleUpdateUser(
+                    {
+                      name: userName,
+                      gender: userGender,
+                      signature: userSignature,
+                    },
+                    userId,
+                  );
                   handleClose();
                 }}
               >

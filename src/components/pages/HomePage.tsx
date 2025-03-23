@@ -15,16 +15,16 @@ import { useSocket } from '@/providers/SocketProvider';
 import { useLanguage } from '@/providers/LanguageProvider';
 
 // Services
-import { ipcService } from '@/services/ipc.service';
-import { apiService } from '@/services/api.service';
+import ipcService from '@/services/ipc.service';
+import refreshService from '@/services/refresh.service';
 
 interface HomePageProps {
   user: User;
-  setUser: (user: User) => void;
+  handleUserUpdate: (data: Partial<User> | null) => void;
 }
 
 const HomePageComponent: React.FC<HomePageProps> = React.memo(
-  ({ user, setUser }) => {
+  ({ user, handleUserUpdate }) => {
     // Hooks
     const lang = useLanguage();
     const socket = useSocket();
@@ -56,9 +56,7 @@ const HomePageComponent: React.FC<HomePageProps> = React.memo(
 
     const handleOpenCreateServer = (userId: User['id']) => {
       ipcService.popup.open(PopupType.CREATE_SERVER);
-      ipcService.initialData.onRequest(PopupType.CREATE_SERVER, {
-        userId: userId,
-      });
+      ipcService.initialData.onRequest(PopupType.CREATE_SERVER, { userId });
     };
 
     // Effects
@@ -81,17 +79,14 @@ const HomePageComponent: React.FC<HomePageProps> = React.memo(
     }, [socket]);
 
     useEffect(() => {
-      if (!userId || !setUser) return;
-      if (refreshed.current) return;
+      if (!userId || refreshed.current) return;
       const refresh = async () => {
         refreshed.current = true;
-        const user = await apiService.post('/refresh/user', {
-          userId: userId,
-        });
-        setUser(user);
+        const user = await refreshService.user({ userId: userId });
+        handleUserUpdate(user);
       };
       refresh();
-    }, [userId, setUser]);
+    }, [userId, handleUserUpdate]);
 
     useEffect(() => {
       if (!lang) return;

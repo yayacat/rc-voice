@@ -19,9 +19,9 @@ if (typeof window !== 'undefined' && window.require) {
   }
 }
 
-export const isElectron = !!ipcRenderer;
+const isElectron = !!ipcRenderer;
 
-export const ipcService = {
+const ipcService = {
   // Socket event methods
   sendSocketEvent: (event: SocketClientEvent, data: any) => {
     if (isElectron) {
@@ -139,6 +139,7 @@ export const ipcService = {
     open: (type: PopupType) => {
       const PopupSize = {
         // [PopupType.CREATE_FRIEND_GROUP]: { height: 600, width: 450 },
+        [PopupType.EDIT_MEMBER]: { height: 220, width: 320 },
         [PopupType.EDIT_USER]: { height: 650, width: 500 },
         [PopupType.CREATE_SERVER]: { height: 430, width: 520 },
         [PopupType.EDIT_SERVER]: { height: 450, width: 600 },
@@ -204,3 +205,5 @@ export const ipcService = {
     },
   },
 };
+
+export default ipcService;

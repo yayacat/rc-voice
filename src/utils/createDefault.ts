@@ -1,4 +1,3 @@
-// import DefaultAvatar from '../../../public/logo_server_def.png';
 import {
   User,
   Channel,
@@ -13,20 +12,12 @@ import {
   UserFriend,
 } from '@/types';
 
-// const defaultAvatar: string = await fetch(DefaultAvatar.src)
-//   .then((res) => res.blob())
-//   .then((blob) => {
-//     const reader = new FileReader();
-//     reader.onloadend = () => reader.result as string;
-//     reader.readAsDataURL(blob);
-//   })
-//   .catch((err) => console.error('預設圖片讀取失敗:', err));
-
 export const createDefault = {
   user: (overrides: Partial<User> = {}): User => ({
     id: '',
     name: '',
-    avatar: '',
+    avatar: `${Date.now()}`,
+    avatarUrl: 'http://localhost:4500/images/userAvatars/',
     signature: '',
     status: 'online',
     gender: 'Male',
@@ -63,7 +54,8 @@ export const createDefault = {
   server: (overrides: Partial<Server> = {}): Server => ({
     id: '',
     name: '',
-    avatar: '',
+    avatar: `${Date.now()}`,
+    avatarUrl: 'http://localhost:4500/images/serverAvatars/',
     announcement: '',
     description: '',
     slogan: '',
@@ -80,6 +72,7 @@ export const createDefault = {
   }),
 
   friend: (overrides: Partial<Friend> = {}): Friend => ({
+    id: '',
     isBlocked: false,
     friendGroupId: '',
     user1Id: '',
@@ -122,6 +115,7 @@ export const createDefault = {
     overrides: Partial<FriendApplication> = {},
   ): FriendApplication => ({
     description: '',
+    applicationStatus: 'pending',
     senderId: '',
     receiverId: '',
     ...createDefault.user(),
@@ -132,6 +126,7 @@ export const createDefault = {
     overrides: Partial<MemberApplication> = {},
   ): MemberApplication => ({
     description: '',
+    applicationStatus: 'pending',
     userId: '',
     serverId: '',
     ...createDefault.user(),

@@ -3,27 +3,31 @@ const { QuickDB } = require('quick.db');
 const db = new QuickDB();
 // Utils
 const utils = require('../utils');
-const StandardizedError = utils.standardizedError;
-const Logger = utils.logger;
-const Func = utils.func;
-const Get = utils.get;
-const Set = utils.set;
+const {
+  standardizedError: StandardizedError,
+  logger: Logger,
+  set: Set,
+  func: Func,
+} = utils;
 
 const friendHandler = {
   updateFriend: async (io, socket, data) => {
     // Get database
-    // const users = (await db.get('users')) || {};
+    const users = (await db.get('users')) || {};
     const friends = (await db.get('friends')) || {};
 
     try {
       // data = {
       //   userId: string
+      //   targetId: string
       //   friend: {
       //     ...
       //   }
       // }
-      const { friend: _editedFriend, userId } = data;
-      if (!_editedFriend || !userId) {
+
+      // Validate data
+      const { friend: _editedFriend, userId, targetId } = data;
+      if (!_editedFriend || !userId || !targetId) {
         throw new StandardizedError(
           '無效的資料',
           'ValidationError',
@@ -32,23 +36,17 @@ const friendHandler = {
           401,
         );
       }
-      // const user = await Func.validate.user(users[userId]);
+      const user = await Func.validate.user(users[userId]);
+      const target = await Func.validate.user(users[targetId]);
+      const friend = await Func.validate.friend(
+        friends[`fd-${user.id}_${target.id}`],
+      );
       const editedFriend = await Func.validate.friend(_editedFriend);
-      const friend = await Func.validate.friend(friends[editedFriend.id]);
 
       // Validate operation
-      await Func.validate.socket(socket);
-
-      // const userFriend = friends[`fd_${userId}_${friend.id}`];
-      // if (!userFriend) {
-      //   throw new StandardizedError(
-      //     `你不是此使用者的好友`,
-      //     'ValidationError',
-      //     'UPDATEFRIEND',
-      //     'OPERATOR_NOT_FRIEND',
-      //     403,
-      //   );
-      // }
+      const operatorId = await Func.validate.socket(socket);
+      const operator = await Func.validate.user(users[operatorId]);
+      // TODO: Add validation for operator
 
       // Update friend
       await Set.friend(friend.id, editedFriend);
@@ -56,7 +54,9 @@ const friendHandler = {
       // Emit data (only to the user)
       io.to(socket.id).emit('friendUpdate', editedFriend);
 
-      new Logger('Friend').success(`Friend(${friend.id}) updated`);
+      new Logger('Friend').success(
+        `Friend(${friend.id}) of User(${user.id}) and User(${target.id}) updated by User(${operator.id})`,
+      );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
         error = new StandardizedError(

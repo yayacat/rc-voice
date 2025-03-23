@@ -26,7 +26,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner';
 
 // Utils
 import { errorHandler, StandardizedError } from '@/utils/errorHandler';
-import { createDefault } from '@/utils/default';
+import { createDefault } from '@/utils/createDefault';
 
 // Providers
 import WebRTCProvider from '@/providers/WebRTCProvider';
@@ -34,7 +34,7 @@ import { useSocket } from '@/providers/SocketProvider';
 import { useLanguage } from '@/providers/LanguageProvider';
 
 // Services
-import { ipcService } from '@/services/ipc.service';
+import ipcService from '@/services/ipc.service';
 import authService from '@/services/auth.service';
 
 interface HeaderProps {
@@ -73,22 +73,18 @@ const Header: React.FC<HeaderProps> = React.memo(
     ];
 
     // Handlers
+    const handleLeaveServer = (userId: User['id'], serverId: Server['id']) => {
+      if (!socket) return;
+      socket.send.disconnectServer({ userId, serverId });
+    };
+
+    const handleUpdateStatus = (status: User['status'], userId: User['id']) => {
+      if (!socket) return;
+      socket.send.updateUser({ user: { status }, userId });
+    };
+
     const handleLogout = () => {
       authService.logout();
-    };
-
-    const handleLeaveServer = () => {
-      if (!socket) return;
-      socket.send.disconnectServer({ serverId: serverId, userId: userId });
-    };
-
-    const handleUpdateStatus = (status: User['status']) => {
-      if (!socket) return;
-      socket.send.updateUser({ user: { id: userId, status } });
-    };
-
-    const handleCreateError = (error: StandardizedError) => {
-      new errorHandler(error).show();
     };
 
     const handleFullscreen = () => {
@@ -119,6 +115,11 @@ const Header: React.FC<HeaderProps> = React.memo(
       ipcService.initialData.onRequest(PopupType.EDIT_USER, {
         user: user,
       });
+    };
+
+    // TEMP: for testing
+    const handleCreateError = (error: StandardizedError) => {
+      new errorHandler(error).show();
     };
 
     return (
@@ -154,7 +155,7 @@ const Header: React.FC<HeaderProps> = React.memo(
                   className={header['option']}
                   datatype={option.status}
                   onClick={() => {
-                    handleUpdateStatus(option.status as User['status']);
+                    handleUpdateStatus(option.status as User['status'], userId);
                     setShowStatusDropdown(false);
                   }}
                 />
@@ -183,7 +184,7 @@ const Header: React.FC<HeaderProps> = React.memo(
                 <div className={header['tabBg']}></div>
                 {TabClose && (
                   <CircleX
-                    onClick={() => handleLeaveServer()}
+                    onClick={() => handleLeaveServer(userId, serverId)}
                     size={16}
                     className={header['tabClose']}
                   />
@@ -339,6 +340,38 @@ const Home = () => {
     'home' | 'friends' | 'server'
   >('home');
 
+  // Handlers
+  const handleConnect = () => {
+    setSelectedTabId('home');
+  };
+
+  const handleDisconnect = () => {
+    setSelectedTabId('home');
+    setUser(createDefault.user());
+    setServer(createDefault.server());
+  };
+
+  const handleError = (error: StandardizedError) => {
+    new errorHandler(error).show();
+  };
+
+  const handleUserUpdate = (data: Partial<User> | null) => {
+    if (!data) data = createDefault.user();
+    setUser((prev) => ({ ...prev, ...data }));
+  };
+
+  const handleServerUpdate = (data: Partial<Server> | null) => {
+    setSelectedTabId(data ? 'server' : 'home');
+    if (!data) data = createDefault.server();
+    setServer((prev) => ({ ...prev, ...data }));
+  };
+
+  const handleOpenPopup = (data: any) => {
+    const { popupType, initialData } = data;
+    ipcService.popup.open(popupType);
+    ipcService.initialData.onRequest(popupType, initialData);
+  };
+
   // Effects
   useEffect(() => {
     if (!socket) return;
@@ -369,49 +402,21 @@ const Home = () => {
     if (language) lang.set(language as LanguageKey);
   }, [lang]);
 
-  // Handlers
-  const handleConnect = () => {
-    console.log('Socket connected');
-    setSelectedTabId('home');
-  };
-
-  const handleDisconnect = () => {
-    console.log('Socket disconnected');
-    setUser(createDefault.user());
-    setServer(createDefault.server());
-    setSelectedTabId('home');
-  };
-
-  const handleError = (error: StandardizedError) => {
-    new errorHandler(error).show();
-  };
-
-  const handleUserUpdate = (data: Partial<User> | null) => {
-    if (!data) data = createDefault.user();
-    setUser((prev) => ({ ...prev, ...data }));
-  };
-
-  const handleServerUpdate = (data: Partial<Server> | null) => {
-    setSelectedTabId(data ? 'server' : 'home');
-    if (!data) data = createDefault.server();
-    setServer((prev) => ({ ...prev, ...data }));
-  };
-
-  const handleOpenPopup = (data: any) => {
-    const { popupType, initialData } = data;
-    ipcService.popup.open(popupType);
-    ipcService.initialData.onRequest(popupType, initialData);
-  };
-
   const getMainContent = () => {
     if (!socket) return <LoadingSpinner />;
     switch (selectedTabId) {
       case 'home':
-        return <HomePage user={user} setUser={setUser} />;
+        return <HomePage user={user} handleUserUpdate={handleUserUpdate} />;
       case 'friends':
-        return <FriendPage user={user} setUser={setUser} />;
+        return <FriendPage user={user} handleUserUpdate={handleUserUpdate} />;
       case 'server':
-        return <ServerPage user={user} server={server} setServer={setServer} />;
+        return (
+          <ServerPage
+            user={user}
+            server={server}
+            handleServerUpdate={handleServerUpdate}
+          />
+        );
     }
   };
 

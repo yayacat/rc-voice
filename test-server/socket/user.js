@@ -3,12 +3,14 @@ const { QuickDB } = require('quick.db');
 const db = new QuickDB();
 // Utils
 const utils = require('../utils');
-const StandardizedError = utils.standardizedError;
-const Logger = utils.logger;
-const Map = utils.map;
-const Get = utils.get;
-const Set = utils.set;
-const Func = utils.func;
+const {
+  standardizedError: StandardizedError,
+  logger: Logger,
+  map: Map,
+  get: Get,
+  set: Set,
+  func: Func,
+} = utils;
 // Handlers
 const serverHandler = require('./server');
 const channelHandler = require('./channel');
@@ -36,7 +38,6 @@ const userHandler = {
 
       // Validate operation
       await Func.validate.socket(socket);
-
       // TODO: implement search results
 
       // Emit data (only to the user)
@@ -60,6 +61,7 @@ const userHandler = {
       );
     }
   },
+
   connectUser: async (io, socket) => {
     const users = (await db.get('users')) || {};
 
@@ -69,12 +71,11 @@ const userHandler = {
       const user = await Func.validate.user(users[userId]);
 
       // Check if user is already connected
-      for (const [_socketId, _userId] of Map.socketToUser) {
-        if (_userId === userId) {
-          // FIXME: cant not disconnect exist socket connection
-          io.to(_socketId).emit('userDisconnect', null);
+      io.sockets.sockets.forEach((_socket) => {
+        if (_socket.userId === socket.userId && _socket.id !== socket.id) {
+          _socket.disconnect();
         }
-      }
+      });
 
       // Emit data (only to the user)
       io.to(socket.id).emit('userUpdate', await Get.user(user.id));
@@ -102,6 +103,7 @@ const userHandler = {
       );
     }
   },
+
   disconnectUser: async (io, socket) => {
     // Get database
     const users = (await db.get('users')) || {};
@@ -158,6 +160,7 @@ const userHandler = {
       );
     }
   },
+
   updateUser: async (io, socket, data) => {
     // Get database
     const users = (await db.get('users')) || {};
@@ -170,8 +173,8 @@ const userHandler = {
       // }
 
       // Validate data
-      const { user: editedUser } = data;
-      if (!editedUser) {
+      const { user: _editedUser, userId } = data;
+      if (!_editedUser || !userId) {
         throw new StandardizedError(
           '無效的資料',
           'ValidationError',
@@ -180,14 +183,13 @@ const userHandler = {
           401,
         );
       }
-      const user = await Func.validate.user(users[editedUser.id]);
+      const user = await Func.validate.user(users[userId]);
+      const editedUser = await Func.validate.user(_editedUser);
 
       // Validate operation
-      await Func.validate.socket(socket);
-
-      if (editedUser.avatar) {
-        editedUser.avatar = await Func.generateImageData(editedUser.avatar);
-      }
+      const operatorId = await Func.validate.socket(socket);
+      const operator = await Func.validate.user(users[operatorId]);
+      // TODO: Add validation for operator
 
       // Update user data
       await Set.user(user.id, editedUser);
@@ -195,7 +197,9 @@ const userHandler = {
       // Emit data (only to the user)
       io.to(socket.id).emit('userUpdate', editedUser);
 
-      new Logger('WebSocket').success(`User(${user.id}) updated`);
+      new Logger('WebSocket').success(
+        `User(${user.id}) updated by User(${operator.id})`,
+      );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
         error = new StandardizedError(

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-require-imports */
 const path = require('path');
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const serve = require('electron-serve');
 const net = require('net');
 const DiscordRPC = require('discord-rpc');
@@ -34,9 +34,13 @@ const SocketClientEvent = {
   UPDATE_FRIEND_GROUP: 'updateFriendGroup',
   DELETE_FRIEND_GROUP: 'deleteFriendGroup',
   // Member
+  CREATE_MEMBER: 'createMember',
   UPDATE_MEMBER: 'updateMember',
+  DELETE_MEMBER: 'deleteMember',
   // Friend
+  CREATE_FRIEND: 'createFriend',
   UPDATE_FRIEND: 'updateFriend',
+  DELETE_FRIEND: 'deleteFriend',
   // Member Application
   CREATE_MEMBER_APPLICATION: 'createMemberApplication',
   UPDATE_MEMBER_APPLICATION: 'updateMemberApplication',
@@ -220,6 +224,11 @@ async function createMainWindow() {
     mainWindow.webContents.send(
       mainWindow.isMaximized() ? 'window-maximized' : 'window-unmaximized',
     );
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
   });
 
   mainWindow.webContents.on('close', () => {

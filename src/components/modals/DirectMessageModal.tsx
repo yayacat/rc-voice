@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useRef, useState } from 'react';
 
@@ -14,10 +13,11 @@ import MessageViewer from '@/components/viewers/MessageViewer';
 import MessageInputBox from '@/components/MessageInputBox';
 
 // Services
-import { apiService } from '@/services/api.service';
+import ipcService from '@/services/ipc.service';
+import refreshService from '@/services/refresh.service';
 
 // Utils
-import { createDefault } from '@/utils/default';
+import { createDefault } from '@/utils/createDefault';
 
 interface DirectMessageModalProps {
   friendId: string;
@@ -34,42 +34,50 @@ const DirectMessageModal: React.FC<DirectMessageModalProps> = React.memo(
     const refreshRef = useRef(false);
 
     // States
-    const [friendAvatar, setFriendAvatar] = useState<User['avatar']>('');
-    const [friendName, setFriendName] = useState<User['name']>('');
-    const [friendLevel, setFriendLevel] = useState<User['level']>(0);
+    const [friendAvatar, setFriendAvatar] = useState<User['avatar']>(
+      createDefault.user().avatar,
+    );
+    const [friendName, setFriendName] = useState<User['name']>(
+      createDefault.user().name,
+    );
+    const [friendLevel, setFriendLevel] = useState<User['level']>(
+      createDefault.user().level,
+    );
 
     // Variables
     const { friendId, userId } = initialData;
     const friendGrade = Math.min(56, Math.ceil(friendLevel / 5)); // 56 is max level
 
     // Handlers
-    const handleSendMessage = (directMessage: DirectMessage) => {
+    const handleSendMessage = (
+      directMessage: Partial<DirectMessage>,
+      friendId: User['id'],
+    ) => {
       if (!socket) return;
-      socket.send.directMessage({ directMessage });
+      socket.send.directMessage({ directMessage, friendId });
     };
 
-    const handleUserUpdate = (data: User | null) => {
+    const handleFriendUpdate = (data: User | null) => {
       if (!data) data = createDefault.user();
-      if (data.id === friendId) {
-        setFriendAvatar(data.avatar);
-        setFriendName(data.name);
-        setFriendLevel(data.level);
-      }
+      setFriendAvatar(data.avatar);
+      setFriendName(data.name);
+      setFriendLevel(data.level);
+    };
+
+    const handleClose = () => {
+      ipcService.window.close();
     };
 
     // Effects
     useEffect(() => {
-      if (!userId) return;
-      if (refreshRef.current) return;
+      if (!userId || !friendId || refreshRef.current) return;
       const refresh = async () => {
         refreshRef.current = true;
-        const friend = await apiService.post('/refresh/user', {
-          userId: friendId,
-        });
-        handleUserUpdate(friend);
+        const friend = await refreshService.user({ userId: friendId });
+        handleFriendUpdate(friend);
       };
       refresh();
-    }, [userId]);
+    }, [userId, friendId]);
 
     return null;
     // <Modal title={friendName} onClose={onClose} width="600px" height="600px">
