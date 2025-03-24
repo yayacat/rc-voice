@@ -6,7 +6,7 @@ import { ContextMenuItem, ServerMember } from '@/types';
 
 // Components
 import ContextMenu from '@/components/ContextMenu';
-import UserInfoBlock from '@/components/UserInfoBlock';
+import UserInfoCard from '@/components/UserInfoCard';
 
 interface ContextMenuContextType {
   showContextMenu: (x: number, y: number, items: ContextMenuItem[]) => void;
@@ -31,25 +31,25 @@ const ContextMenuProvider = ({ children }: ContextMenuProviderProps) => {
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest('.context-menu')) {
-        closeContextMenu();
-      }
+      if ((e.target as HTMLElement).closest('.context-menu')) return;
+      if (isVisible) closeContextMenu();
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        closeContextMenu();
-      }
+      if (e.key != 'Escape') return;
+      if (isVisible) closeContextMenu();
     };
 
     document.addEventListener('click', handleClick);
     document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('contextmenu', handleClick);
 
     return () => {
       document.removeEventListener('click', handleClick);
       document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('contextmenu', handleClick);
     };
-  }, []);
+  }, [isVisible]);
 
   const showContextMenu = (x: number, y: number, items: ContextMenuItem[]) => {
     setContent(
@@ -64,7 +64,7 @@ const ContextMenuProvider = ({ children }: ContextMenuProviderProps) => {
   };
 
   const showUserInfoBlock = (x: number, y: number, member: ServerMember) => {
-    setContent(<UserInfoBlock x={x} y={y} member={member} />);
+    setContent(<UserInfoCard x={x} y={y} member={member} />);
     setIsVisible(true);
   };
 

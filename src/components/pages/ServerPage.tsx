@@ -25,6 +25,7 @@ import {
 import { useLanguage } from '@/providers/LanguageProvider';
 import { useSocket } from '@/providers/SocketProvider';
 import { useWebRTC } from '@/providers/WebRTCProvider';
+import { useContextMenu } from '@/providers/ContextMenuProvider';
 
 // Services
 import ipcService from '@/services/ipc.service';
@@ -45,7 +46,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     const lang = useLanguage();
     const socket = useSocket();
     const webRTC = useWebRTC();
-
+    const contextMenu = useContextMenu();
     // Refs
     const refreshed = useRef(false);
 
@@ -57,6 +58,12 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     );
     const [member, setMember] = useState<Member>(createDefault.member());
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [showMicVolume, setShowMicVolume] = useState(false);
+    const [showSpeakerVolume, setShowSpeakerVolume] = useState(false);
+    const [micVolume, setMicVolume] = useState(webRTC.micVolume || 100);
+    const [speakerVolume, setSpeakerVolume] = useState(
+      webRTC.speakerVolume || 100,
+    );
 
     // Variables
     const { id: userId, currentChannelId: userCurrentChannelId } = user;
@@ -144,6 +151,44 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       [isResizing],
     );
 
+    const handleMicVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = parseInt(e.target.value);
+      setMicVolume(value);
+      webRTC.updateMicVolume?.(value);
+    };
+
+    const handleSpeakerVolumeChange = (
+      e: React.ChangeEvent<HTMLInputElement>,
+    ) => {
+      const value = parseInt(e.target.value);
+      setSpeakerVolume(value);
+      webRTC.updateSpeakerVolume?.(value);
+    };
+
+    const handleClickOutside = useCallback((e: MouseEvent) => {
+      const micContainer = document.querySelector(
+        `.${styles['micVolumeContainer']}`,
+      );
+      const speakerContainer = document.querySelector(
+        `.${styles['speakerVolumeContainer']}`,
+      );
+
+      if (
+        !micContainer?.contains(e.target as Node) &&
+        !speakerContainer?.contains(e.target as Node)
+      ) {
+        setShowMicVolume(false);
+        setShowSpeakerVolume(false);
+      }
+    }, []);
+
+    useEffect(() => {
+      document.addEventListener('click', handleClickOutside);
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
+      };
+    }, [handleClickOutside]);
+
     // Effects
     useEffect(() => {
       window.addEventListener('mousemove', handleResize);
@@ -194,7 +239,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     useEffect(() => {
       ipcService.discord.updatePresence({
         details: `${lang.tr.in} ${serverName}`,
-        state: `${lang.tr.with} ${serverMembers.length} `,
+        state: `${lang.tr.with} ${serverMembers.length} ${lang.tr.chatWithMembers}`,
         largeImageKey: 'app_icon',
         largeImageText: 'RC Voice',
         smallImageKey: 'home_icon',
@@ -309,11 +354,106 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
               <div className={styles['buttons']}>
                 <div
                   className={styles['voiceModeDropdown']}
-                  onClick={() =>
-                    member &&
-                    member.permissionLevel > 2 &&
-                    setIsDropdownOpen(!isDropdownOpen)
-                  }
+                  onClick={(e) => {
+                    if (member && member.permissionLevel < 2) return;
+                    contextMenu.showContextMenu(e.clientX, e.clientY, [
+                      {
+                        id: 'freeSpeech',
+                        label: lang.tr.freeSpeech,
+                        onClick: () => {
+                          handleUpdateChannel(
+                            { voiceMode: 'free', chatMode: 'free' },
+                            currentChannelId,
+                            serverId,
+                          );
+                          handleSendMessage(
+                            {
+                              type: 'info',
+                              content: lang.tr.changeToFreeSpeech,
+                              timestamp: 0,
+                            },
+                            currentChannelId,
+                          );
+                        },
+                      },
+                      {
+                        id: 'forbiddenSpeech',
+                        label: lang.tr.forbiddenSpeech,
+                        onClick: () => {
+                          handleUpdateChannel(
+                            { voiceMode: 'forbidden', chatMode: 'forbidden' },
+                            currentChannelId,
+                            serverId,
+                          );
+                          handleSendMessage(
+                            {
+                              type: 'info',
+                              content: lang.tr.changeToForbiddenSpeech,
+                              timestamp: 0,
+                            },
+                            currentChannelId,
+                          );
+                        },
+                      },
+                      {
+                        id: 'queue',
+                        label: '排麥',
+                        icon: 'submenu',
+                        hasSubmenu: true,
+                        submenuItems: [
+                          {
+                            id: 'general',
+                            label: '一般',
+                            onClick: () => {
+                              handleUpdateChannel(
+                                {
+                                  voiceMode: 'queue',
+                                  // queueMode: 'general',
+                                },
+                                currentChannelId,
+                                serverId,
+                              );
+                              handleSendMessage(
+                                {
+                                  type: 'info',
+                                  content: '排麥模式已變更為一般',
+                                },
+                                currentChannelId,
+                              );
+                            },
+                          },
+                          {
+                            id: 'forbiddenQueue',
+                            label: '禁止排麥',
+                            onClick: () => {
+                              // handleUpdateChannel({ queueMode: 'forbidden' }, currentChannelId, serverId);
+                              handleSendMessage(
+                                {
+                                  type: 'info',
+                                  content: '排麥模式已變更為禁止',
+                                },
+                                currentChannelId,
+                              );
+                            },
+                          },
+                          {
+                            id: 'controlQueue',
+                            label: '控麥',
+                            onClick: () => {
+                              // handleUpdateChannel({ queueMode: 'control' }, currentChannelId, serverId);
+                              handleSendMessage(
+                                {
+                                  type: 'info',
+                                  content: '排麥模式已變更為控麥',
+                                },
+                                currentChannelId,
+                              );
+                            },
+                          },
+                        ],
+                      },
+                    ]);
+                  }}
                 >
                   {channelChatMode === 'free'
                     ? lang.tr.freeSpeech
@@ -387,13 +527,56 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
               <div className={styles['buttons']}>
                 <div className={styles['bkgModeButton']}>{lang.tr.mixing}</div>
                 <div className={styles['saperator']} />
-                <div
-                  className={`${styles['micModeButton']} ${
-                    webRTC.isMute ? '' : styles['active']
-                  }`}
-                  onClick={() => webRTC.toggleMute?.()}
-                />
-                <div className={styles['speakerButton']} />
+                <div className={styles['micVolumeContainer']}>
+                  <div
+                    className={`${styles['micModeButton']} ${
+                      webRTC.isMute || micVolume === 0
+                        ? styles['muted']
+                        : styles['active']
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMicVolume(!showMicVolume);
+                      setShowSpeakerVolume(false);
+                    }}
+                  />
+                  {showMicVolume && (
+                    <div className={styles['volumeSlider']}>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={micVolume}
+                        onChange={handleMicVolumeChange}
+                        className={styles['slider']}
+                      />
+                    </div>
+                  )}
+                </div>
+                <div className={styles['speakerVolumeContainer']}>
+                  <div
+                    className={`${styles['speakerButton']} ${
+                      speakerVolume === 0 ? styles['muted'] : ''
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSpeakerVolume(!showSpeakerVolume);
+                      setShowMicVolume(false);
+                    }}
+                  />
+                  {showSpeakerVolume && (
+                    <div className={styles['volumeSlider']}>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={speakerVolume}
+                        onChange={handleSpeakerVolumeChange}
+                        className={styles['slider']}
+                      />
+                    </div>
+                  )}
+                </div>
                 <div className={styles['recordModeButton']} />
               </div>
             </div>

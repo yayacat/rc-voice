@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Edit, Plus, Trash } from 'lucide-react';
 
 // CSS
 import styles from '@/styles/serverPage.module.css';
@@ -46,11 +45,7 @@ const CategoryTab: React.FC<CategoryTabProps> = React.memo(
     const { channels: serverChannels = [] } = server;
     const { id: userId } = user;
     const { id: serverId } = server;
-    const {
-      id: categoryId,
-      name: categoryName,
-      isRoot: categoryIsRoot,
-    } = category;
+    const { id: categoryId, name: categoryName } = category;
     const categoryChannels = serverChannels
       .filter((ch) => ch.type === 'channel')
       .filter((ch) => ch.categoryId === categoryId);
@@ -72,13 +67,13 @@ const CategoryTab: React.FC<CategoryTabProps> = React.memo(
 
     const handleOpenCreateChannel = (
       serverId: Server['id'],
-      parentId: Category['id'] | null,
+      categoryId: Category['id'],
       userId: User['id'],
     ) => {
       ipcService.popup.open(PopupType.CREATE_CHANNEL);
       ipcService.initialData.onRequest(PopupType.CREATE_CHANNEL, {
         serverId,
-        parentId,
+        categoryId,
         userId,
       });
     };
@@ -116,22 +111,19 @@ const CategoryTab: React.FC<CategoryTabProps> = React.memo(
             contextMenu.showContextMenu(e.pageX, e.pageY, [
               {
                 id: 'edit',
-                icon: <Edit size={14} className="w-5 h-5 mr-2" />,
                 label: lang.tr.edit,
                 show: canEdit,
                 onClick: () => handleOpenEditChannel(categoryId, serverId),
               },
               {
                 id: 'add',
-                icon: <Plus size={14} className="w-5 h-5 mr-2" />,
                 label: lang.tr.add,
-                show: canEdit && !categoryIsRoot,
+                show: canEdit,
                 onClick: () =>
                   handleOpenCreateChannel(serverId, categoryId, userId),
               },
               {
                 id: 'delete',
-                icon: <Trash size={14} className="w-5 h-5 mr-2" />,
                 label: lang.tr.delete,
                 show: canEdit,
                 onClick: () => handleOpenWarning(lang.tr.warningDeleteChannel),
@@ -193,6 +185,7 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
       (mb) => mb.currentChannelId === channelId,
     );
     const userInChannel = user.currentChannelId === channelId;
+    const member = serverMembers.find((mb) => mb.userId === userId);
 
     // Expanded Control
     const [expanded, setExpanded] = useState<boolean>(true);
@@ -211,13 +204,13 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
 
     const handleOpenCreateChannel = (
       serverId: Server['id'],
-      parentId: Category['id'] | null,
+      categoryId: Channel['id'],
       userId: User['id'],
     ) => {
       ipcService.popup.open(PopupType.CREATE_CHANNEL);
       ipcService.initialData.onRequest(PopupType.CREATE_CHANNEL, {
         serverId,
-        parentId,
+        categoryId,
         userId,
       });
     };
@@ -263,29 +256,32 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
             setExpanded(channelVisibility != 'readonly' ? !expanded : false)
           }
           onDoubleClick={() => {
-            if (userInChannel || channelVisibility === 'readonly') return;
+            if (
+              userInChannel ||
+              channelVisibility === 'readonly' ||
+              (channelVisibility === 'private' &&
+                (!member || member.permissionLevel < 2))
+            )
+              return;
             handleJoinChannel(userId, channelId);
           }}
           onContextMenu={(e) => {
             contextMenu.showContextMenu(e.pageX, e.pageY, [
               {
                 id: 'edit',
-                icon: <Edit size={14} className="w-5 h-5 mr-2" />,
                 label: lang.tr.edit,
                 show: canEdit,
                 onClick: () => handleOpenEditChannel(channelId, serverId),
               },
               {
                 id: 'add',
-                icon: <Plus size={14} className="w-5 h-5 mr-2" />,
                 label: lang.tr.add,
-                show: canEdit && !channelIsLobby && !channelIsRoot,
+                show: canEdit && !channelIsLobby && !channel.categoryId,
                 onClick: () =>
                   handleOpenCreateChannel(serverId, channelId, userId),
               },
               {
                 id: 'delete',
-                icon: <Trash size={14} className="w-5 h-5 mr-2" />,
                 label: lang.tr.delete,
                 show: canEdit && !channelIsLobby,
                 onClick: () => handleOpenWarning(lang.tr.warningDeleteChannel),
@@ -294,9 +290,11 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
           }}
         >
           <div className={styles['channelTabLable']}>{channelName}</div>
-          <div className={styles['channelTabCount']}>
-            {`(${channelMembers.length})`}
-          </div>
+          {channelVisibility !== 'readonly' && (
+            <div className={styles['channelTabCount']}>
+              {`(${channelMembers.length})`}
+            </div>
+          )}
           {userInChannel && !expanded && (
             <div className={styles['myLocationIcon']} />
           )}
@@ -348,7 +346,7 @@ const UserTab: React.FC<UserTabProps> = React.memo(
       badges: channelMemberBadges = [],
     } = channelMember;
     const channelMemberGrade = Math.min(56, Math.ceil(channelMemberLevel / 5)); // 56 is max level
-    const isCurrentUser = userId === channelMemberId;
+    const isCurrentUser = userId === channelMemberUserId;
 
     // Handlers
     const handleOpenApplyFriend = (
@@ -374,7 +372,6 @@ const UserTab: React.FC<UserTabProps> = React.memo(
             contextMenu.showContextMenu(e.pageX, e.pageY, [
               {
                 id: 'kick',
-                icon: <Trash size={14} className="w-5 h-5 mr-2" />,
                 label: lang.tr.kick,
                 show: canEdit && !isCurrentUser,
                 onClick: () => {
@@ -383,7 +380,6 @@ const UserTab: React.FC<UserTabProps> = React.memo(
               },
               {
                 id: 'addFriend',
-                icon: <Plus size={14} className="w-5 h-5 mr-2" />,
                 label: lang.tr.addFriend,
                 show: canEdit && !isCurrentUser,
                 onClick: () =>
@@ -447,15 +443,11 @@ const ChannelViewer: React.FC<ChannelViewerProps> = ({
   const canEdit = memberPermission >= 5;
 
   // Handlers
-  const handleOpenCreateChannel = (
-    serverId: Server['id'],
-    parentId: Category['id'] | null,
-    userId: User['id'],
-  ) => {
+  const handleCreateRootChannel = () => {
     ipcService.popup.open(PopupType.CREATE_CHANNEL);
     ipcService.initialData.onRequest(PopupType.CREATE_CHANNEL, {
       serverId,
-      parentId,
+      categoryId: null,
       userId,
     });
   };
@@ -489,27 +481,30 @@ const ChannelViewer: React.FC<ChannelViewerProps> = ({
           </div>
         </>
       )}
-      {/* Saperator */}
+
+      {/* Separator */}
       <div className={styles['saperator-2']} />
-      {/* All Channels */}
+
+      {/* Channel List Title */}
       <div
         className={styles['sectionTitle']}
         onContextMenu={(e) => {
           contextMenu.showContextMenu(e.pageX, e.pageY, [
             {
               id: 'addChannel',
-              icon: <Plus size={14} className="w-5 h-5 mr-2" />,
               label: lang.tr.add,
               show: canEdit,
-              onClick: () => handleOpenCreateChannel(serverId, null, userId),
+              onClick: handleCreateRootChannel,
             },
           ]);
         }}
       >
         {lang.tr.allChannel}
       </div>
+
       {/* Channel List */}
       <div className={styles['channelList']}>
+        {/* Categories and Root Channels */}
         {serverChannels
           .filter((c) => c.isRoot)
           .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
@@ -519,7 +514,7 @@ const ChannelViewer: React.FC<ChannelViewerProps> = ({
                 key={item.id}
                 user={user}
                 server={server}
-                category={item}
+                category={item as Category}
                 canEdit={canEdit}
               />
             ) : (
