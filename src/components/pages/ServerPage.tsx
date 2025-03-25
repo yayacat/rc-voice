@@ -7,7 +7,9 @@ import styles from '@/styles/serverPage.module.css';
 // Components
 import MarkdownViewer from '@/components/viewers/MarkdownViewer';
 import MessageViewer from '@/components/viewers/MessageViewer';
-import ChannelViewer from '@/components/viewers/ChannelViewer';
+import ChannelViewer, {
+  ChannelViewerRef,
+} from '@/components/viewers/ChannelViewer';
 import MessageInputBox from '@/components/MessageInputBox';
 
 // Types
@@ -19,6 +21,7 @@ import {
   Channel,
   Member,
   SocketServerEvent,
+  ContextMenuItem,
 } from '@/types';
 
 // Providers
@@ -49,15 +52,18 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     const contextMenu = useContextMenu();
     // Refs
     const refreshed = useRef(false);
+    const channelViewerRef = useRef<ChannelViewerRef>(null);
 
     // States
     const [sidebarWidth, setSidebarWidth] = useState<number>(256);
     const [isResizing, setIsResizing] = useState<boolean>(false);
+    const [isFavorite, setIsFavorite] = useState<boolean>(
+      user.favServers?.some((server) => server.id === server.id) || false,
+    );
     const [currentChannel, setCurrentChannel] = useState<Channel>(
       createDefault.channel(),
     );
     const [member, setMember] = useState<Member>(createDefault.member());
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [showMicVolume, setShowMicVolume] = useState(false);
     const [showSpeakerVolume, setShowSpeakerVolume] = useState(false);
     const [micVolume, setMicVolume] = useState(webRTC.micVolume || 100);
@@ -80,7 +86,9 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       messages: channelMessages = [],
       bitrate: channelBitrate,
       chatMode: channelChatMode,
+      voiceMode: channelVoiceMode,
     } = currentChannel;
+    const { permissionLevel: memberPermissionLevel } = member;
 
     // Handlers
     const handleSendMessage = (
@@ -182,6 +190,31 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       }
     }, []);
 
+    const handleOpenEditMember = (
+      serverId: Server['id'],
+      userId: User['id'],
+    ) => {
+      ipcService.popup.open(PopupType.EDIT_MEMBER);
+      ipcService.initialData.onRequest(PopupType.EDIT_MEMBER, {
+        serverId,
+        userId,
+      });
+    };
+
+    // FIXME: logic is wrong
+    const handleAddFavoriteServer = (serverId: Server['id']) => {
+      if (!socket) return;
+      socket.send.updateUser({
+        userId,
+        user: {
+          ...user,
+          favoriteServerId: serverId,
+        },
+      });
+      setIsFavorite(!isFavorite);
+    };
+
+    // Effects
     useEffect(() => {
       document.addEventListener('click', handleClickOutside);
       return () => {
@@ -189,7 +222,6 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       };
     }, [handleClickOutside]);
 
-    // Effects
     useEffect(() => {
       window.addEventListener('mousemove', handleResize);
       window.addEventListener('mouseup', handleStopResizing);
@@ -218,7 +250,8 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     }, [socket]);
 
     useEffect(() => {
-      if (!userId || !serverId || refreshed.current) return;
+      if (!userId || !serverId || !userCurrentChannelId || refreshed.current)
+        return;
       const refresh = async () => {
         refreshed.current = true;
         const server = await refreshService.server({ serverId: serverId });
@@ -289,25 +322,77 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                 </div>
               </div>
               <div className={styles['optionBox']}>
-                {(!member || member?.permissionLevel < 2) && (
-                  <>
-                    <div
-                      className={styles['invitation']}
-                      onClick={() => {
-                        handleOpenApplyMember(userId, serverId);
-                      }}
-                    />
-                    {/* <div className={styles['saperator']} /> */}
-                  </>
-                )}
-                {member && member.permissionLevel > 4 && (
-                  <div
-                    className={styles['setting']}
-                    onClick={() => {
-                      handleOpenServerSettings(userId, serverId);
-                    }}
-                  />
-                )}
+                <div
+                  className={styles['invitation']}
+                  onClick={() => {
+                    // Handle invite friends
+                  }}
+                />
+                <div className={styles['saperator']} />
+                <div
+                  className={styles['setting']}
+                  onClick={(e) => {
+                    contextMenu.showContextMenu(
+                      e.clientX,
+                      e.clientY,
+                      [
+                        {
+                          id: 'setting',
+                          label: '設定群組',
+                          show: memberPermissionLevel > 4,
+                          onClick: () =>
+                            handleOpenServerSettings(userId, serverId),
+                        },
+                        {
+                          id: 'invitation',
+                          label: '申請會員',
+                          show: memberPermissionLevel < 2,
+                          onClick: () =>
+                            handleOpenApplyMember(userId, serverId),
+                        },
+                        {
+                          id: 'memberChat',
+                          label: '會員群聊',
+                          show: memberPermissionLevel > 2,
+                          onClick: () => {},
+                        },
+                        {
+                          id: 'admin',
+                          label: '查看管理員',
+                          onClick: () => {},
+                        },
+                        {
+                          id: 'separator',
+                          label: '',
+                        },
+                        {
+                          id: 'editNickname',
+                          label: '編輯群名片',
+                          onClick: () => handleOpenEditMember(serverId, userId),
+                        },
+                        {
+                          id: 'locateMe',
+                          label: '定位我自己',
+                          onClick: () => channelViewerRef.current?.locateUser(),
+                        },
+                        {
+                          id: 'separator',
+                          label: '',
+                        },
+                        {
+                          id: 'report',
+                          label: '舉報',
+                          onClick: () => {},
+                        },
+                        {
+                          id: 'favorite',
+                          label: isFavorite ? '取消收藏' : '加入收藏',
+                          onClick: () => handleAddFavoriteServer(serverId),
+                        },
+                      ].filter(Boolean) as ContextMenuItem[],
+                    );
+                  }}
+                />
               </div>
             </div>
             <ChannelViewer
@@ -315,6 +400,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
               server={server}
               member={member}
               currentChannel={currentChannel}
+              ref={channelViewerRef}
             />
           </div>
           {/* Resize Handle */}
@@ -339,178 +425,128 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                       id: '',
                       type: 'general',
                       content: msg,
-                      recieverId: serverId,
+                      receiverId: serverId,
                       timestamp: 0,
                     },
                     currentChannelId,
                   );
                 }}
                 locked={
-                  channelChatMode === 'forbidden' && member.permissionLevel < 3
+                  channelChatMode === 'forbidden' && memberPermissionLevel < 3
                 }
               />
             </div>
             <div className={styles['buttonArea']}>
               <div className={styles['buttons']}>
-                <div
-                  className={styles['voiceModeDropdown']}
-                  onClick={(e) => {
-                    if (member && member.permissionLevel < 2) return;
-                    contextMenu.showContextMenu(e.clientX, e.clientY, [
-                      {
-                        id: 'freeSpeech',
-                        label: lang.tr.freeSpeech,
-                        onClick: () => {
-                          handleUpdateChannel(
-                            { voiceMode: 'free', chatMode: 'free' },
-                            currentChannelId,
-                            serverId,
-                          );
-                          handleSendMessage(
-                            {
-                              type: 'info',
-                              content: lang.tr.changeToFreeSpeech,
-                              timestamp: 0,
-                            },
-                            currentChannelId,
-                          );
-                        },
-                      },
-                      {
-                        id: 'forbiddenSpeech',
-                        label: lang.tr.forbiddenSpeech,
-                        onClick: () => {
-                          handleUpdateChannel(
-                            { voiceMode: 'forbidden', chatMode: 'forbidden' },
-                            currentChannelId,
-                            serverId,
-                          );
-                          handleSendMessage(
-                            {
-                              type: 'info',
-                              content: lang.tr.changeToForbiddenSpeech,
-                              timestamp: 0,
-                            },
-                            currentChannelId,
-                          );
-                        },
-                      },
-                      {
-                        id: 'queue',
-                        label: '排麥',
-                        icon: 'submenu',
-                        hasSubmenu: true,
-                        submenuItems: [
-                          {
-                            id: 'general',
-                            label: '一般',
-                            onClick: () => {
-                              handleUpdateChannel(
-                                {
-                                  voiceMode: 'queue',
-                                  // queueMode: 'general',
-                                },
-                                currentChannelId,
-                                serverId,
-                              );
-                              handleSendMessage(
-                                {
-                                  type: 'info',
-                                  content: '排麥模式已變更為一般',
-                                },
-                                currentChannelId,
-                              );
-                            },
-                          },
-                          {
-                            id: 'forbiddenQueue',
-                            label: '禁止排麥',
-                            onClick: () => {
-                              // handleUpdateChannel({ queueMode: 'forbidden' }, currentChannelId, serverId);
-                              handleSendMessage(
-                                {
-                                  type: 'info',
-                                  content: '排麥模式已變更為禁止',
-                                },
-                                currentChannelId,
-                              );
-                            },
-                          },
-                          {
-                            id: 'controlQueue',
-                            label: '控麥',
-                            onClick: () => {
-                              // handleUpdateChannel({ queueMode: 'control' }, currentChannelId, serverId);
-                              handleSendMessage(
-                                {
-                                  type: 'info',
-                                  content: '排麥模式已變更為控麥',
-                                },
-                                currentChannelId,
-                              );
-                            },
-                          },
-                        ],
-                      },
-                    ]);
-                  }}
-                >
-                  {channelChatMode === 'free'
-                    ? lang.tr.freeSpeech
-                    : lang.tr.forbiddenSpeech}
-                  {isDropdownOpen && (
-                    <div className={styles['dropdownMenu']}>
-                      {channelChatMode === 'forbidden' && (
-                        <div
-                          className={styles['dropdownItem']}
-                          onClick={() => {
+                {memberPermissionLevel >= 3 && (
+                  <div
+                    className={styles['voiceModeDropdown']}
+                    onClick={(e) =>
+                      contextMenu.showContextMenu(e.clientX, e.clientY, [
+                        {
+                          id: 'freeSpeech',
+                          label: lang.tr.freeSpeech,
+                          onClick: () => {
                             handleUpdateChannel(
-                              { chatMode: 'free' },
+                              { voiceMode: 'free' },
                               currentChannelId,
                               serverId,
                             );
                             handleSendMessage(
                               {
-                                id: '',
                                 type: 'info',
                                 content: lang.tr.changeToFreeSpeech,
                                 timestamp: 0,
                               },
                               currentChannelId,
                             );
-                            setIsDropdownOpen(false);
-                          }}
-                        >
-                          {lang.tr.freeSpeech}
-                        </div>
-                      )}
-                      {channelChatMode === 'free' && (
-                        <div
-                          className={styles['dropdownItem']}
-                          onClick={() => {
+                          },
+                        },
+                        {
+                          id: 'forbiddenSpeech',
+                          label: lang.tr.forbiddenSpeech,
+                          onClick: () => {
                             handleUpdateChannel(
-                              { chatMode: 'forbidden' },
+                              { voiceMode: 'forbidden' },
                               currentChannelId,
                               serverId,
                             );
                             handleSendMessage(
                               {
-                                id: '',
                                 type: 'info',
                                 content: lang.tr.changeToForbiddenSpeech,
                                 timestamp: 0,
                               },
                               currentChannelId,
                             );
-                            setIsDropdownOpen(false);
-                          }}
-                        >
-                          {lang.tr.forbiddenSpeech}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                          },
+                        },
+                        {
+                          id: 'queue',
+                          label: '排麥',
+                          icon: 'submenu',
+                          hasSubmenu: true,
+                          onClick: () => {
+                            handleUpdateChannel(
+                              { voiceMode: 'queue' },
+                              currentChannelId,
+                              serverId,
+                            );
+                            handleSendMessage(
+                              {
+                                type: 'info',
+                                content:
+                                  '頻道被設為排麥才能發言，請點擊"拿麥發言"等候發言',
+                                timestamp: 0,
+                              },
+                              currentChannelId,
+                            );
+                          },
+                          submenuItems: [
+                            {
+                              id: 'forbiddenQueue',
+                              label: '禁止排麥',
+                              disabled: channelVoiceMode === 'queue',
+                              onClick: () => {
+                                // handleUpdateChannel({ queueMode: 'forbidden' }, currentChannelId, serverId);
+                                handleSendMessage(
+                                  {
+                                    type: 'info',
+                                    content: '排麥模式已變更為禁止',
+                                  },
+                                  currentChannelId,
+                                );
+                              },
+                            },
+                            {
+                              id: 'controlQueue',
+                              label: '控麥',
+                              disabled: channelVoiceMode === 'queue',
+                              onClick: () => {
+                                // handleUpdateChannel({ queueMode: 'control' }, currentChannelId, serverId);
+                                handleSendMessage(
+                                  {
+                                    type: 'info',
+                                    content: '排麥模式已變更為控麥',
+                                  },
+                                  currentChannelId,
+                                );
+                              },
+                            },
+                          ],
+                        },
+                      ])
+                    }
+                  >
+                    {channelVoiceMode === 'queue'
+                      ? '排麥'
+                      : channelVoiceMode === 'free'
+                      ? lang.tr.freeSpeech
+                      : channelVoiceMode === 'forbidden'
+                      ? lang.tr.forbiddenSpeech
+                      : ''}
+                  </div>
+                )}
               </div>
 
               <div

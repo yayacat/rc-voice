@@ -29,7 +29,6 @@ import { errorHandler, StandardizedError } from '@/utils/errorHandler';
 import { createDefault } from '@/utils/createDefault';
 
 // Providers
-import WebRTCProvider from '@/providers/WebRTCProvider';
 import { useSocket } from '@/providers/SocketProvider';
 import { useLanguage } from '@/providers/LanguageProvider';
 import { useContextMenu } from '@/providers/ContextMenuProvider';
@@ -107,10 +106,10 @@ const Header: React.FC<HeaderProps> = React.memo(
       localStorage.setItem('language', language);
     };
 
-    const handleShowEditUser = () => {
+    const handleShowEditUser = (userId: User['id']) => {
       ipcService.popup.open(PopupType.EDIT_USER);
       ipcService.initialData.onRequest(PopupType.EDIT_USER, {
-        user: user,
+        userId,
       });
     };
 
@@ -127,9 +126,7 @@ const Header: React.FC<HeaderProps> = React.memo(
         <div className={header['userStatus']}>
           <div
             className={header['nameDisplay']}
-            onClick={() => {
-              handleShowEditUser();
-            }}
+            onClick={() => handleShowEditUser(userId)}
           >
             {userName}
           </div>
@@ -384,16 +381,14 @@ const Home = () => {
 
   return (
     <div className="wrapper">
-      <WebRTCProvider>
-        <Header
-          user={user}
-          server={server}
-          selectedId={selectedTabId}
-          setSelectedTabId={setSelectedTabId}
-        />
-        {/* Main Content */}
-        <div className="content">{getMainContent()}</div>
-      </WebRTCProvider>
+      <Header
+        user={user}
+        server={server}
+        selectedId={selectedTabId}
+        setSelectedTabId={setSelectedTabId}
+      />
+      {/* Main Content */}
+      <div className="content">{getMainContent()}</div>
     </div>
   );
 };

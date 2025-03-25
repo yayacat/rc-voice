@@ -39,6 +39,7 @@ const EditMemberModal: React.FC<EditMemberModalProps> = React.memo(
     const [memberNickname, setMemberNickname] = useState(
       createDefault.member().nickname,
     );
+    const [userName, setUserName] = useState(createDefault.user().name);
 
     // Handlers
     const handleClose = () => {
@@ -59,6 +60,11 @@ const EditMemberModal: React.FC<EditMemberModalProps> = React.memo(
       setMemberNickname(data.nickname);
     };
 
+    const handleUserUpdate = (data: User | null) => {
+      if (!data) data = createDefault.user();
+      setUserName(data.name);
+    };
+
     // Effects
     useEffect(() => {
       if (!userId || !serverId || refreshRef.current) return;
@@ -68,7 +74,11 @@ const EditMemberModal: React.FC<EditMemberModalProps> = React.memo(
           userId: userId,
           serverId: serverId,
         });
+        const user = await refreshService.user({
+          userId: userId,
+        });
         handleMemberUpdate(member);
+        handleUserUpdate(user);
       };
       refresh();
     }, [userId, serverId]);
@@ -79,7 +89,13 @@ const EditMemberModal: React.FC<EditMemberModalProps> = React.memo(
           <div className={setting['body']}>
             <div className={popup['inputGroup']}>
               <div className={popup['inputBox']}>
-                <div className={popup['label']}>{lang.tr.nickname}</div>
+                <label>{lang.tr.nickname}</label>
+                <label className={popup['value']}>{userName}</label>
+              </div>
+              <div className={`${popup['inputBox']} ${popup['col']}`}>
+                <div className={popup['label']}>
+                  {lang.tr.pleaseEnterTheMemberNickname}
+                </div>
                 <input
                   className={popup['input']}
                   type="text"

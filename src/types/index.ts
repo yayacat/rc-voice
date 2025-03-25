@@ -22,6 +22,7 @@ export interface Translation {
   logout: string;
   exit: string;
   searchPlaceholder: string;
+  searchMemberPlaceholder: string;
   searchResult: string;
   recentVisits: string;
   myGroups: string;
@@ -125,6 +126,7 @@ export interface Translation {
   category: string;
   channelPermission: string;
   channelPublic: string;
+  channelMember: string;
   channelPrivate: string;
   channelReadonly: string;
   serverApply: string;
@@ -148,6 +150,7 @@ export interface Translation {
   pleaseInputPasswordAgain: string;
   repeatInputPassword: string;
   pleaseInputNickname: string;
+  pleaseEnterTheMemberNickname: string;
   nicknameHint: string;
   register: string;
   freeSpeech: string;
@@ -258,6 +261,7 @@ export const translations: Record<LanguageKey, Translation> = {
     logout: '登出',
     exit: '退出',
     searchPlaceholder: '輸入群ID或群名稱',
+    searchMemberPlaceholder: '輸入關鍵字或ID搜尋',
     searchResult: '搜尋結果',
     recentVisits: '最近訪問',
     myGroups: '我的語音群',
@@ -320,7 +324,7 @@ export const translations: Record<LanguageKey, Translation> = {
     signaturePlaceholder: '點擊更改簽名',
     friendActive: '好友動態',
     editUser: '編輯使用者',
-    editMemberCard: '修改群名片',
+    editMemberCard: '會員群名片',
     createServer: '創建語音群',
     editServer: '編輯語音群',
     deleteServer: '刪除語音群',
@@ -364,7 +368,8 @@ export const translations: Record<LanguageKey, Translation> = {
     category: '類別',
     channelPermission: '頻道權限',
     channelPublic: '任何人可以訪問',
-    channelPrivate: '禁止遊客訪問',
+    channelMember: '成為會員才可訪問 ',
+    channelPrivate: '管理員才可訪問',
     channelReadonly: '唯讀',
     serverApply: '申請已送出，請等待管理員審核',
     serverApplyNotice: '申請須知',
@@ -387,6 +392,7 @@ export const translations: Record<LanguageKey, Translation> = {
     pleaseInputPasswordAgain: '請再次輸入密碼',
     repeatInputPassword: '重複輸入密碼',
     pleaseInputNickname: '請輸入暱稱',
+    pleaseEnterTheMemberNickname: '請輸入該會員的群名片:',
     nicknameHint: '2-10位，支持中英文',
     register: '註冊',
     freeSpeech: '自由發言',
@@ -494,6 +500,7 @@ export const translations: Record<LanguageKey, Translation> = {
     logout: '登出',
     exit: '退出',
     searchPlaceholder: '输入群ID或群名称',
+    searchMemberPlaceholder: '输入关键字或ID搜索',
     searchResult: '搜索结果',
     recentVisits: '最近访问',
     myGroups: '我的语音群',
@@ -556,7 +563,7 @@ export const translations: Record<LanguageKey, Translation> = {
     signaturePlaceholder: '点击更改签名',
     friendActive: '好友动态',
     editUser: '编辑用户',
-    editMemberCard: '修改群名片',
+    editMemberCard: '会员群名片',
     createServer: '创建语音群',
     editServer: '编辑语音群',
     deleteServer: '删除语音群',
@@ -600,7 +607,8 @@ export const translations: Record<LanguageKey, Translation> = {
     category: '类别',
     channelPermission: '频道权限',
     channelPublic: '任何人可以访问',
-    channelPrivate: '禁止游客访问',
+    channelMember: '成为会员才可访问',
+    channelPrivate: '管理员才可访问',
     channelReadonly: '只读',
     serverApply: '申请已送出，请等待管理员审核',
     serverApplyNotice: '申请须知',
@@ -623,6 +631,7 @@ export const translations: Record<LanguageKey, Translation> = {
     pleaseInputPasswordAgain: '请再次输入密码',
     repeatInputPassword: '重复输入密码',
     pleaseInputNickname: '请输入昵称',
+    pleaseEnterTheMemberNickname: '请输入该会员的群名片:',
     nicknameHint: '2-10位，支持中英文',
     register: '注册',
     freeSpeech: '自由发言',
@@ -730,6 +739,7 @@ export const translations: Record<LanguageKey, Translation> = {
     logout: 'Logout',
     exit: 'Exit',
     searchPlaceholder: 'Enter group ID or name',
+    searchMemberPlaceholder: 'Enter keyword or ID search',
     searchResult: 'Search Result',
     recentVisits: 'Recent Visits',
     myGroups: 'My Voice Groups',
@@ -793,7 +803,7 @@ export const translations: Record<LanguageKey, Translation> = {
     signaturePlaceholder: 'Click to change signature',
     friendActive: 'Friend Active',
     editUser: 'Edit User',
-    editMemberCard: 'Edit Member Card',
+    editMemberCard: 'Member Card',
     createServer: 'Create Voice Group',
     editServer: 'Edit Voice Group',
     deleteServer: 'Delete Voice Group',
@@ -838,7 +848,8 @@ export const translations: Record<LanguageKey, Translation> = {
     category: 'Category',
     channelPermission: 'Channel permission',
     channelPublic: 'Anyone can access',
-    channelPrivate: 'No guest access',
+    channelMember: 'Only members can access',
+    channelPrivate: 'Only admins can access',
     channelReadonly: 'Read-only',
     serverApply: 'Application submitted, please wait for admin review',
     serverApplyNotice: 'Application notice',
@@ -861,6 +872,7 @@ export const translations: Record<LanguageKey, Translation> = {
     pleaseInputPasswordAgain: 'Please enter password again',
     repeatInputPassword: 'Repeat password',
     pleaseInputNickname: 'Please enter nickname',
+    pleaseEnterTheMemberNickname: 'Please enter the member nickname:',
     nicknameHint: '2-10 characters, supports Chinese and English',
     register: 'Register',
     freeSpeech: 'Free speech',
@@ -972,6 +984,7 @@ export const translations: Record<LanguageKey, Translation> = {
     logout: 'ログアウト',
     exit: '終了',
     searchPlaceholder: 'グループIDまたは名前を入力',
+    searchMemberPlaceholder: 'キーワードまたはIDを検索',
     searchResult: '検索結果',
     recentVisits: '最近の訪問',
     myGroups: '私のボイスグループ',
@@ -1034,7 +1047,7 @@ export const translations: Record<LanguageKey, Translation> = {
     signaturePlaceholder: 'クリックして署名を変更',
     friendActive: '友達のアクティブ',
     editUser: 'ユーザーを編集',
-    editMemberCard: 'メンバーカードを編集',
+    editMemberCard: 'メンバーカード',
     createServer: 'ボイスグループを作成',
     editServer: 'ボイスグループを編集',
     deleteServer: 'ボイスグループを削除',
@@ -1078,7 +1091,8 @@ export const translations: Record<LanguageKey, Translation> = {
     category: 'カテゴリー',
     channelPermission: 'チャンネルの権限',
     channelPublic: '誰でもアクセス可能',
-    channelPrivate: '禁止遊客訪問',
+    channelMember: 'メンバーのみがアクセス可能',
+    channelPrivate: '管理者のみがアクセス可能',
     channelReadonly: '読み取り専用',
     serverApply: '申請が送信されました。管理者のレビューをお待ちください',
     serverApplyNotice: '申請通知',
@@ -1101,6 +1115,7 @@ export const translations: Record<LanguageKey, Translation> = {
     pleaseInputPasswordAgain: 'もう一度パスワードを入力してください',
     repeatInputPassword: 'パスワードを繰り返し入力',
     pleaseInputNickname: 'ニックネームを入力してください',
+    pleaseEnterTheMemberNickname: 'メンバーのニックネームを入力してください',
     nicknameHint: '2〜10文字、中国語と英語をサポート',
     register: '登録',
     freeSpeech: '自由な発言',
@@ -1292,6 +1307,7 @@ export type BaseChannel = {
   order: number;
   isRoot: boolean;
   type: 'category' | 'channel';
+  visibility: 'public' | 'member' | 'private' | 'readonly';
   serverId: string;
   createdAt: number;
 };
@@ -1308,7 +1324,6 @@ export type Channel = BaseChannel & {
   slowmode: boolean;
   voiceMode: 'free' | 'queue' | 'forbidden';
   chatMode: 'free' | 'forbidden';
-  visibility: 'public' | 'private' | 'readonly';
   categoryId: string | null;
   // THESE WERE NOT SAVE IN THE DATABASE
   messages?: ChannelMessage[];
@@ -1361,7 +1376,7 @@ export type Message = {
   content: string;
   type: 'general' | 'dm' | 'info';
   senderId: string;
-  recieverId: string;
+  receiverId: string;
   channelId: string;
   timestamp: number;
 };
@@ -1377,6 +1392,12 @@ export type ContextMenuItem = {
   className?: string;
   style?: React.CSSProperties;
   onClick?: () => void;
+};
+
+export type ServerListSectionProps = {
+  title: string;
+  servers: Server[];
+  user: User;
 };
 
 export type Emoji = {
@@ -1488,16 +1509,15 @@ export enum SocketServerEvent {
 }
 
 export enum PopupType {
+  EDIT_USER = 'editUser',
   CREATE_SERVER = 'createServer',
   EDIT_SERVER = 'editServer',
-  DELETE_SERVER = 'deleteServer',
   CREATE_CHANNEL = 'createChannel',
   EDIT_CHANNEL = 'editChannel',
-  DELETE_CHANNEL = 'deleteChannel',
   EDIT_MEMBER = 'editMember',
-  EDIT_USER = 'editUser',
   APPLY_MEMBER = 'applyMember',
   APPLY_FRIEND = 'applyFriend',
+  ADD_FRIEND = 'addFriend',
   DIRECT_MESSAGE = 'directMessage',
   DIALOG_ALERT = 'dialogAlert',
   DIALOG_ALERT2 = 'dialogAlert2',
@@ -1507,3 +1527,26 @@ export enum PopupType {
   DIALOG_INFO = 'dialogInfo',
   SYSTEM_SETTING = 'systemSetting',
 }
+
+export const PopupSize = {
+  [PopupType.EDIT_MEMBER]: { height: 220, width: 400 },
+  [PopupType.EDIT_USER]: { height: 650, width: 500 },
+  [PopupType.CREATE_SERVER]: { height: 430, width: 520 },
+  [PopupType.EDIT_SERVER]: { height: 450, width: 600 },
+  [PopupType.CREATE_CHANNEL]: { height: 220, width: 400 },
+  [PopupType.EDIT_CHANNEL]: { height: 220, width: 400 },
+  [PopupType.APPLY_FRIEND]: { height: 420, width: 540 },
+  [PopupType.APPLY_MEMBER]: { height: 420, width: 540 },
+  [PopupType.ADD_FRIEND]: { height: 220, width: 400 },
+  [PopupType.DIRECT_MESSAGE]: { height: 200, width: 300 },
+  [PopupType.DIALOG_ALERT]: { height: 220, width: 400 },
+  [PopupType.DIALOG_ALERT2]: { height: 220, width: 400 },
+  [PopupType.DIALOG_SUCCESS]: { height: 220, width: 400 },
+  [PopupType.DIALOG_WARNING]: { height: 220, width: 400 },
+  [PopupType.DIALOG_ERROR]: { height: 220, width: 400 },
+  [PopupType.DIALOG_INFO]: { height: 220, width: 400 },
+  [PopupType.SYSTEM_SETTING]: { height: 450, width: 600 },
+  Settings: { height: 450, width: 600 },
+  Apply: { height: 420, width: 540 },
+  Small: { height: 220, width: 400 },
+};
