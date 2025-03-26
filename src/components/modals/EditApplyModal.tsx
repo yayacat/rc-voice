@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 // Types
-import { Member, Server, User } from '@/types';
+import { Server } from '@/types';
 
 // Providers
 import { useSocket } from '@/providers/SocketProvider';
@@ -18,13 +18,12 @@ import ipcService from '@/services/ipc.service';
 // Utils
 import { createDefault } from '@/utils/createDefault';
 
-interface EditMemberModalProps {
-  userId: string;
+interface EditApplyModalProps {
   serverId: string;
 }
 
-const EditMemberModal: React.FC<EditMemberModalProps> = React.memo(
-  (initialData: EditMemberModalProps) => {
+const EditApplyModal: React.FC<EditApplyModalProps> = React.memo(
+  (initialData: EditApplyModalProps) => {
     // Hooks
     const socket = useSocket();
     const lang = useLanguage();
@@ -33,81 +32,75 @@ const EditMemberModal: React.FC<EditMemberModalProps> = React.memo(
     const refreshRef = useRef(false);
 
     // Variables
-    const { userId, serverId } = initialData;
+    const { serverId } = initialData;
 
     // States
-    const [member, setMember] = useState(createDefault.member());
-    const [memberNickname, setMemberNickname] = useState(
-      createDefault.member().nickname,
+    const [isReceiveApply, setIsReceiveApply] = useState<boolean>(
+      createDefault.server().receiveApply,
     );
-    const [userName, setUserName] = useState(createDefault.user().name);
+    const [applyNotice, setApplyNotice] = useState<string>(
+      createDefault.server().applyNotice,
+    );
 
     // Handlers
     const handleClose = () => {
       ipcService.window.close();
     };
 
-    const handleUpdateMember = (
-      member: Partial<Member>,
-      action: string | null,
+    const handleUpdateServer = (
+      server: Partial<Server>,
+      serverId: Server['id'],
     ) => {
       if (!socket) return;
-      socket.send.updateMember({
-        member,
-        userId,
-        serverId,
-        action,
-      });
+      socket.send.updateServer({ server, serverId });
     };
 
-    const handleMemberUpdate = (data: Member | null) => {
-      if (!data) data = createDefault.member();
-      setMemberNickname(data.nickname);
-      setMember(data);
-    };
-
-    const handleUserUpdate = (data: User | null) => {
-      if (!data) data = createDefault.user();
-      setUserName(data.name);
+    const handleServerUpdate = (data: Server | null) => {
+      if (!data) data = createDefault.server();
+      setIsReceiveApply(data.receiveApply);
+      setApplyNotice(data.applyNotice);
     };
 
     // Effects
     useEffect(() => {
-      if (!userId || !serverId || refreshRef.current) return;
+      if (!serverId || refreshRef.current) return;
       const refresh = async () => {
         refreshRef.current = true;
-        const member = await refreshService.member({
-          userId: userId,
+        const server = await refreshService.server({
           serverId: serverId,
         });
-        const user = await refreshService.user({
-          userId: userId,
-        });
-        handleMemberUpdate(member);
-        handleUserUpdate(user);
+        handleServerUpdate(server);
       };
       refresh();
-    }, [userId, serverId]);
+    }, [serverId]);
 
     return (
       <div className={popup['popupContainer']}>
         <div className={popup['popupBody']}>
           <div className={setting['body']}>
             <div className={popup['inputGroup']}>
-              <div className={popup['inputBox']}>
-                <label>{lang.tr.nickname}</label>
-                <label className={popup['value']}>{userName}</label>
+              {/** Check Group */}
+              <div className={setting['checkWrapper']} style={{ padding: 0 }}>
+                <label className={setting['checkBox']}>
+                  <input
+                    type="checkbox"
+                    className={setting['check']}
+                    checked={isReceiveApply || false}
+                    onChange={() => {
+                      setIsReceiveApply(!isReceiveApply);
+                    }}
+                  />
+                  <span>{lang.tr.isReceiveApply}</span>
+                </label>
               </div>
               <div className={`${popup['inputBox']} ${popup['col']}`}>
-                <div className={popup['label']}>
-                  {lang.tr.pleaseEnterTheMemberNickname}
-                </div>
+                <div className={popup['label']}>{lang.tr.setApplyNotice}</div>
                 <input
                   className={popup['input']}
                   type="text"
-                  value={memberNickname || ''}
+                  value={applyNotice || ''}
                   onChange={(e) => {
-                    setMemberNickname(e.target.value);
+                    setApplyNotice(e.target.value);
                   }}
                 />
               </div>
@@ -118,12 +111,12 @@ const EditMemberModal: React.FC<EditMemberModalProps> = React.memo(
           <button
             className={`${popup['button']}`}
             onClick={() => {
-              handleUpdateMember(
+              handleUpdateServer(
                 {
-                  ...member,
-                  nickname: memberNickname,
+                  receiveApply: isReceiveApply,
+                  applyNotice: applyNotice,
                 },
-                'nickname',
+                serverId,
               );
               handleClose();
             }}
@@ -139,6 +132,6 @@ const EditMemberModal: React.FC<EditMemberModalProps> = React.memo(
   },
 );
 
-EditMemberModal.displayName = 'EditMemberModal';
+EditApplyModal.displayName = 'EditApplyModal';
 
-export default EditMemberModal;
+export default EditApplyModal;

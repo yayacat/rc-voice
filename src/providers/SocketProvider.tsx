@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 // Types
 import { SocketServerEvent, SocketClientEvent } from '@/types';
@@ -10,20 +10,17 @@ import { SocketServerEvent, SocketClientEvent } from '@/types';
 import ipcService from '@/services/ipc.service';
 
 type SocketContextType = {
-  event?: {
-    send: Record<SocketClientEvent, (data: any) => () => void>;
-    on: Record<
-      SocketServerEvent,
-      (callback: (data: any) => void) => () => void
-    >;
-  };
+  send: Record<SocketClientEvent, (data: any) => () => void>;
+  on: Record<SocketServerEvent, (callback: (data: any) => void) => () => void>;
 };
 
-const SocketContext = createContext<SocketContextType>({});
+const SocketContext = createContext<SocketContextType | null>(null);
 
-export const useSocket = () => {
+export const useSocket = (): SocketContextType => {
   const context = useContext(SocketContext);
-  return context.event;
+  if (!context || !context.on || !context.send)
+    throw new Error('useSocket must be used within a SocketProvider');
+  return context;
 };
 
 interface SocketProviderProps {
@@ -31,30 +28,59 @@ interface SocketProviderProps {
 }
 
 const SocketProvider = ({ children }: SocketProviderProps) => {
-  const [event, setEvent] = useState<SocketContextType['event']>();
-  const cleanupRef = useRef<(() => void)[]>([]);
+  // States
+  const [on, setOn] = useState<SocketContextType['on']>(
+    Object.values(SocketServerEvent).reduce((acc, event) => {
+      acc[event] = (callback: (data: any) => void) => {
+        ipcService.onSocketEvent(event, callback);
+        return () => ipcService.removeListener(event);
+      };
+      return acc;
+    }, {} as SocketContextType['on']),
+  );
+  const [send, setSend] = useState<SocketContextType['send']>(
+    Object.values(SocketClientEvent).reduce((acc, event) => {
+      acc[event] = (data: any) => {
+        ipcService.sendSocketEvent(event, data);
+        return () => {};
+      };
+      return acc;
+    }, {} as SocketContextType['send']),
+  );
+
+  // Refs
+  const cleanupRef = useRef<(() => void)[]>(
+    Object.values(SocketServerEvent).reduce((acc, event) => {
+      acc.push(() => ipcService.removeListener(event));
+      return acc;
+    }, [] as (() => void)[]),
+  );
 
   useEffect(() => {
-    const newEvent = {
-      send: Object.values(SocketClientEvent).reduce((acc, event) => {
+    setOn(
+      Object.values(SocketServerEvent).reduce((acc, event) => {
+        acc[event] = (callback: (data: any) => void) => {
+          ipcService.onSocketEvent(event, callback);
+          return () => ipcService.removeListener(event);
+        };
+        return acc;
+      }, {} as SocketContextType['on']),
+    );
+
+    setSend(
+      Object.values(SocketClientEvent).reduce((acc, event) => {
         acc[event] = (data: any) => {
           ipcService.sendSocketEvent(event, data);
           return () => {};
         };
         return acc;
-      }, {} as Record<SocketClientEvent, (data: any) => () => void>),
-      on: Object.values(SocketServerEvent).reduce((acc, event) => {
-        acc[event] = (callback: (data: any) => void) => {
-          ipcService.removeListener(event);
-          ipcService.onSocketEvent(event, callback);
-          const cleanup = () => ipcService.removeListener(event);
-          cleanupRef.current.push(cleanup);
-          return cleanup;
-        };
-        return acc;
-      }, {} as Record<SocketServerEvent, (callback: (data: any) => void) => () => void>),
-    };
-    setEvent(newEvent);
+      }, {} as SocketContextType['send']),
+    );
+
+    ipcService.onSocketEvent(SocketServerEvent.DISCONNECT, () => {
+      cleanupRef.current.forEach((cleanup) => cleanup());
+      cleanupRef.current = [];
+    });
 
     return () => {
       cleanupRef.current.forEach((cleanup) => cleanup());
@@ -63,7 +89,7 @@ const SocketProvider = ({ children }: SocketProviderProps) => {
   }, []);
 
   return (
-    <SocketContext.Provider value={{ event }}>
+    <SocketContext.Provider value={{ on, send }}>
       {children}
     </SocketContext.Provider>
   );

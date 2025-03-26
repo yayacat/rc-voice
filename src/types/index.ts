@@ -23,12 +23,16 @@ export interface Translation {
   exit: string;
   searchPlaceholder: string;
   searchMemberPlaceholder: string;
+  viewLess: string;
+  viewMore: string;
+  personalExclusive: string;
+  quickEnterServer: string;
+  relatedSearch: string;
   searchResult: string;
   recentVisits: string;
   myGroups: string;
   favoriteGroups: string;
   createGroup: string;
-  personalExclusive: string;
   fileSizeError: string;
   fileTypeError: string;
   updateServerError: string;
@@ -77,12 +81,16 @@ export interface Translation {
   memberApplicationManagement: string;
   blacklistManagement: string;
   confirm: string;
+  modify: string;
   cancel: string;
   next: string;
   previous: string;
   signaturePlaceholder: string;
   friendActive: string;
   editUser: string;
+  editApply: string;
+  systemSetting: string;
+  editApplySettings: string;
   editMemberCard: string;
   createServer: string;
   editServer: string;
@@ -155,8 +163,16 @@ export interface Translation {
   register: string;
   freeSpeech: string;
   forbiddenSpeech: string;
-  changeToFreeSpeech: string;
-  changeToForbiddenSpeech: string;
+  queue: string;
+  forbiddenQueue: string;
+  controlQueue: string;
+  textChangeToFreeSpeech: string;
+  textChangeToForbiddenSpeech: string;
+  voiceChangeToFreeSpeech: string;
+  voiceChangeToForbiddenSpeech: string;
+  voiceChangeToQueue: string;
+  voiceChangeToForbiddenQueue: string;
+  voiceChangeToControlQueue: string;
   takeMic: string;
   takenMic: string;
   mixing: string;
@@ -168,17 +184,25 @@ export interface Translation {
   delete: string;
   kick: string;
   addFriend: string;
+  addChannel: string;
   unknownChannel: string;
   micOrder: string;
   allChannel: string;
+  currentChannel: string;
   inputMessage: string;
   messageInputBox: string;
+  setGuest: string;
+  setMember: string;
+  setAdmin: string;
+  setChannelAdmin: string;
+  setCategoryAdmin: string;
   deleteFriend: string;
   searchFriend: string;
   guest: string;
   member: string;
   channelAdmin: string;
   channelManager: string;
+  channelOrder: string;
   serverAdmin: string;
   serverOwner: string;
   eventStaff: string;
@@ -232,6 +256,47 @@ export interface Translation {
   frontendDeveloper: string;
   backendDeveloper: string;
   copyright: string;
+  isReceiveApply: string;
+  setApplyNotice: string;
+  cannotApply: string;
+  applySuccess: string;
+  TEXT_CHANGE_TO_FREE_SPEECH: string;
+  TEXT_CHANGE_TO_FORBIDDEN_SPEECH: string;
+  VOICE_CHANGE_TO_FREE_SPEECH: string;
+  VOICE_CHANGE_TO_FORBIDDEN_SPEECH: string;
+  VOICE_CHANGE_TO_QUEUE: string;
+  pleaseInputFriendAccount: string;
+  basicInfo: string;
+  channelAnnouncement: string;
+  accessPermissions: string;
+  speakingPermissions: string;
+  textPermissions: string;
+  channelManagement: string;
+  channelNameLabel: string;
+  userLimit: string;
+  channelMode: string;
+  adminSpeech: string;
+  queueSpeech: string;
+  channelAudioQuality: string;
+  chatMode: string;
+  chatModeDescription: string;
+  entertainmentMode: string;
+  entertainmentModeDescription: string;
+  forbidGuestQueue: string;
+  forbidGuestVoice: string;
+  forbidOnlyAdminText: string;
+  forbidGuestText: string;
+  forbidGuestUrl: string;
+  guestTextMaxLength: string;
+  guestTextWaitTime: string;
+  guestTextInterval: string;
+  characters: string;
+  seconds: string;
+  groups: string;
+  male: string;
+  female: string;
+  taiwan: string;
+  wealthValue: string;
 }
 
 export type LanguageKey = 'tw' | 'cn' | 'en' | 'jp';
@@ -262,12 +327,16 @@ export const translations: Record<LanguageKey, Translation> = {
     exit: '退出',
     searchPlaceholder: '輸入群ID或群名稱',
     searchMemberPlaceholder: '輸入關鍵字或ID搜尋',
+    viewLess: '檢視較少',
+    viewMore: '檢視更多',
+    personalExclusive: '個人專屬',
+    quickEnterServer: '按Enter鍵快速進入語音群',
+    relatedSearch: '相關搜尋',
     searchResult: '搜尋結果',
     recentVisits: '最近訪問',
     myGroups: '我的語音群',
     favoriteGroups: '收藏的語音群',
     createGroup: '創建語音群',
-    personalExclusive: '個人專屬',
     fileSizeError: '檔案大小不能超過 5MB',
     fileTypeError: '不支援的檔案格式',
     updateServerError: '更新群組失敗',
@@ -318,12 +387,16 @@ export const translations: Record<LanguageKey, Translation> = {
     memberApplicationManagement: '會員申請管理',
     blacklistManagement: '黑名單管理',
     confirm: '確定',
+    modify: '修改',
     cancel: '取消',
     next: '下一步',
     previous: '上一步',
     signaturePlaceholder: '點擊更改簽名',
     friendActive: '好友動態',
     editUser: '編輯使用者',
+    editApply: '申請設定',
+    systemSetting: '系統設定',
+    editApplySettings: '會員申請設定',
     editMemberCard: '會員群名片',
     createServer: '創建語音群',
     editServer: '編輯語音群',
@@ -367,8 +440,8 @@ export const translations: Record<LanguageKey, Translation> = {
     channel: '頻道',
     category: '類別',
     channelPermission: '頻道權限',
-    channelPublic: '任何人可以訪問',
-    channelMember: '成為會員才可訪問 ',
+    channelPublic: '任何人都可以訪問',
+    channelMember: '成為會員才可以訪問',
     channelPrivate: '管理員才可訪問',
     channelReadonly: '唯讀',
     serverApply: '申請已送出，請等待管理員審核',
@@ -397,8 +470,16 @@ export const translations: Record<LanguageKey, Translation> = {
     register: '註冊',
     freeSpeech: '自由發言',
     forbiddenSpeech: '限制發言',
-    changeToFreeSpeech: '該頻道已被設為自由發言',
-    changeToForbiddenSpeech: '該頻道已被設為僅管理員發言',
+    queue: '排麥',
+    forbiddenQueue: '禁止排麥',
+    controlQueue: '控麥',
+    textChangeToFreeSpeech: '該頻道聊天室已被設為自由發言',
+    textChangeToForbiddenSpeech: '該頻道聊天室已被設為僅管理員發言',
+    voiceChangeToFreeSpeech: '該頻道語音已被設為自由發言',
+    voiceChangeToForbiddenSpeech: '該頻道語音已被設為僅管理員發言',
+    voiceChangeToQueue: '頻道被設為排麥才能發言，請點擊"拿麥發言"等候發言',
+    voiceChangeToForbiddenQueue: '排麥模式已變更為禁止',
+    voiceChangeToControlQueue: '排麥模式已變更為控麥',
     takeMic: '拿麥發言',
     takenMic: '已拿麥',
     mixing: '混音',
@@ -410,17 +491,25 @@ export const translations: Record<LanguageKey, Translation> = {
     delete: '刪除',
     kick: '踢出',
     addFriend: '新增好友',
+    addChannel: '新增頻道',
     unknownChannel: '未知頻道',
     micOrder: '麥序',
     allChannel: '所有頻道',
+    currentChannel: '當前頻道',
     inputMessage: '輸入訊息...',
     messageInputBox: '訊息輸入框',
+    setGuest: '設為遊客',
+    setMember: '設為會員',
+    setAdmin: '設為群管理員',
+    setChannelAdmin: '設為頻道管理員',
+    setCategoryAdmin: '設為類別管理員',
     deleteFriend: '刪除好友',
     searchFriend: '搜尋好友',
     guest: '遊客',
     member: '會員',
     channelAdmin: '二級頻道管理員',
     channelManager: '頻道管理員',
+    channelOrder: '頻道位置',
     serverAdmin: '群管理員',
     serverOwner: '群創建者',
     eventStaff: '官方客服',
@@ -475,6 +564,48 @@ export const translations: Record<LanguageKey, Translation> = {
     frontendDeveloper: '前端開發',
     backendDeveloper: '後端開發',
     copyright: '版權所有',
+    isReceiveApply: '是否接收會員申請',
+    setApplyNotice: '會員申請須知',
+    cannotApply: '無法申請會員，此群組不接受會員申請',
+    applySuccess: '申請已送出，請等待管理員審核',
+    TEXT_CHANGE_TO_FREE_SPEECH: '該頻道聊天室已被設為自由發言',
+    TEXT_CHANGE_TO_FORBIDDEN_SPEECH: '該頻道聊天室已被設為僅管理員發言',
+    VOICE_CHANGE_TO_FREE_SPEECH: '該頻道語音已被設為自由發言',
+    VOICE_CHANGE_TO_FORBIDDEN_SPEECH: '該頻道語音已被設為僅管理員發言',
+    VOICE_CHANGE_TO_QUEUE: '頻道被設為排麥才能發言，請點擊"拿麥發言"等候發言',
+    pleaseInputFriendAccount: '請輸入好友帳號:',
+    basicInfo: '基本資料',
+    channelAnnouncement: '頻道公告',
+    accessPermissions: '訪問許可權',
+    speakingPermissions: '發言許可權',
+    textPermissions: '文字許可權',
+    channelManagement: '頻道管理',
+    channelNameLabel: '頻道名稱',
+    userLimit: '人數上限(人)',
+    channelMode: '頻道模式',
+    adminSpeech: '管理員發言',
+    queueSpeech: '排麥發言',
+    channelAudioQuality: '頻道音質',
+    chatMode: '聊天模式',
+    chatModeDescription: '低延遲，音質流暢（適用於自由、指揮模式下的頻道語音）',
+    entertainmentMode: '娛樂模式',
+    entertainmentModeDescription:
+      '原汁原味，立體聲效（適用於排麥模式下的頻道、K歌等型活動語音）',
+    forbidGuestQueue: '禁止遊客排麥發言',
+    forbidGuestVoice: '自由發言模式禁止遊客語音',
+    forbidOnlyAdminText: '此頻道被設定為只允許管理員發送文字訊息',
+    forbidGuestText: '此頻道被設定為遊客禁止發送文字訊息',
+    forbidGuestUrl: '禁止訪客發送包含URL的文字訊息',
+    guestTextMaxLength: '遊客發送文字訊息的最大長度:',
+    guestTextWaitTime: '遊客允許發送文字訊息的等待時間:',
+    guestTextInterval: '遊客每次發送文字訊息的相隔時間:',
+    characters: '字元',
+    seconds: '秒',
+    groups: '語音群',
+    male: '男性',
+    female: '女性',
+    taiwan: '台灣',
+    wealthValue: '0',
   },
   cn: {
     RPCHomePage: '正在浏览主页',
@@ -501,12 +632,16 @@ export const translations: Record<LanguageKey, Translation> = {
     exit: '退出',
     searchPlaceholder: '输入群ID或群名称',
     searchMemberPlaceholder: '输入关键字或ID搜索',
+    viewLess: '检视较少',
+    viewMore: '检视更多',
+    personalExclusive: '个人专属',
+    quickEnterServer: '按Enter键快速进入语音群',
+    relatedSearch: '相关搜索',
     searchResult: '搜索结果',
     recentVisits: '最近访问',
     myGroups: '我的语音群',
     favoriteGroups: '收藏的语音群',
     createGroup: '创建语音群',
-    personalExclusive: '个人专属',
     fileSizeError: '文件大小不能超过 5MB',
     fileTypeError: '不支持的文件格式',
     updateServerError: '更新服务器失败',
@@ -557,12 +692,16 @@ export const translations: Record<LanguageKey, Translation> = {
     memberApplicationManagement: '会员申请管理',
     blacklistManagement: '黑名单管理',
     confirm: '确定',
+    modify: '修改',
     cancel: '取消',
     next: '下一步',
     previous: '上一步',
     signaturePlaceholder: '点击更改签名',
     friendActive: '好友动态',
     editUser: '编辑用户',
+    editApply: '申请设置',
+    systemSetting: '系统设置',
+    editApplySettings: '会员申请设置',
     editMemberCard: '会员群名片',
     createServer: '创建语音群',
     editServer: '编辑语音群',
@@ -606,8 +745,8 @@ export const translations: Record<LanguageKey, Translation> = {
     channel: '频道',
     category: '类别',
     channelPermission: '频道权限',
-    channelPublic: '任何人可以访问',
-    channelMember: '成为会员才可访问',
+    channelPublic: '任何人都可以访问',
+    channelMember: '成为会员才可以访问',
     channelPrivate: '管理员才可访问',
     channelReadonly: '只读',
     serverApply: '申请已送出，请等待管理员审核',
@@ -636,8 +775,16 @@ export const translations: Record<LanguageKey, Translation> = {
     register: '注册',
     freeSpeech: '自由发言',
     forbiddenSpeech: '限制发言',
-    changeToFreeSpeech: '该频道已被设为自由发言',
-    changeToForbiddenSpeech: '该频道已被设为仅管理员发言',
+    queue: '排麦',
+    forbiddenQueue: '禁止排麦',
+    controlQueue: '控麦',
+    textChangeToFreeSpeech: '该频道聊天室已被设为自由发言',
+    textChangeToForbiddenSpeech: '该频道聊天室已被设为仅管理员发言',
+    voiceChangeToFreeSpeech: '该频道语音已被设为自由发言',
+    voiceChangeToForbiddenSpeech: '该频道语音已被设为仅管理员发言',
+    voiceChangeToQueue: '频道被设为排麦才能发言，请点击"拿麦发言"等候发言',
+    voiceChangeToForbiddenQueue: '排麦模式已变更为禁止',
+    voiceChangeToControlQueue: '排麦模式已变更为控麦',
     takeMic: '拿麦发言',
     takenMic: '已拿麦',
     mixing: '混音',
@@ -649,17 +796,25 @@ export const translations: Record<LanguageKey, Translation> = {
     delete: '删除',
     kick: '踢出',
     addFriend: '新增好友',
+    addChannel: '新增频道',
     unknownChannel: '未知频道',
     micOrder: '麦序',
     allChannel: '所有频道',
+    currentChannel: '当前频道',
     inputMessage: '输入消息...',
     messageInputBox: '消息输入框',
+    setGuest: '设为游客',
+    setMember: '设为会员',
+    setAdmin: '设为管理员',
+    setChannelAdmin: '设为频道管理员',
+    setCategoryAdmin: '设为类别管理员',
     deleteFriend: '删除好友',
     searchFriend: '搜索好友',
     guest: '游客',
     member: '会员',
     channelAdmin: '二级频道管理员',
     channelManager: '频道管理员',
+    channelOrder: '频道位置',
     serverAdmin: '群管理员',
     serverOwner: '群创建者',
     eventStaff: '官方客服',
@@ -714,6 +869,48 @@ export const translations: Record<LanguageKey, Translation> = {
     frontendDeveloper: '前端开发',
     backendDeveloper: '后端开发',
     copyright: '版权所有',
+    isReceiveApply: '是否接收会员申请',
+    setApplyNotice: '会员申请须知',
+    cannotApply: '无法申请会员，此群组不接受会员申请',
+    applySuccess: '申请已送出，请等待管理员审核',
+    TEXT_CHANGE_TO_FREE_SPEECH: '频道聊天室已被设为自由发言',
+    TEXT_CHANGE_TO_FORBIDDEN_SPEECH: '频道聊天室已被设为仅管理员发言',
+    VOICE_CHANGE_TO_FREE_SPEECH: '频道语音已被设为自由发言',
+    VOICE_CHANGE_TO_FORBIDDEN_SPEECH: '频道语音已被设为仅管理员发言',
+    VOICE_CHANGE_TO_QUEUE: '频道被设为排麦才能发言，请点击"拿麦发言"等候发言',
+    pleaseInputFriendAccount: '请输入好友账号:',
+    basicInfo: '基本资料',
+    channelAnnouncement: '频道公告',
+    accessPermissions: '访问权限',
+    speakingPermissions: '发言权限',
+    textPermissions: '文字权限',
+    channelManagement: '频道管理',
+    channelNameLabel: '频道名称',
+    userLimit: '人数上限(人)',
+    channelMode: '频道模式',
+    adminSpeech: '管理员发言',
+    queueSpeech: '排麦发言',
+    channelAudioQuality: '频道音质',
+    chatMode: '聊天模式',
+    chatModeDescription: '低延迟，音质流畅（适用于自由、指挥模式下的频道语音）',
+    entertainmentMode: '娱乐模式',
+    entertainmentModeDescription:
+      '原汁原味，立体声效（适用于排麦模式下的频道、K歌等型活动语音）',
+    forbidGuestQueue: '禁止游客排麦发言',
+    forbidGuestVoice: '自由发言模式禁止游客语音',
+    forbidOnlyAdminText: '此频道被设定为仅管理员可以发送文字消息',
+    forbidGuestText: '此频道被设定为游客禁止发送文字消息',
+    forbidGuestUrl: '禁止访客发送包含URL的文字消息',
+    guestTextMaxLength: '游客发送文字消息的最大长度:',
+    guestTextWaitTime: '游客允许发送文字消息的等待时间:',
+    guestTextInterval: '游客每次发送文字消息的相隔时间:',
+    characters: '字符',
+    seconds: '秒',
+    groups: '语音群',
+    male: '男性',
+    female: '女性',
+    taiwan: '台湾',
+    wealthValue: '0',
   },
   en: {
     RPCHomePage: 'Browsing Homepage',
@@ -740,12 +937,16 @@ export const translations: Record<LanguageKey, Translation> = {
     exit: 'Exit',
     searchPlaceholder: 'Enter group ID or name',
     searchMemberPlaceholder: 'Enter keyword or ID search',
+    viewLess: 'View Less',
+    viewMore: 'View More',
+    personalExclusive: 'Personal Exclusive',
+    quickEnterServer: 'Press Enter to Quick Join Voice Group',
+    relatedSearch: 'Related Search',
     searchResult: 'Search Result',
     recentVisits: 'Recent Visits',
     myGroups: 'My Voice Groups',
     favoriteGroups: 'Favorite Voice Groups',
     createGroup: 'Create Voice Group',
-    personalExclusive: 'Personal Exclusive',
     fileSizeError: 'File size cannot exceed 5MB',
     fileTypeError: 'Unsupported file format',
     updateServerError: 'Failed to update server',
@@ -797,12 +998,16 @@ export const translations: Record<LanguageKey, Translation> = {
     memberApplicationManagement: 'Member Application Management',
     blacklistManagement: 'Blacklist Management',
     confirm: 'Confirm',
+    modify: 'Modify',
     cancel: 'Cancel',
     next: 'Next',
     previous: 'Previous',
     signaturePlaceholder: 'Click to change signature',
     friendActive: 'Friend Active',
     editUser: 'Edit User',
+    editApply: 'Apply Settings',
+    systemSetting: 'System Settings',
+    editApplySettings: 'Member Application Settings',
     editMemberCard: 'Member Card',
     createServer: 'Create Voice Group',
     editServer: 'Edit Voice Group',
@@ -877,8 +1082,19 @@ export const translations: Record<LanguageKey, Translation> = {
     register: 'Register',
     freeSpeech: 'Free speech',
     forbiddenSpeech: 'Restricted speech',
-    changeToFreeSpeech: 'The channel has been set to free speech',
-    changeToForbiddenSpeech: 'The channel has been set to admin-only speech',
+    queue: 'Queue',
+    forbiddenQueue: 'Forbidden queue',
+    controlQueue: 'Control queue',
+    textChangeToFreeSpeech: 'The channel chat has been set to free speech',
+    textChangeToForbiddenSpeech:
+      'The channel chat has been set to admin-only speech',
+    voiceChangeToFreeSpeech: 'The channel voice has been set to free speech',
+    voiceChangeToForbiddenSpeech:
+      'The channel voice has been set to admin-only speech',
+    voiceChangeToQueue:
+      'The channel voice has been set to queue, please click "Take mic" to wait for speech',
+    voiceChangeToForbiddenQueue: 'The queue mode has been changed to forbidden',
+    voiceChangeToControlQueue: 'The queue mode has been changed to control',
     takeMic: 'Take mic',
     takenMic: 'Mic taken',
     mixing: 'Mixing',
@@ -890,17 +1106,25 @@ export const translations: Record<LanguageKey, Translation> = {
     delete: 'Delete',
     kick: 'Kick',
     addFriend: 'Add friend',
+    addChannel: 'Add channel',
     unknownChannel: 'Unknown channel',
     micOrder: 'Mic order',
     allChannel: 'All channels',
+    currentChannel: 'Current channel',
     inputMessage: 'Input message...',
     messageInputBox: 'Message input box',
+    setGuest: 'Set as guest',
+    setMember: 'Set as member',
+    setAdmin: 'Set as admin',
+    setChannelAdmin: 'Set as channel admin',
+    setCategoryAdmin: 'Set as category admin',
     deleteFriend: 'Delete friend',
     searchFriend: 'Search friend',
     guest: 'Guest',
     member: 'Member',
     channelAdmin: 'Channel admin',
     channelManager: 'Channel manager',
+    channelOrder: 'Channel order',
     serverAdmin: 'Server admin',
     serverOwner: 'Server owner',
     eventStaff: 'Event staff',
@@ -959,6 +1183,55 @@ export const translations: Record<LanguageKey, Translation> = {
     frontendDeveloper: 'Frontend Developer',
     backendDeveloper: 'Backend Developer',
     copyright: 'Copyright',
+    isReceiveApply: 'Receive Member Application',
+    setApplyNotice: 'Application Notice',
+    cannotApply:
+      'Cannot apply for membership, this group does not accept membership applications',
+    applySuccess: 'Application submitted, please wait for admin review',
+    TEXT_CHANGE_TO_FREE_SPEECH: 'The channel chat has been set to free speech',
+    TEXT_CHANGE_TO_FORBIDDEN_SPEECH:
+      'The channel chat has been set to admin-only speech',
+    VOICE_CHANGE_TO_FREE_SPEECH:
+      'The channel voice has been set to free speech',
+    VOICE_CHANGE_TO_FORBIDDEN_SPEECH:
+      'The channel voice has been set to admin-only speech',
+    VOICE_CHANGE_TO_QUEUE:
+      'The channel voice has been set to queue, please click "Take mic" to wait for speech',
+    pleaseInputFriendAccount: 'Please input friend account:',
+    basicInfo: 'Basic Info',
+    channelAnnouncement: 'Channel Announcement',
+    accessPermissions: 'Access Permissions',
+    speakingPermissions: 'Speaking Permissions',
+    textPermissions: 'Text Permissions',
+    channelManagement: 'Channel Management',
+    channelNameLabel: 'Channel Name',
+    userLimit: 'User Limit',
+    channelMode: 'Channel Mode',
+    adminSpeech: 'Admin Speech',
+    queueSpeech: 'Queue Speech',
+    channelAudioQuality: 'Channel Audio Quality',
+    chatMode: 'Chat Mode',
+    chatModeDescription:
+      'Low latency, smooth quality (for free speech and command mode channels)',
+    entertainmentMode: 'Entertainment Mode',
+    entertainmentModeDescription:
+      'Original quality, stereo effect (for queued channels, karaoke etc)',
+    forbidGuestQueue: 'Forbid guest queue speech',
+    forbidGuestVoice: 'Forbid guest voice in free speech mode',
+    forbidOnlyAdminText:
+      'This channel is set to allow only admin to send text messages',
+    forbidGuestText: 'Forbid guests from sending text messages in this channel',
+    forbidGuestUrl: 'Forbid guests from sending messages containing URLs',
+    guestTextMaxLength: 'Maximum length of guest text messages:',
+    guestTextWaitTime: 'Wait time before guests can send messages:',
+    guestTextInterval: 'Interval between guest messages:',
+    characters: 'characters',
+    seconds: 'seconds',
+    groups: 'Voice Groups',
+    male: 'Male',
+    female: 'Female',
+    taiwan: 'Taiwan',
+    wealthValue: '0',
   },
   jp: {
     RPCHomePage: 'ホームページを閲覧中',
@@ -985,12 +1258,16 @@ export const translations: Record<LanguageKey, Translation> = {
     exit: '終了',
     searchPlaceholder: 'グループIDまたは名前を入力',
     searchMemberPlaceholder: 'キーワードまたはIDを検索',
+    viewLess: '検視較少',
+    viewMore: '検視更多',
+    personalExclusive: '個人専用',
+    quickEnterServer: 'Enterキーを押して迅速に参加',
+    relatedSearch: '関連検索',
     searchResult: '検索結果',
     recentVisits: '最近の訪問',
     myGroups: '私のボイスグループ',
     favoriteGroups: 'お気に入りのボイスグループ',
     createGroup: 'ボイスグループを作成',
-    personalExclusive: '個人専用',
     fileSizeError: 'ファイルサイズは5MBを超えることはできません',
     fileTypeError: 'サポートされていないファイル形式',
     updateServerError: 'サーバーの更新に失敗しました',
@@ -1041,12 +1318,16 @@ export const translations: Record<LanguageKey, Translation> = {
     memberApplicationManagement: 'メンバーアプリケーション管理',
     blacklistManagement: 'ブラックリスト管理',
     confirm: '確認',
+    modify: '変更',
     cancel: 'キャンセル',
     next: '次へ',
     previous: '前へ',
     signaturePlaceholder: 'クリックして署名を変更',
     friendActive: '友達のアクティブ',
     editUser: 'ユーザーを編集',
+    editApply: '申請設定',
+    systemSetting: 'システム設定',
+    editApplySettings: 'メンバー申請設定',
     editMemberCard: 'メンバーカード',
     createServer: 'ボイスグループを作成',
     editServer: 'ボイスグループを編集',
@@ -1120,8 +1401,20 @@ export const translations: Record<LanguageKey, Translation> = {
     register: '登録',
     freeSpeech: '自由な発言',
     forbiddenSpeech: '発言を制限',
-    changeToFreeSpeech: 'チャンネルは自由な発言に設定されています',
-    changeToForbiddenSpeech: 'チャンネルは管理者のみの発言に設定されています',
+    queue: '排麦',
+    forbiddenQueue: '禁止排麦',
+    controlQueue: '控麦',
+    textChangeToFreeSpeech:
+      'チャンネルのチャットは自由な発言に設定されています',
+    textChangeToForbiddenSpeech:
+      'チャンネルのチャットは管理者のみの発言に設定されています',
+    voiceChangeToFreeSpeech: 'チャンネルの音声は自由な発言に設定されています',
+    voiceChangeToForbiddenSpeech:
+      'チャンネルの音声は管理者のみの発言に設定されています',
+    voiceChangeToQueue:
+      'チャンネルの音声は排麦才能発言に設定されています。"マイクを取る"をクリックして発言を待ってください',
+    voiceChangeToForbiddenQueue: '排麦モードは禁止に設定されています',
+    voiceChangeToControlQueue: '排麦モードは控麦に設定されています',
     takeMic: 'マイクを取る',
     takenMic: 'マイクを取った',
     mixing: 'ミキシング',
@@ -1133,17 +1426,25 @@ export const translations: Record<LanguageKey, Translation> = {
     delete: '削除',
     kick: 'キック',
     addFriend: 'フレンドを追加',
+    addChannel: 'チャンネルを追加',
     unknownChannel: '不明なチャンネル',
     micOrder: 'マイクの順序',
     allChannel: 'すべてのチャンネル',
+    currentChannel: '現在のチャンネル',
     inputMessage: 'メッセージを入力...',
     messageInputBox: 'メッセージ入力ボックス',
+    setGuest: 'ゲストに設定',
+    setMember: 'メンバーに設定',
+    setAdmin: '管理者に設定',
+    setChannelAdmin: 'チャンネル管理者に設定',
+    setCategoryAdmin: 'カテゴリ管理者に設定',
     deleteFriend: 'フレンドを削除',
     searchFriend: 'フレンドを検索',
     guest: 'ゲスト',
     member: 'メンバー',
     channelAdmin: 'チャンネル管理者',
     channelManager: 'チャンネルマネージャー',
+    channelOrder: 'チャンネル位置',
     serverAdmin: 'サーバー管理者',
     serverOwner: 'グループ作成者',
     eventStaff: '公式カスタマーサービス',
@@ -1201,6 +1502,55 @@ export const translations: Record<LanguageKey, Translation> = {
     frontendDeveloper: 'フロントエンド開発者',
     backendDeveloper: 'バックエンド開発者',
     copyright: '著作権所有',
+    isReceiveApply: 'メンバー申請を受け取る',
+    setApplyNotice: 'メンバー申請須知',
+    cannotApply: 'メンバー申請を受け取ることができません',
+    applySuccess: 'メンバー申請が送信されました',
+    TEXT_CHANGE_TO_FREE_SPEECH:
+      'チャンネルのチャットは自由な発言に設定されています',
+    TEXT_CHANGE_TO_FORBIDDEN_SPEECH:
+      'チャンネルのチャットは管理者のみの発言に設定されています',
+    VOICE_CHANGE_TO_FREE_SPEECH:
+      'チャンネルの音声は自由な発言に設定されています',
+    VOICE_CHANGE_TO_FORBIDDEN_SPEECH:
+      'チャンネルの音声は管理者のみの発言に設定されています',
+    VOICE_CHANGE_TO_QUEUE:
+      'チャンネルの音声は排麦才能発言に設定されています。"マイクを取る"をクリックして発言を待ってください',
+    pleaseInputFriendAccount: 'フレンドアカウントを入力してください:',
+    basicInfo: '基本情報',
+    channelAnnouncement: 'チャンネルお知らせ',
+    accessPermissions: 'アクセス権限',
+    speakingPermissions: '発言権限',
+    textPermissions: 'テキスト権限',
+    channelManagement: 'チャンネル管理',
+    channelNameLabel: 'チャンネル名',
+    userLimit: '人数制限(人)',
+    channelMode: 'チャンネルモード',
+    adminSpeech: '管理者発言',
+    queueSpeech: '順番待ち発言',
+    channelAudioQuality: 'チャンネル音質',
+    chatMode: 'チャットモード',
+    chatModeDescription:
+      '低遅延、音質スムーズ（自由発言、指示モードのチャンネル向け）',
+    entertainmentMode: 'エンターテイメントモード',
+    entertainmentModeDescription:
+      '原音質、ステレオ効果（順番待ちモード、カラオケなどのイベント向け）',
+    forbidGuestQueue: 'ゲストの順番待ち発言を禁止',
+    forbidGuestVoice: '自由発言モードでゲストの音声を禁止',
+    forbidOnlyAdminText:
+      'このチャンネルでは管理員のみがテキストメッセージを送信できます',
+    forbidGuestText: 'このチャンネルではゲストのテキストメッセージを禁止',
+    forbidGuestUrl: 'ゲストのURL含むメッセージを禁止',
+    guestTextMaxLength: 'ゲストのテキストメッセージ最大長:',
+    guestTextWaitTime: 'ゲストのメッセージ待機時間:',
+    guestTextInterval: 'ゲストのメッセージ間隔:',
+    characters: '文字',
+    seconds: '秒',
+    groups: 'ボイスグループ',
+    male: '男性',
+    female: '女性',
+    taiwan: '台湾',
+    wealthValue: '0',
   },
 };
 
@@ -1285,11 +1635,14 @@ export type Server = {
   lobbyId: string;
   ownerId: string;
   createdAt: number;
+  receiveApply: boolean;
+  applyNotice: string;
   // THESE WERE NOT SAVE IN THE DATABASE
   lobby?: Channel;
   owner?: ServerMember;
   channels?: (Channel | Category)[];
   members?: ServerMember[];
+  users?: ServerMember[];
   memberApplications?: MemberApplication[];
 };
 
@@ -1515,6 +1868,7 @@ export enum PopupType {
   CREATE_CHANNEL = 'createChannel',
   EDIT_CHANNEL = 'editChannel',
   EDIT_MEMBER = 'editMember',
+  EDIT_APPLY = 'editApply',
   APPLY_MEMBER = 'applyMember',
   APPLY_FRIEND = 'applyFriend',
   ADD_FRIEND = 'addFriend',
@@ -1529,12 +1883,13 @@ export enum PopupType {
 }
 
 export const PopupSize = {
+  [PopupType.EDIT_APPLY]: { height: 220, width: 400 },
   [PopupType.EDIT_MEMBER]: { height: 220, width: 400 },
   [PopupType.EDIT_USER]: { height: 650, width: 500 },
   [PopupType.CREATE_SERVER]: { height: 430, width: 520 },
   [PopupType.EDIT_SERVER]: { height: 450, width: 600 },
   [PopupType.CREATE_CHANNEL]: { height: 220, width: 400 },
-  [PopupType.EDIT_CHANNEL]: { height: 220, width: 400 },
+  [PopupType.EDIT_CHANNEL]: { height: 450, width: 600 },
   [PopupType.APPLY_FRIEND]: { height: 420, width: 540 },
   [PopupType.APPLY_MEMBER]: { height: 420, width: 540 },
   [PopupType.ADD_FRIEND]: { height: 220, width: 400 },

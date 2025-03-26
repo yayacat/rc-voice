@@ -106,3 +106,10 @@
   background-size: cover;
   margin-left: 3px;
 }
+
+.saperator {
+  height: 1px;
+  width: 100%;
+  background-color: #dbdbdb;
+  margin: 20px 0;
+}

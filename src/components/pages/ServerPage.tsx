@@ -7,9 +7,7 @@ import styles from '@/styles/serverPage.module.css';
 // Components
 import MarkdownViewer from '@/components/viewers/MarkdownViewer';
 import MessageViewer from '@/components/viewers/MessageViewer';
-import ChannelViewer, {
-  ChannelViewerRef,
-} from '@/components/viewers/ChannelViewer';
+import ChannelViewer from '@/components/viewers/ChannelViewer';
 import MessageInputBox from '@/components/MessageInputBox';
 
 // Types
@@ -29,6 +27,7 @@ import { useLanguage } from '@/providers/LanguageProvider';
 import { useSocket } from '@/providers/SocketProvider';
 import { useWebRTC } from '@/providers/WebRTCProvider';
 import { useContextMenu } from '@/providers/ContextMenuProvider';
+import { useExpandedContext } from '@/providers/ExpandedContextProvider';
 
 // Services
 import ipcService from '@/services/ipc.service';
@@ -50,15 +49,17 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     const socket = useSocket();
     const webRTC = useWebRTC();
     const contextMenu = useContextMenu();
+    const { handleSetCategoryExpanded, handleSetChannelExpanded } =
+      useExpandedContext();
+
     // Refs
     const refreshed = useRef(false);
-    const channelViewerRef = useRef<ChannelViewerRef>(null);
 
     // States
     const [sidebarWidth, setSidebarWidth] = useState<number>(256);
     const [isResizing, setIsResizing] = useState<boolean>(false);
     const [isFavorite, setIsFavorite] = useState<boolean>(
-      user.favServers?.some((server) => server.id === server.id) || false,
+      user.favServers?.some((favServer) => favServer.id === server.id) || false,
     );
     const [currentChannel, setCurrentChannel] = useState<Channel>(
       createDefault.channel(),
@@ -69,6 +70,9 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     const [micVolume, setMicVolume] = useState(webRTC.micVolume || 100);
     const [speakerVolume, setSpeakerVolume] = useState(
       webRTC.speakerVolume || 100,
+    );
+    const [usersInServer, setUsersInServer] = useState<Member[]>(
+      server.users || [],
     );
 
     // Variables
@@ -108,6 +112,19 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       socket.send.updateChannel({ channel, channelId, serverId });
     };
 
+    // FIXME: logic is wrong
+    const handleAddFavoriteServer = (serverId: Server['id']) => {
+      if (!socket) return;
+      socket.send.updateUser({
+        userId,
+        user: {
+          ...user,
+          favoriteServerId: serverId,
+        },
+      });
+      setIsFavorite(!isFavorite);
+    };
+
     const handleChannelUpdate = (data: Partial<Channel> | null): void => {
       if (!data) data = createDefault.channel();
       setCurrentChannel((prev) => ({ ...prev, ...data }));
@@ -133,11 +150,36 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       userId: User['id'],
       serverId: Server['id'],
     ) => {
+      if (server.receiveApply === false) {
+        ipcService.popup.open(PopupType.DIALOG_ALERT2);
+        ipcService.initialData.onRequest(PopupType.DIALOG_ALERT2, {
+          title: lang.tr.cannotApply,
+        });
+        return;
+      }
+
       ipcService.popup.open(PopupType.APPLY_MEMBER);
       ipcService.initialData.onRequest(PopupType.APPLY_MEMBER, {
         userId,
         serverId,
       });
+    };
+
+    const handleOpenEditMember = (
+      serverId: Server['id'],
+      userId: User['id'],
+    ) => {
+      ipcService.popup.open(PopupType.EDIT_MEMBER);
+      ipcService.initialData.onRequest(PopupType.EDIT_MEMBER, {
+        serverId,
+        userId,
+      });
+    };
+
+    const handleLocateUser = () => {
+      if (!handleSetCategoryExpanded || !handleSetChannelExpanded) return;
+      handleSetCategoryExpanded();
+      handleSetChannelExpanded();
     };
 
     const handleStartResizing = useCallback((e: React.MouseEvent) => {
@@ -189,30 +231,6 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
         setShowSpeakerVolume(false);
       }
     }, []);
-
-    const handleOpenEditMember = (
-      serverId: Server['id'],
-      userId: User['id'],
-    ) => {
-      ipcService.popup.open(PopupType.EDIT_MEMBER);
-      ipcService.initialData.onRequest(PopupType.EDIT_MEMBER, {
-        serverId,
-        userId,
-      });
-    };
-
-    // FIXME: logic is wrong
-    const handleAddFavoriteServer = (serverId: Server['id']) => {
-      if (!socket) return;
-      socket.send.updateUser({
-        userId,
-        user: {
-          ...user,
-          favoriteServerId: serverId,
-        },
-      });
-      setIsFavorite(!isFavorite);
-    };
 
     // Effects
     useEffect(() => {
@@ -272,7 +290,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
     useEffect(() => {
       ipcService.discord.updatePresence({
         details: `${lang.tr.in} ${serverName}`,
-        state: `${lang.tr.with} ${serverMembers.length} ${lang.tr.chatWithMembers}`,
+        state: `${lang.tr.with} ${usersInServer.length} ${lang.tr.chatWithMembers}`,
         largeImageKey: 'app_icon',
         largeImageText: 'RC Voice',
         smallImageKey: 'home_icon',
@@ -285,12 +303,20 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
           },
         ],
       });
-    }, [lang, serverName, serverMembers]);
+    }, [lang, serverName, usersInServer]);
 
     useEffect(() => {
       if (!webRTC.updateBitrate || !channelBitrate) return;
       webRTC.updateBitrate(channelBitrate);
     }, [webRTC, webRTC.updateBitrate, channelBitrate]);
+
+    useEffect(() => {
+      if (!serverMembers) return;
+      const updatedUsersInServer = serverMembers.filter(
+        (member) => member.currentServerId === serverId,
+      );
+      setUsersInServer(updatedUsersInServer);
+    }, [serverMembers, serverId]);
 
     return (
       <div className={styles['serverWrapper']}>
@@ -317,7 +343,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                   <div className={styles['idText']}>{serverDisplayId}</div>
                   <div className={styles['memberIcon']} />
                   <div className={styles['memberText']}>
-                    {serverMembers.length}
+                    {usersInServer.length}
                   </div>
                 </div>
               </div>
@@ -350,20 +376,23 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                           onClick: () =>
                             handleOpenApplyMember(userId, serverId),
                         },
-                        {
-                          id: 'memberChat',
-                          label: '會員群聊',
-                          show: memberPermissionLevel > 2,
-                          onClick: () => {},
-                        },
-                        {
-                          id: 'admin',
-                          label: '查看管理員',
-                          onClick: () => {},
-                        },
+                        // {
+                        //   id: 'memberChat',
+                        //   label: '會員群聊',
+                        //   show: memberPermissionLevel > 2,
+                        //   onClick: () => {},
+                        // },
+                        // {
+                        //   id: 'admin',
+                        //   label: '查看管理員',
+                        //   onClick: () => {},
+                        // },
                         {
                           id: 'separator',
                           label: '',
+                          show:
+                            memberPermissionLevel > 4 ||
+                            memberPermissionLevel < 2,
                         },
                         {
                           id: 'editNickname',
@@ -373,17 +402,17 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                         {
                           id: 'locateMe',
                           label: '定位我自己',
-                          onClick: () => channelViewerRef.current?.locateUser(),
+                          onClick: () => handleLocateUser(),
                         },
                         {
                           id: 'separator',
                           label: '',
                         },
-                        {
-                          id: 'report',
-                          label: '舉報',
-                          onClick: () => {},
-                        },
+                        // {
+                        //   id: 'report',
+                        //   label: '舉報',
+                        //   onClick: () => {},
+                        // },
                         {
                           id: 'favorite',
                           label: isFavorite ? '取消收藏' : '加入收藏',
@@ -400,7 +429,6 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
               server={server}
               member={member}
               currentChannel={currentChannel}
-              ref={channelViewerRef}
             />
           </div>
           {/* Resize Handle */}
@@ -455,7 +483,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                             handleSendMessage(
                               {
                                 type: 'info',
-                                content: lang.tr.changeToFreeSpeech,
+                                content: 'VOICE_CHANGE_TO_FREE_SPEECH',
                                 timestamp: 0,
                               },
                               currentChannelId,
@@ -474,7 +502,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                             handleSendMessage(
                               {
                                 type: 'info',
-                                content: lang.tr.changeToForbiddenSpeech,
+                                content: 'VOICE_CHANGE_TO_FORBIDDEN_SPEECH',
                                 timestamp: 0,
                               },
                               currentChannelId,
@@ -483,7 +511,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                         },
                         {
                           id: 'queue',
-                          label: '排麥',
+                          label: lang.tr.queue,
                           icon: 'submenu',
                           hasSubmenu: true,
                           onClick: () => {
@@ -495,8 +523,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                             handleSendMessage(
                               {
                                 type: 'info',
-                                content:
-                                  '頻道被設為排麥才能發言，請點擊"拿麥發言"等候發言',
+                                content: 'VOICE_CHANGE_TO_QUEUE',
                                 timestamp: 0,
                               },
                               currentChannelId,
@@ -505,14 +532,14 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                           submenuItems: [
                             {
                               id: 'forbiddenQueue',
-                              label: '禁止排麥',
+                              label: lang.tr.forbiddenQueue,
                               disabled: channelVoiceMode === 'queue',
                               onClick: () => {
                                 // handleUpdateChannel({ queueMode: 'forbidden' }, currentChannelId, serverId);
                                 handleSendMessage(
                                   {
                                     type: 'info',
-                                    content: '排麥模式已變更為禁止',
+                                    content: 'VOICE_CHANGE_TO_FORBIDDEN_QUEUE',
                                   },
                                   currentChannelId,
                                 );
@@ -520,14 +547,14 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                             },
                             {
                               id: 'controlQueue',
-                              label: '控麥',
+                              label: lang.tr.controlQueue,
                               disabled: channelVoiceMode === 'queue',
                               onClick: () => {
                                 // handleUpdateChannel({ queueMode: 'control' }, currentChannelId, serverId);
                                 handleSendMessage(
                                   {
                                     type: 'info',
-                                    content: '排麥模式已變更為控麥',
+                                    content: 'VOICE_CHANGE_TO_CONTROL_QUEUE',
                                   },
                                   currentChannelId,
                                 );
@@ -539,7 +566,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                     }
                   >
                     {channelVoiceMode === 'queue'
-                      ? '排麥'
+                      ? lang.tr.queue
                       : channelVoiceMode === 'free'
                       ? lang.tr.freeSpeech
                       : channelVoiceMode === 'forbidden'
@@ -548,7 +575,6 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
                   </div>
                 )}
               </div>
-
               <div
                 className={`${styles['micButton']} ${
                   webRTC.isMute ? '' : styles['active']

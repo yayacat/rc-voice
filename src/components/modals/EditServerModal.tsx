@@ -284,6 +284,13 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
       });
     };
 
+    const handleOpenApplySettings = () => {
+      ipcService.popup.open(PopupType.EDIT_APPLY);
+      ipcService.initialData.onRequest(PopupType.EDIT_APPLY, {
+        serverId,
+      });
+    };
+
     const handleOpenEditMember = (
       serverId: Server['id'],
       userId: User['id'],
@@ -574,24 +581,24 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                             onContextMenu={(e) => {
                               const isCurrentUser = memberUserId === userId;
                               contextMenu.showContextMenu(e.pageX, e.pageY, [
-                                {
-                                  id: 'send-message',
-                                  label: '傳送即時訊息',
-                                  onClick: () => {},
-                                  show: !isCurrentUser,
-                                },
-                                {
-                                  id: 'view-profile',
-                                  label: '檢視個人檔案',
-                                  onClick: () => {},
-                                  show: !isCurrentUser,
-                                },
-                                {
-                                  id: 'add-friend',
-                                  label: '新增好友',
-                                  onClick: () => {},
-                                  show: !isCurrentUser,
-                                },
+                                // {
+                                //   id: 'send-message',
+                                //   label: '傳送即時訊息',
+                                //   onClick: () => {},
+                                //   show: !isCurrentUser,
+                                // },
+                                // {
+                                //   id: 'view-profile',
+                                //   label: '檢視個人檔案',
+                                //   onClick: () => {},
+                                //   show: !isCurrentUser,
+                                // },
+                                // {
+                                //   id: 'add-friend',
+                                //   label: '新增好友',
+                                //   onClick: () => {},
+                                //   show: !isCurrentUser,
+                                // },
                                 // {
                                 //   label: '拒聽此人語音',
                                 //   onClick: () => {},
@@ -605,22 +612,22 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                                       memberUserId,
                                     ),
                                 },
-                                {
-                                  id: 'separator',
-                                  label: '',
-                                  show: !isCurrentUser,
-                                },
-                                {
-                                  id: 'move-to-my-channel',
-                                  label: lang.tr.moveToMyChannel,
-                                  onClick: () => handleUserMove(),
-                                  show: !isCurrentUser,
-                                },
-                                {
-                                  id: 'separator',
-                                  label: '',
-                                  show: !isCurrentUser,
-                                },
+                                // {
+                                //   id: 'separator',
+                                //   label: '',
+                                //   show: !isCurrentUser,
+                                // },
+                                // {
+                                //   id: 'move-to-my-channel',
+                                //   label: lang.tr.moveToMyChannel,
+                                //   onClick: () => handleUserMove(),
+                                //   show: !isCurrentUser,
+                                // },
+                                // {
+                                //   id: 'separator',
+                                //   label: '',
+                                //   show: !isCurrentUser,
+                                // },
                                 // {
                                 //   label: '禁止此人語音',
                                 //   onClick: () => {},
@@ -629,18 +636,18 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                                 //   label: '禁止文字',
                                 //   onClick: () => {},
                                 // },
-                                {
-                                  id: 'kick',
-                                  label: lang.tr.kickOut,
-                                  onClick: () => handleKickServer(member),
-                                  show: !isCurrentUser,
-                                },
-                                {
-                                  id: 'block',
-                                  label: lang.tr.block,
-                                  onClick: () => handleBlockUser(member),
-                                  show: !isCurrentUser,
-                                },
+                                // {
+                                //   id: 'kick',
+                                //   label: lang.tr.kickOut,
+                                //   onClick: () => handleKickServer(member),
+                                //   show: !isCurrentUser,
+                                // },
+                                // {
+                                //   id: 'block',
+                                //   label: lang.tr.block,
+                                //   onClick: () => handleBlockUser(member),
+                                //   show: !isCurrentUser,
+                                // },
                                 {
                                   id: 'separator',
                                   label: '',
@@ -757,16 +764,15 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                   <div className={popup['label']}>
                     {lang.tr.applicants}: {serverApplications.length}
                   </div>
-                  <input
-                    style={{ width: '50%', marginLeft: 'auto' }}
-                    className={popup['input']}
-                    type="search"
-                    placeholder={lang.tr.searchMemberPlaceholder}
-                    value={applicationSearchText}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      setApplicationSearchText(e.target.value)
-                    }
-                  />
+                  <button
+                    style={{ marginLeft: 'auto' }}
+                    className={popup['button']}
+                    onClick={() => {
+                      handleOpenApplySettings();
+                    }}
+                  >
+                    {lang.tr.editApply}
+                  </button>
                 </div>
                 <div className={`${popup['inputBox']} ${popup['col']}`}>
                   <table style={{ minHeight: '280px' }}>
@@ -823,6 +829,11 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                                       applicationUserId,
                                       applicationServerId,
                                     );
+                                    setServerApplications(
+                                      serverApplications.filter(
+                                        (app) => app.id !== applicationId,
+                                      ),
+                                    );
                                   },
                                 },
                                 {
@@ -833,6 +844,11 @@ const EditServerModal: React.FC<ServerSettingModalProps> = React.memo(
                                       { applicationStatus: 'rejected' },
                                       applicationUserId,
                                       applicationServerId,
+                                    );
+                                    setServerApplications(
+                                      serverApplications.filter(
+                                        (app) => app.id !== applicationId,
+                                      ),
                                     );
                                   },
                                 },

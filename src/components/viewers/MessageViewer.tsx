@@ -65,6 +65,7 @@ const ChannelMessageTab: React.FC<ChannelMessageTabProps> = React.memo(
     const {
       gender: senderGender,
       name: senderName,
+      nickname: senderNickname,
       permissionLevel: messagePermission,
       contents: messageContents,
       timestamp: messageTimestamp,
@@ -80,7 +81,9 @@ const ChannelMessageTab: React.FC<ChannelMessageTabProps> = React.memo(
         />
         <div className={styles['messageBox']}>
           <div className={styles['header']}>
-            <span className={styles['name']}>{senderName}</span>
+            <span className={styles['name']}>
+              {senderNickname || senderName}
+            </span>
             <span className={styles['timestamp']}>{timestamp}</span>
           </div>
           {messageContents.map((content, index) => (
@@ -104,7 +107,7 @@ interface InfoMessageTabProps {
 
 const InfoMessageTab: React.FC<InfoMessageTabProps> = React.memo(
   ({ messageGroup }) => {
-    // Variables
+    const lang = useLanguage();
     const { contents: messageContents } = messageGroup;
 
     return (
@@ -113,7 +116,13 @@ const InfoMessageTab: React.FC<InfoMessageTabProps> = React.memo(
         <div className={styles['messageBox']}>
           {messageContents.map((content, index) => (
             <div key={index} className="break-words">
-              <MarkdownViewer markdownText={content} />
+              <MarkdownViewer
+                markdownText={
+                  Object.prototype.hasOwnProperty.call(lang.tr, content)
+                    ? lang.tr[content as keyof typeof lang.tr]
+                    : content
+                }
+              />
             </div>
           ))}
         </div>

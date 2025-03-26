@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { QuickDB } = require('quick.db');
 const db = new QuickDB();
+const xpSystem = require('./xp');
 
 const set = {
   user: async (id, data) => {
@@ -8,13 +9,13 @@ const set = {
     users[id] = {
       name: '',
       avatar: '',
-      avatarUrl: 'https://localhost:3000/images/userAvatars/',
+      avatarUrl: 'http://localhost:4500/images/userAvatars/',
       signature: '',
       status: 'online',
       gender: 'Male',
       level: 0,
       xp: 0,
-      requiredXp: 0,
+      requiredXp: xpSystem.getRequiredXP(0),
       progress: 0,
       currentChannelId: '',
       currentServerId: '',
@@ -64,7 +65,7 @@ const set = {
     servers[id] = {
       name: '',
       avatar: '',
-      avatarUrl: 'https://localhost:3000/images/serverAvatars/',
+      avatarUrl: 'http://localhost:4500/images/serverAvatars/',
       announcement: '',
       description: '',
       slogan: '',
@@ -77,6 +78,8 @@ const set = {
       lobbyId: '',
       ownerId: '',
       createdAt: 0,
+      receiveApply: true,
+      applyNotice: '',
       ...servers[id],
       ...data,
       id,

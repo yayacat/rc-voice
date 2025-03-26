@@ -133,7 +133,8 @@
   gap: 5px;
 }
 
-.inputBox input[type='text'] {
+.inputBox input[type='text'],
+.inputBox input[type='number'] {
   border: 1px solid #ddd;
   padding: 2px;
   background: #fff;
@@ -190,6 +191,7 @@
   display: inline-block;
   height: 2rem;
   max-height: 4rem;
+  max-width: 200px;
 }
 .inputBox select::before {
   content: '';
@@ -218,10 +220,12 @@
   display: none;
 }
 
-.disabled,
-.disabled div,
-.disabled input,
-.disabled button {
+.popupContainer .disabled {
+  color: #8f8f8f;
+  pointer-events: none;
+}
+
+.popupContainer :disabled {
   color: #8f8f8f;
   pointer-events: none;
 }
@@ -343,4 +347,18 @@
   background-size: contain;
   background-repeat: no-repeat;
   background-position: 0 0;
+}
+
+.dialogCenter {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.dialogContent {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  text-align: left;
 }
