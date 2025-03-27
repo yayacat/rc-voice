@@ -21,6 +21,7 @@ import { useLanguage } from '@/providers/LanguageProvider';
 import { useSocket } from '@/providers/SocketProvider';
 import { useContextMenu } from '@/providers/ContextMenuProvider';
 import { useExpandedContext } from '@/providers/ExpandedContextProvider';
+import { useWebRTC } from '@/providers/WebRTCProvider';
 
 // Components
 import BadgeViewer from '@/components/viewers/BadgeViewer';
@@ -123,7 +124,7 @@ const CategoryTab: React.FC<CategoryTabProps> = React.memo(
             ...prev,
             [categoryId]: true,
           }));
-    }, [setCategoryExpanded, userInCategory]);
+    }, [categoryId, setCategoryExpanded, setExpanded, userInCategory]);
 
     return (
       <>
@@ -244,7 +245,9 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
       channelVisibility !== 'readonly' &&
       !(channelVisibility === 'private' && permissionLevel < 3) &&
       !(channelVisibility === 'member' && permissionLevel < 2) &&
-      (channelUserLimit > channelMembers.length || userPermission > 4);
+      (channelUserLimit === 0 ||
+        channelUserLimit > channelMembers.length ||
+        userPermission > 4);
 
     // Handlers
     const handleOpenEditChannel = (
@@ -307,7 +310,7 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
             ...prev,
             [channelId]: true,
           }));
-    }, [setChannelExpanded, userInChannel]);
+    }, [channelId, setChannelExpanded, setExpanded, userInChannel]);
 
     return (
       <>
@@ -399,6 +402,7 @@ const UserTab: React.FC<UserTabProps> = React.memo(
     const lang = useLanguage();
     const contextMenu = useContextMenu();
     const socket = useSocket();
+    const webRTC = useWebRTC();
 
     // Variables
     const { id: userId } = user;
@@ -416,19 +420,12 @@ const UserTab: React.FC<UserTabProps> = React.memo(
     const channelMemberGrade = Math.min(56, Math.ceil(channelMemberLevel / 5)); // 56 is max leve
     const isCurrentUser = userId === channelMemberUserId;
     const canEdit = permissionLevel > channelMemberPermission;
+    const isSpeaking = isCurrentUser
+      ? webRTC.speakingUsers?.includes('local')
+      : webRTC.speakingUsers?.includes(channelMemberUserId);
+    console.log(channelMemberUserId, webRTC.speakingUsers);
 
     // Handlers
-    // const handleOpenApplyFriend = (
-    //   userId: User['id'],
-    //   targetId: User['id'],
-    // ) => {
-    //   ipcService.popup.open(PopupType.APPLY_FRIEND);
-    //   ipcService.initialData.onRequest(PopupType.APPLY_FRIEND, {
-    //     userId,
-    //     targetId,
-    //   });
-    // };
-
     const handleOpenEditMember = (
       serverId: Server['id'],
       userId: User['id'],
@@ -461,30 +458,6 @@ const UserTab: React.FC<UserTabProps> = React.memo(
         }}
         onContextMenu={(e) => {
           contextMenu.showContextMenu(e.pageX, e.pageY, [
-            // {
-            //   id: 'send-message',
-            //   label: '傳送即時訊息',
-            //   onClick: () => {},
-            //   show: !isCurrentUser,
-            // },
-            // {
-            //   id: 'view-profile',
-            //   label: '檢視個人檔案',
-            //   onClick: () => {},
-            //   show: !isCurrentUser,
-            // },
-            // {
-            //   id: 'add-friend',
-            //   label: lang.tr.addFriend,
-            //   onClick: () => handleOpenApplyFriend(userId, channelMemberUserId),
-            //   show: !isCurrentUser,
-            // },
-            // {
-            //   id: 'refuse-voice',
-            //   label: '拒聽此人語音',
-            //   onClick: () => {},
-            //   show: !isCurrentUser && !canEdit,
-            // },
             {
               id: 'edit-nickname',
               label: '修改群名片',
@@ -495,46 +468,6 @@ const UserTab: React.FC<UserTabProps> = React.memo(
                 ),
               show: isCurrentUser || canEdit,
             },
-            // {
-            //   id: 'separator',
-            //   label: '',
-            //   show: !isCurrentUser && !canEdit,
-            // },
-            // {
-            //   id: 'move-to-my-channel',
-            //   label: lang.tr.moveToMyChannel,
-            //   // onClick: () => handleUserMove(),
-            //   show: !isCurrentUser && canEdit,
-            // },
-            // {
-            //   id: 'separator',
-            //   label: '',
-            //   show: !isCurrentUser && canEdit,
-            // },
-            // {
-            //   id: 'mute-voice',
-            //   label: '禁止此人語音',
-            //   onClick: () => {},
-            //   show: !isCurrentUser && canEdit,
-            // },
-            // {
-            //   id: 'mute-text',
-            //   label: '禁止文字',
-            //   onClick: () => {},
-            //   show: !isCurrentUser && canEdit,
-            // },
-            // {
-            //   id: 'kick',
-            //   label: lang.tr.kickOut,
-            //   onClick: () => {},
-            //   show: !isCurrentUser && canEdit,
-            // },
-            // {
-            //   id: 'block',
-            //   label: lang.tr.block,
-            //   onClick: () => {},
-            //   show: !isCurrentUser && canEdit,
-            // },
             {
               id: 'separator',
               label: '',
@@ -578,14 +511,22 @@ const UserTab: React.FC<UserTabProps> = React.memo(
         }}
       >
         <div
-          className={`${styles['userState']} ${false ? styles['unplay'] : ''}`}
+          className={`${styles['userState']} ${
+            isSpeaking ? styles['play'] : ''
+          }`}
         />
         <div
           className={`${styles['userIcon']} ${
             permission[channelMemberGender]
           } ${permission[`lv-${channelMemberPermission}`]}`}
         />
-        <div className={styles['userTabName']}>
+        <div
+          className={`${styles['userTabName']} ${
+            channelMemberNickname && channelMemberName
+              ? styles['channelMemberName']
+              : ''
+          }`}
+        >
           {channelMemberNickname || channelMemberName}
         </div>
         <div

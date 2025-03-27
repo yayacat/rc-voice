@@ -81,6 +81,7 @@ export interface Translation {
   memberApplicationManagement: string;
   blacklistManagement: string;
   confirm: string;
+  save: string;
   modify: string;
   cancel: string;
   next: string;
@@ -266,6 +267,7 @@ export interface Translation {
   VOICE_CHANGE_TO_FORBIDDEN_SPEECH: string;
   VOICE_CHANGE_TO_QUEUE: string;
   pleaseInputFriendAccount: string;
+  pleaseInputFriendSubGroups: string;
   basicInfo: string;
   channelAnnouncement: string;
   accessPermissions: string;
@@ -297,6 +299,9 @@ export interface Translation {
   female: string;
   taiwan: string;
   wealthValue: string;
+  addFriendSubGroups: string;
+  getHelp: string;
+  discord: string;
 }
 
 export type LanguageKey = 'tw' | 'cn' | 'en' | 'jp';
@@ -355,13 +360,13 @@ export const translations: Record<LanguageKey, Translation> = {
     inputAnnouncement: '輸入公告內容',
     edit: '編輯',
     preview: '預覽',
-    permission: '權限',
+    permission: '身份',
     markdownSupport:
       '支援 Markdown 語法：**粗體**, *斜體*, # 標題, - 列表, ```程式碼```, [連結](https://)',
     members: '會員',
     memberInfo: '會員資料',
     identity: '身分',
-    contribution: '貢獻',
+    contribution: '貢獻值',
     joinDate: '入會時間',
     moveToMyChannel: '移至我的頻道',
     kickOut: '踢出群',
@@ -387,6 +392,7 @@ export const translations: Record<LanguageKey, Translation> = {
     memberApplicationManagement: '會員申請管理',
     blacklistManagement: '黑名單管理',
     confirm: '確定',
+    save: '保存',
     modify: '修改',
     cancel: '取消',
     next: '下一步',
@@ -574,6 +580,7 @@ export const translations: Record<LanguageKey, Translation> = {
     VOICE_CHANGE_TO_FORBIDDEN_SPEECH: '該頻道語音已被設為僅管理員發言',
     VOICE_CHANGE_TO_QUEUE: '頻道被設為排麥才能發言，請點擊"拿麥發言"等候發言',
     pleaseInputFriendAccount: '請輸入好友帳號:',
+    pleaseInputFriendSubGroups: '請填寫分組名稱:',
     basicInfo: '基本資料',
     channelAnnouncement: '頻道公告',
     accessPermissions: '訪問許可權',
@@ -606,6 +613,9 @@ export const translations: Record<LanguageKey, Translation> = {
     female: '女性',
     taiwan: '台灣',
     wealthValue: '0',
+    addFriendSubGroups: '請填寫分組名稱',
+    getHelp: '獲得協助',
+    discord: 'Discord',
   },
   cn: {
     RPCHomePage: '正在浏览主页',
@@ -692,6 +702,7 @@ export const translations: Record<LanguageKey, Translation> = {
     memberApplicationManagement: '会员申请管理',
     blacklistManagement: '黑名单管理',
     confirm: '确定',
+    save: '保存',
     modify: '修改',
     cancel: '取消',
     next: '下一步',
@@ -879,6 +890,7 @@ export const translations: Record<LanguageKey, Translation> = {
     VOICE_CHANGE_TO_FORBIDDEN_SPEECH: '频道语音已被设为仅管理员发言',
     VOICE_CHANGE_TO_QUEUE: '频道被设为排麦才能发言，请点击"拿麦发言"等候发言',
     pleaseInputFriendAccount: '请输入好友账号:',
+    pleaseInputFriendSubGroups: '请填写分组名称:',
     basicInfo: '基本资料',
     channelAnnouncement: '频道公告',
     accessPermissions: '访问权限',
@@ -911,6 +923,9 @@ export const translations: Record<LanguageKey, Translation> = {
     female: '女性',
     taiwan: '台湾',
     wealthValue: '0',
+    addFriendSubGroups: '请输入分组名称',
+    getHelp: 'Get Help',
+    discord: 'Discord',
   },
   en: {
     RPCHomePage: 'Browsing Homepage',
@@ -998,6 +1013,7 @@ export const translations: Record<LanguageKey, Translation> = {
     memberApplicationManagement: 'Member Application Management',
     blacklistManagement: 'Blacklist Management',
     confirm: 'Confirm',
+    save: 'Save',
     modify: 'Modify',
     cancel: 'Cancel',
     next: 'Next',
@@ -1198,6 +1214,7 @@ export const translations: Record<LanguageKey, Translation> = {
     VOICE_CHANGE_TO_QUEUE:
       'The channel voice has been set to queue, please click "Take mic" to wait for speech',
     pleaseInputFriendAccount: 'Please input friend account:',
+    pleaseInputFriendSubGroups: 'Please input subgroup name:',
     basicInfo: 'Basic Info',
     channelAnnouncement: 'Channel Announcement',
     accessPermissions: 'Access Permissions',
@@ -1232,6 +1249,9 @@ export const translations: Record<LanguageKey, Translation> = {
     female: 'Female',
     taiwan: 'Taiwan',
     wealthValue: '0',
+    addFriendSubGroups: 'Please fill in the subgroup name',
+    getHelp: 'Get Help',
+    discord: 'Discord',
   },
   jp: {
     RPCHomePage: 'ホームページを閲覧中',
@@ -1318,6 +1338,7 @@ export const translations: Record<LanguageKey, Translation> = {
     memberApplicationManagement: 'メンバーアプリケーション管理',
     blacklistManagement: 'ブラックリスト管理',
     confirm: '確認',
+    save: '保存',
     modify: '変更',
     cancel: 'キャンセル',
     next: '次へ',
@@ -1517,6 +1538,7 @@ export const translations: Record<LanguageKey, Translation> = {
     VOICE_CHANGE_TO_QUEUE:
       'チャンネルの音声は排麦才能発言に設定されています。"マイクを取る"をクリックして発言を待ってください',
     pleaseInputFriendAccount: 'フレンドアカウントを入力してください:',
+    pleaseInputFriendSubGroups: 'サブグループ名を入力してください:',
     basicInfo: '基本情報',
     channelAnnouncement: 'チャンネルお知らせ',
     accessPermissions: 'アクセス権限',
@@ -1551,6 +1573,9 @@ export const translations: Record<LanguageKey, Translation> = {
     female: '女性',
     taiwan: '台湾',
     wealthValue: '0',
+    addFriendSubGroups: 'サブグループ名を記入してください',
+    getHelp: 'ヘルプを取得',
+    discord: 'Discord',
   },
 };
 
@@ -1872,6 +1897,7 @@ export enum PopupType {
   APPLY_MEMBER = 'applyMember',
   APPLY_FRIEND = 'applyFriend',
   ADD_FRIEND = 'addFriend',
+  ADD_FRIEND_SUBGROUPS = 'addSubGroups',
   DIRECT_MESSAGE = 'directMessage',
   DIALOG_ALERT = 'dialogAlert',
   DIALOG_ALERT2 = 'dialogAlert2',
@@ -1893,6 +1919,7 @@ export const PopupSize = {
   [PopupType.APPLY_FRIEND]: { height: 420, width: 540 },
   [PopupType.APPLY_MEMBER]: { height: 420, width: 540 },
   [PopupType.ADD_FRIEND]: { height: 220, width: 400 },
+  [PopupType.ADD_FRIEND_SUBGROUPS]: { height: 220, width: 400 },
   [PopupType.DIRECT_MESSAGE]: { height: 200, width: 300 },
   [PopupType.DIALOG_ALERT]: { height: 220, width: 400 },
   [PopupType.DIALOG_ALERT2]: { height: 220, width: 400 },
