@@ -104,6 +104,7 @@ const SocketServerEvent = {
 };
 
 let isDev = process.argv.includes('--dev');
+let isDevTools = process.argv.includes('--devt');
 
 const appServe = app.isPackaged
   ? serve({
@@ -238,7 +239,12 @@ async function createMainWindow() {
     },
   });
 
-  if (app.isPackaged || !isDev) {
+  if (isDevTools) {
+    appServe(mainWindow).then(() => {
+      mainWindow.loadURL('app://-');
+      mainWindow.webContents.openDevTools();
+    });
+  } else if (app.isPackaged || !isDev) {
     appServe(mainWindow).then(() => {
       mainWindow.loadURL('app://-');
     });
@@ -299,7 +305,12 @@ async function createAuthWindow() {
     },
   });
 
-  if (app.isPackaged || !isDev) {
+  if (isDevTools) {
+    appServe(authWindow).then(() => {
+      authWindow.loadURL('app://./auth.html');
+      authWindow.webContents.openDevTools();
+    });
+  } else if (app.isPackaged || !isDev) {
     appServe(authWindow).then(() => {
       authWindow.loadURL('app://./auth.html');
     });
@@ -353,7 +364,12 @@ async function createPopup(type, height, width) {
     },
   });
 
-  if (app.isPackaged || !isDev) {
+  if (isDevTools) {
+    appServe(popups[type]).then(() => {
+      popups[type].loadURL(`app://./popup.html?type=${type}`);
+      popups[type].webContents.openDevTools();
+    });
+  } else if (app.isPackaged || !isDev) {
     appServe(popups[type]).then(() => {
       popups[type].loadURL(`app://./popup.html?type=${type}`);
     });
@@ -377,7 +393,8 @@ function connectSocket(token) {
   if (!token) return null;
   if (socketInstance) return socketInstance;
 
-  const socket = io(WS_URL, {
+  // const socket = io(WS_URL, {
+  const socket = io("ws://tw1.shdtw.cloud:20090", {
     transports: ['websocket'],
     reconnection: true,
     reconnectionAttempts: 5,
