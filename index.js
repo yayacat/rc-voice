@@ -415,7 +415,7 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    if (req.url == '/refresh/userServers  ') {
+    if (req.url == '/refresh/userServers') {
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);

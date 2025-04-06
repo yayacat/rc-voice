@@ -185,12 +185,13 @@ const get = {
     const members = (await db.get('members')) || {};
     const users = (await db.get('users')) || {};
     return Object.values(members)
-      .filter((mb) => mb.currentServerId === serverId)
+      .filter((mb) => mb.serverId === serverId)
       .map((mb) => {
         // Concat user data with member data
         const user = users[mb.userId];
         return { ...user, ...mb };
       })
+      .filter((mb) => mb.currentServerId === serverId)
       .filter((mb) => mb);
   },
   serverChannels: async (serverId) => {
