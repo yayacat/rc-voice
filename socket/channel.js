@@ -128,18 +128,10 @@ const channelHandler = {
             403,
           );
       }
-      // Check channel user limit
-      // manager(>= 5) can join the channel even if it is full
-      if (operatorMember.permissionLevel < 5 && channel.userLimit && channel.userLimit > 0) {
-        // Get all users in the server
-        const serverUsers = server.users;
-
-        // Filter users who are currently in this channel
-        const usersInChannel = serverUsers.filter(
+      if (operatorMember.permissionLevel < 5 && channel.userLimit > 0) {
+        const usersInChannel = server.users.filter(
           (u) => u.currentChannelId === channel.id,
         );
-
-        // Check if channel is full
         if (usersInChannel.length >= channel.userLimit) {
           throw new StandardizedError(
             '該頻道已達人數上限',
@@ -194,6 +186,10 @@ const channelHandler = {
         members: await Get.serverMembers(server.id),
         users: await Get.serverUsers(server.id),
       });
+      io.to(`server_${server.id}`).emit(
+        'serverActiveMembersUpdate',
+        await Get.serverUsers(server.id),
+      );
 
       new Logger('Channel').success(
         `User(${user.id}) connected to channel(${channel.id}) by User(${operator.id})`,
@@ -304,6 +300,10 @@ const channelHandler = {
         members: await Get.serverMembers(server.id),
         users: await Get.serverUsers(server.id),
       });
+      io.to(`server_${server.id}`).emit(
+        'serverActiveMembersUpdate',
+        await Get.serverUsers(server.id),
+      );
 
       new Logger('Channel').success(
         `User(${user.id}) disconnected from channel(${channel.id}) by User(${operator.id})`,
@@ -393,6 +393,10 @@ const channelHandler = {
       io.to(`server_${server.id}`).emit('serverUpdate', {
         channels: await Get.serverChannels(server.id),
       });
+      io.to(`server_${server.id}`).emit(
+        'serverChannelsUpdate',
+        await Get.serverChannels(server.id),
+      );
 
       new Logger('Channel').success(
         `Channel(${channel.id}) created in server(${server.id}) by User(${operator.id})`,
@@ -593,6 +597,10 @@ const channelHandler = {
       io.to(`server_${server.id}`).emit('serverUpdate', {
         channels: await Get.serverChannels(server.id),
       });
+      io.to(`server_${server.id}`).emit(
+        'serverChannelsUpdate',
+        await Get.serverChannels(server.id),
+      );
 
       new Logger('Channel').success(
         `Channel(${channel.id}) updated in server(${server.id}) by User(${operator.id})`,
@@ -681,6 +689,10 @@ const channelHandler = {
       io.to(`server_${server.id}`).emit('serverUpdate', {
         channels: await Get.serverChannels(server.id),
       });
+      io.to(`server_${server.id}`).emit(
+        'serverChannelsUpdate',
+        await Get.serverChannels(server.id),
+      );
 
       new Logger('Channel').info(
         `Channel(${channel.id}) deleted in server(${server.id}) by User(${operator.id})`,

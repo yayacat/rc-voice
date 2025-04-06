@@ -85,6 +85,10 @@ const friendApplicationHandler = {
         io.to(receiverSocket.id).emit('userUpdate', {
           friendApplications: await Get.userFriendApplications(receiverId),
         });
+        io.to(receiverSocket.id).emit(
+          'userFriendApplicationsUpdate',
+          await Get.userFriendApplications(receiverId),
+        );
       }
 
       new Logger('FriendApplication').success(
@@ -177,9 +181,15 @@ const friendApplicationHandler = {
       await Set.friendApplication(application.id, editedApplication);
 
       // Emit updated data (to the receiver)
-      io.to(receiverSocket.id).emit('userUpdate', {
-        friendApplications: await Get.userFriendApplications(receiver.id),
-      });
+      if (receiverSocket) {
+        io.to(receiverSocket.id).emit('userUpdate', {
+          friendApplications: await Get.userFriendApplications(receiver.id),
+        });
+        io.to(receiverSocket.id).emit(
+          'userFriendApplicationsUpdate',
+          await Get.userFriendApplications(receiver.id),
+        );
+      }
 
       new Logger('FriendApplication').success(
         `Friend application(${application.id}) of User(${sender.id}) and User(${receiver.id}) updated by User(${operator.id})`,
@@ -230,6 +240,12 @@ const friendApplicationHandler = {
       const sender = await Get.user(senderId);
       const receiver = await Get.user(receiverId);
       const application = await Get.friendApplication(senderId, receiverId);
+      let receiverSocket;
+      io.sockets.sockets.forEach((_socket) => {
+        if (_socket.userId === receiverId) {
+          receiverSocket = _socket;
+        }
+      });
 
       // Validate operation
       if (operator.id !== sender.id && operator.id !== receiver.id) {
@@ -252,6 +268,15 @@ const friendApplicationHandler = {
 
       await db.delete(`friendApplications.${application.id}`);
 
+      if (receiverSocket) {
+        io.to(receiverSocket.id).emit('userUpdate', {
+          friendApplications: await Get.userFriendApplications(receiver.id),
+        });
+        io.to(receiverSocket.id).emit(
+          'userFriendApplicationsUpdate',
+          await Get.userFriendApplications(receiver.id),
+        );
+      }
       new Logger('FriendApplication').success(
         `Friend application(${application.id}) of User(${sender.id}) and User(${receiver.id}) deleted by User(${operator.id})`,
       );

@@ -89,6 +89,10 @@ const messageHandler = {
           ...(await Get.channelInfoMessages(channel.id)),
         ],
       });
+      io.to(`channel_${channel.id}`).emit('channelMessagesUpdate', [
+        ...(await Get.channelMessages(channel.id)),
+        ...(await Get.channelInfoMessages(channel.id)),
+      ]);
 
       new Logger('Message').success(
         `User(${operator.id}) sent ${newMessage.content} to channel(${channel.id})`,
@@ -176,7 +180,7 @@ const messageHandler = {
         timestamp: Date.now().valueOf(),
       });
 
-      // Emit updated data (to user and target (if online))
+      // Emit updated data (to user and target *if online*)
       io.to(userSocket.id).emit(
         'directMessageUpdate',
         await Get.directMessages(user.id, target.id),

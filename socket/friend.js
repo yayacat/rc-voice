@@ -98,9 +98,17 @@ const friendHandler = {
       io.to(userSocket.id).emit('userUpdate', {
         friends: await Get.userFriends(user.id),
       });
+      io.to(userSocket.id).emit(
+        'userFriendsUpdate',
+        await Get.userFriends(user.id),
+      );
       io.to(targetSocket.id).emit('userUpdate', {
         friends: await Get.userFriends(target.id),
       });
+      io.to(targetSocket.id).emit(
+        'userFriendsUpdate',
+        await Get.userFriends(target.id),
+      );
 
       new Logger('Friend').success(
         `Friend(${friendId}) and Friend(${friend_}) of User(${user.id}) and User(${target.id}) created by User(${operator.id})`,
@@ -188,10 +196,18 @@ const friendHandler = {
       io.to(userSocket.id).emit('userUpdate', {
         friends: await Get.userFriends(userId),
       });
+      io.to(userSocket.id).emit(
+        'userFriendsUpdate',
+        await Get.userFriends(userId),
+      );
       io.to(targetSocket.id).emit('friendUpdate', editedFriend);
       io.to(targetSocket.id).emit('userUpdate', {
         friends: await Get.userFriends(targetId),
       });
+      io.to(targetSocket.id).emit(
+        'userFriendsUpdate',
+        await Get.userFriends(targetId),
+      );
 
       new Logger('Friend').success(
         `Friend(${friend.id}) of User(${user.id}) and User(${target.id}) updated by User(${operator.id})`,
@@ -274,9 +290,17 @@ const friendHandler = {
       io.to(userSocket.id).emit('userUpdate', {
         friends: await Get.userFriends(userId),
       });
+      io.to(userSocket.id).emit(
+        'userFriendsUpdate',
+        await Get.userFriends(userId),
+      );
       io.to(targetSocket.id).emit('userUpdate', {
         friends: await Get.userFriends(targetId),
       });
+      io.to(targetSocket.id).emit(
+        'userFriendsUpdate',
+        await Get.userFriends(targetId),
+      );
 
       new Logger('Friend').success(
         `Friend(${friend.id}) and Friend(${friend_.id}) of User(${user.id}) and User(${target.id}) deleted by User(${operator.id})`,

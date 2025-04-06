@@ -70,6 +70,10 @@ const friendGroupHandler = {
       io.to(userSocket.id).emit('userUpdate', {
         friendGroups: await Get.userFriendGroups(user.id),
       });
+      io.to(userSocket.id).emit(
+        'userFriendGroupsUpdate',
+        await Get.userFriendGroups(user.id),
+      );
 
       new Logger('FriendGroup').success(
         `FriendGroup(${friendGroupId}) of User(${user.id}) created by User(${operator.id})`,
@@ -150,6 +154,10 @@ const friendGroupHandler = {
       io.to(userSocket.id).emit('userUpdate', {
         friendGroups: await Get.userFriendGroups(user.id),
       });
+      io.to(userSocket.id).emit(
+        'userFriendGroupsUpdate',
+        await Get.userFriendGroups(user.id),
+      );
 
       new Logger('FriendGroup').success(
         `FriendGroup(${friendGroup.id}) of User(${user.id}) updated by User(${operator.id})`,
@@ -224,6 +232,10 @@ const friendGroupHandler = {
       io.to(userSocket.id).emit('userUpdate', {
         friendGroups: await Get.userFriendGroups(user.id),
       });
+      io.to(userSocket.id).emit(
+        'userFriendGroupsUpdate',
+        await Get.userFriendGroups(user.id),
+      );
 
       new Logger('FriendGroup').success(
         `FriendGroup(${friendGroup.id}) of User(${user.id}) deleted by User(${operator.id})`,

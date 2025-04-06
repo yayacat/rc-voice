@@ -69,6 +69,10 @@ const memberApplicationHandler = {
       io.to(`server_${server.id}`).emit('serverUpdate', {
         memberApplications: await Get.serverMemberApplications(server.id),
       });
+      io.to(`server_${server.id}`).emit(
+        'serverMemberApplicationsUpdate',
+        await Get.serverMemberApplications(server.id),
+      );
 
       new Logger('MemberApplication').success(
         `Member application(${applicationId}) of User(${user.id}) and server(${server.id}) created by User(${operator.id})`,
@@ -167,6 +171,10 @@ const memberApplicationHandler = {
       io.to(`server_${server.id}`).emit('serverUpdate', {
         memberApplications: await Get.serverMemberApplications(server.id),
       });
+      io.to(`server_${server.id}`).emit(
+        'serverMemberApplicationsUpdate',
+        await Get.serverMemberApplications(server.id),
+      );
 
       new Logger('MemberApplication').success(
         `Member application(${application.id}) of User(${user.id}) and server(${server.id}) updated by User(${operator.id})`,
@@ -259,6 +267,10 @@ const memberApplicationHandler = {
       io.to(`server_${server.id}`).emit('serverUpdate', {
         memberApplications: await Get.serverMemberApplications(server.id),
       });
+      io.to(`server_${server.id}`).emit(
+        'serverMemberApplicationsUpdate',
+        await Get.serverMemberApplications(server.id),
+      );
 
       new Logger('MemberApplication').success(
         `Member application(${application.id}) of User(${user.id}) and server(${server.id}) deleted by User(${operator.id})`,

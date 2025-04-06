@@ -104,6 +104,10 @@ const memberHandler = {
       io.to(`server_${server.id}`).emit('serverUpdate', {
         members: await Get.serverMembers(server.id),
       });
+      io.to(`server_${server.id}`).emit(
+        'serverMembersUpdate',
+        await Get.serverMembers(server.id),
+      );
 
       new Logger('Member').success(
         `Member(${member.id}) of User(${user.id}) in Server(${server.id}) created by User(${operator.id})`,
@@ -160,6 +164,12 @@ const memberHandler = {
       const server = await Get.server(serverId);
       const member = await Get.member(userId, serverId);
       const operatorMember = await Get.member(operator.id, server.id);
+      let userSocket;
+      io.sockets.sockets.forEach((_socket) => {
+        if (_socket.userId === user.id) {
+          userSocket = _socket;
+        }
+      });
 
       if (operator.id === user.id) {
         if (editedMember.permissionLevel) {
@@ -247,10 +257,25 @@ const memberHandler = {
       // Update member
       await Set.member(member.id, editedMember);
 
-      // Emit updated data to all users in the server
+      // Emit updated data (to all users in the server)
       io.to(`server_${server.id}`).emit('serverUpdate', {
         members: await Get.serverMembers(server.id),
       });
+      io.to(`server_${server.id}`).emit(
+        'serverMembersUpdate',
+        await Get.serverMembers(server.id),
+      );
+
+      // Emit updated data (to the user *if the user is in the server*)
+      io.in(`server_${server.id}`)
+        .fetchSockets()
+        .then((sockets) => {
+          sockets.forEach((socket) => {
+            if (socket.id === userSocket.id) {
+              socket.emit('memberUpdate', editedMember);
+            }
+          });
+        });
 
       new Logger('Member').success(
         `Member(${member.id}) of User(${user.id}) in Server(${server.id}) updated by User(${operator.id})`,
