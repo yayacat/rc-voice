@@ -108,6 +108,10 @@ const memberHandler = {
         'serverMembersUpdate',
         await Get.serverMembers(server.id),
       );
+      io.to(`server_${server.id}`).emit(
+        'serverActiveMembersUpdate',
+        await Get.serverUsers(server.id),
+      );
 
       new Logger('Member').success(
         `Member(${member.id}) of User(${user.id}) in Server(${server.id}) created by User(${operator.id})`,
@@ -264,6 +268,10 @@ const memberHandler = {
       io.to(`server_${server.id}`).emit(
         'serverMembersUpdate',
         await Get.serverMembers(server.id),
+      );
+      io.to(`server_${server.id}`).emit(
+        'serverActiveMembersUpdate',
+        await Get.serverUsers(server.id),
       );
 
       // Emit updated data (to the user *if the user is in the server*)
