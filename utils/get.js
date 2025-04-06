@@ -60,7 +60,7 @@ const get = {
       .map((us) => {
         // Concat server data with user server data
         const server = servers[us.serverId];
-        return { ...server, ...us };
+        return { ...us, ...server };
       })
       .filter((s) => s);
   },
