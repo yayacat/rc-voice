@@ -150,7 +150,7 @@ const userHandler = {
         await Set.user(operatorId, user_update);
 
         // Clear user contribution interval
-        XP.delete(socket);
+        XP.delete(operatorId);
 
         // Leave RTC channel
         await rtcHandler.leave(io, socket, {
