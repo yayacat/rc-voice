@@ -179,13 +179,18 @@ const xpSystem = {
 
       // Update member contribution if in a server
       const memberUpdate = {
-        contribution: member.contribution + XP_SYSTEM.BASE_XP,
+        contribution:
+          Math.round(
+            (member.contribution + XP_SYSTEM.BASE_XP * vipBoost) * 100,
+          ) / 100,
       };
       await Set.member(member.id, memberUpdate);
 
       // Update server wealth
       const serverUpdate = {
-        wealth: server.wealth + XP_SYSTEM.BASE_XP * vipBoost,
+        wealth:
+          Math.round((server.wealth + XP_SYSTEM.BASE_XP * vipBoost) * 100) /
+          100,
       };
       await Set.server(server.id, serverUpdate);
     } catch (error) {
