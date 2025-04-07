@@ -139,12 +139,6 @@ const serverHandler = {
         });
       }
 
-      // Connect to the server's lobby channel
-      await channelHandler.connectChannel(io, socket, {
-        channelId: server.lobbyId,
-        userId: user.id,
-      });
-
       // Update user-server
       await Set.userServer(`us_${user.id}-${server.id}`, {
         userId: user.id,
@@ -162,6 +156,12 @@ const serverHandler = {
 
       // Join the server
       userSocket.join(`server_${server.id}`);
+
+      // Connect to the server's lobby channel
+      await channelHandler.connectChannel(io, socket, {
+        channelId: server.lobbyId,
+        userId: user.id,
+      });
 
       // Emit data (only to the user)
       io.to(userSocket.id).emit('userUpdate', user_update);
@@ -257,14 +257,6 @@ const serverHandler = {
         }
       }
 
-      // Leave prev channel
-      if (user.currentChannelId) {
-        await channelHandler.disconnectChannel(io, socket, {
-          channelId: user.currentChannelId,
-          userId: user.id,
-        });
-      }
-
       // Update user presence
       const user_update = {
         currentServerId: null,
@@ -274,6 +266,14 @@ const serverHandler = {
 
       // Leave the server
       userSocket.leave(`server_${server.id}`);
+
+      // Leave prev channel
+      if (user.currentChannelId) {
+        await channelHandler.disconnectChannel(io, socket, {
+          channelId: user.currentChannelId,
+          userId: user.id,
+        });
+      }
 
       // Emit data (only to the user)
       io.to(userSocket.id).emit('userUpdate', user_update);
