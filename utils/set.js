@@ -177,6 +177,7 @@ const set = {
       'forbidGuestUrl',
       'type',
       'visibility',
+      'password',
       'voiceMode',
       'categoryId',
       'serverId',

@@ -599,9 +599,7 @@ const channelHandler = {
       }
 
       // Update channel
-      console.log(editedChannel);
       await Set.channel(channel.id, editedChannel);
-      console.log(await Get.channel(channel.id));
 
       // Emit updated data (to all users in the channel)
       io.to(`channel_${channel.id}`).emit('channelUpdate', editedChannel);
