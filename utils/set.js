@@ -202,6 +202,7 @@ const set = {
       type: 'channel',
       visibility: 'public',
       voiceMode: 'free',
+      password: '',
       categoryId: '',
       serverId: '',
       createdAt: 0,

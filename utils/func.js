@@ -575,6 +575,18 @@ const func = {
           400,
         );
       }
+      if (
+        channel.password &&
+        (channel.password.length < 1 || channel.password.length > 4)
+      ) {
+        throw new StandardizedError(
+          '密碼長度必須在1-4個字符之間',
+          'ValidationError',
+          'CHANNEL',
+          'PASSWORD_INVALID',
+          400,
+        );
+      }
       return channel;
     },
 
