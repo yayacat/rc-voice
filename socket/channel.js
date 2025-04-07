@@ -165,7 +165,7 @@ const channelHandler = {
       await Set.member(operatorMember.id, member_update);
 
       // Setup user interval for accumulate contribution
-      XP.create(userSocket);
+      XP.create(user.id);
 
       // Join RTC channel
       rtcHandler.join(io, userSocket, { channelId: channel.id });
@@ -280,7 +280,7 @@ const channelHandler = {
       await Set.user(userId, user_update);
 
       // Clear user contribution interval
-      XP.delete(userSocket);
+      XP.delete(user.id);
 
       // Leave RTC channel
       await rtcHandler.leave(io, userSocket, { channelId: channel.id });

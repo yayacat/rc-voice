@@ -10,14 +10,14 @@ const xpSystem = {
   timeFlag: new Map(), // socket -> timeFlag
   elapsedTime: new Map(), // userId -> elapsedTime
 
-  create: async (socket) => {
-    await xpSystem.refreshUser(socket);
-    xpSystem.timeFlag.set(socket, Date.now());
+  create: async (userId) => {
+    await xpSystem.refreshUser(userId);
+    xpSystem.timeFlag.set(userId, Date.now());
   },
 
-  delete: async (socket) => {
-    await xpSystem.refreshUser(socket);
-    xpSystem.timeFlag.delete(socket);
+  delete: async (userId) => {
+    await xpSystem.refreshUser(userId);
+    xpSystem.timeFlag.delete(userId);
   },
 
   setup: () => {
@@ -34,22 +34,22 @@ const xpSystem = {
   },
 
   refreshAllUsers: async () => {
-    for (const [socket, timeFlag] of xpSystem.timeFlag.entries()) {
+    for (const [userId, timeFlag] of xpSystem.timeFlag.entries()) {
       try {
-        const elapsedTime = xpSystem.elapsedTime.get(socket.userId) || 0;
+        const elapsedTime = xpSystem.elapsedTime.get(userId) || 0;
         let newElapsedTime = elapsedTime + Date.now() - timeFlag;
         while (newElapsedTime >= XP_SYSTEM.INTERVAL_MS) {
-          await xpSystem.obtainXp(socket);
+          await xpSystem.obtainXp(userId);
           newElapsedTime -= XP_SYSTEM.INTERVAL_MS;
         }
-        xpSystem.elapsedTime.set(socket.userId, newElapsedTime);
-        xpSystem.timeFlag.set(socket, Date.now()); // Reset timeFlag
+        xpSystem.elapsedTime.set(userId, newElapsedTime);
+        xpSystem.timeFlag.set(userId, Date.now()); // Reset timeFlag
         new Logger('XPSystem').info(
-          `XP interval refreshed for user(${socket.userId})(socket-id: ${socket.id})`,
+          `XP interval refreshed for user(${userId})`,
         );
       } catch (error) {
         new Logger('XPSystem').error(
-          `Error refreshing XP interval for user(${socket.userId})(socket-id: ${socket.id}): ${error.message}`,
+          `Error refreshing XP interval for user(${userId}): ${error.message}`,
         );
       }
     }
@@ -58,24 +58,22 @@ const xpSystem = {
     );
   },
 
-  refreshUser: async (socket) => {
+  refreshUser: async (userId) => {
     try {
-      const timeFlag = xpSystem.timeFlag.get(socket);
+      const timeFlag = xpSystem.timeFlag.get(userId);
       if (timeFlag) {
-        const elapsedTime = xpSystem.elapsedTime.get(socket.userId) || 0;
+        const elapsedTime = xpSystem.elapsedTime.get(userId) || 0;
         let newElapsedTime = elapsedTime + Date.now() - timeFlag;
         while (newElapsedTime >= XP_SYSTEM.INTERVAL_MS) {
-          await xpSystem.obtainXp(socket);
+          await xpSystem.obtainXp(userId);
           newElapsedTime -= XP_SYSTEM.INTERVAL_MS;
         }
-        xpSystem.elapsedTime.set(socket.userId, newElapsedTime);
+        xpSystem.elapsedTime.set(userId, newElapsedTime);
       }
-      new Logger('XPSystem').info(
-        `XP interval refreshed for user(${socket.userId})(socket-id: ${socket.id})`,
-      );
+      new Logger('XPSystem').info(`XP interval refreshed for user(${userId})`);
     } catch (error) {
       new Logger('XPSystem').error(
-        `Error refreshing XP interval for user(${socket.userId})(socket-id: ${socket.id}): ${error.message}`,
+        `Error refreshing XP interval for user(${userId}): ${error.message}`,
       );
     }
   },
@@ -86,12 +84,12 @@ const xpSystem = {
     );
   },
 
-  obtainXp: async (socket) => {
+  obtainXp: async (userId) => {
     try {
-      const user = await Get.user(socket.userId);
+      const user = await Get.user(userId);
       if (!user) {
         new Logger('XPSystem').warn(
-          `User(${socket.userId}) not found, cannot obtain XP`,
+          `User(${userId}) not found, cannot obtain XP`,
         );
         return;
       }
@@ -142,27 +140,9 @@ const xpSystem = {
         wealth: server.wealth + XP_SYSTEM.BASE_XP * vipBoost,
       };
       await Set.server(server.id, serverUpdate);
-
-      // Emit update to client
-      socket.emit('memberUpdate', memberUpdate);
-      socket.emit('userUpdate', userUpdate);
-
-      new Logger('XPSystem').info(
-        `Server(${server.id}) gain ${XP_SYSTEM.BASE_XP * vipBoost} wealth`,
-      );
-      new Logger('XPSystem').info(
-        `Member(${member.id}) gain ${
-          XP_SYSTEM.BASE_XP * vipBoost
-        } contribution`,
-      );
-      new Logger('XPSystem').info(
-        `User(${user.id}) gain ${XP_SYSTEM.BASE_XP * vipBoost} XP. Level: ${
-          user.level
-        }`,
-      );
     } catch (error) {
       new Logger('XPSystem').error(
-        `Error obtaining user(${socket.userId})(socket-id: ${socket.id}) XP: ${error.message}`,
+        `Error obtaining user(${userId}) XP: ${error.message}`,
       );
     }
   },
