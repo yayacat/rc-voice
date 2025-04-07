@@ -85,6 +85,20 @@ const channelHandler = {
             'PERMISSION_DENIED',
             403,
           );
+        if (operatorMember.permissionLevel < 5 && channel.userLimit > 0) {
+          const usersInChannel = server.users.filter(
+            (u) => u.currentChannelId === channel.id,
+          );
+          if (usersInChannel.length >= channel.userLimit) {
+            throw new StandardizedError(
+              '該頻道已達人數上限',
+              'ValidationError',
+              'CONNECTCHANNEL',
+              'CHANNEL_USER_LIMIT_REACHED',
+              403,
+            );
+          }
+        }
       } else {
         if (channel.visibility === 'readonly')
           throw new StandardizedError(
@@ -127,20 +141,6 @@ const channelHandler = {
             'PERMISSION_DENIED',
             403,
           );
-      }
-      if (operatorMember.permissionLevel < 5 && channel.userLimit > 0) {
-        const usersInChannel = server.users.filter(
-          (u) => u.currentChannelId === channel.id,
-        );
-        if (usersInChannel.length >= channel.userLimit) {
-          throw new StandardizedError(
-            '該頻道已達人數上限',
-            'ValidationError',
-            'CONNECTCHANNEL',
-            'CHANNEL_USER_LIMIT_REACHED',
-            403,
-          );
-        }
       }
 
       if (user.currentChannelId) {
@@ -241,6 +241,7 @@ const channelHandler = {
       const user = await Get.user(userId);
       const channel = await Get.channel(channelId);
       const server = await Get.server(channel.serverId);
+      const userMember = await Get.member(user.id, server.id);
       const operatorMember = await Get.member(operator.id, server.id);
       let userSocket;
       io.sockets.sockets.forEach((_socket) => {
@@ -260,11 +261,18 @@ const channelHandler = {
       }
 
       // Validate operation
-      if (operator.id === user.id) {
-      } else {
+      if (operator.id !== user.id) {
         if (operatorMember.permissionLevel < 5)
           throw new StandardizedError(
             '你沒有足夠的權限踢除其他用戶',
+            'ValidationError',
+            'DISCONNECTCHANNEL',
+            'PERMISSION_DENIED',
+            403,
+          );
+        if (operatorMember.permissionLevel <= userMember.permissionLevel)
+          throw new StandardizedError(
+            '你沒有足夠的權限踢除該用戶',
             'ValidationError',
             'DISCONNECTCHANNEL',
             'PERMISSION_DENIED',

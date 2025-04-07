@@ -76,7 +76,7 @@ const memberHandler = {
             '無法新增權限高於自己的成員',
             'ValidationError',
             'CREATEMEMBER',
-            'PERMISSION_TOO_HIGH',
+            'PERMISSION_DENIED',
             403,
           );
         }
@@ -210,7 +210,7 @@ const memberHandler = {
           !operatorMember.permissionLevel > 5
         ) {
           throw new StandardizedError(
-            '你沒有足夠的權限更改非會員使用者的權限',
+            '你沒有足夠的權限更改遊客的權限',
             'ValidationError',
             'UPDATEMEMBER',
             'PERMISSION_DENIED',
@@ -222,7 +222,7 @@ const memberHandler = {
           !operatorMember.permissionLevel > 5
         ) {
           throw new StandardizedError(
-            '無法更改會員為非會員',
+            '你沒有足夠的權限更改會員至遊客',
             'ValidationError',
             'UPDATEMEMBER',
             'PERMISSION_DENIED',
@@ -240,10 +240,10 @@ const memberHandler = {
         }
         if (editedMember.permissionLevel >= operatorMember.permissionLevel) {
           throw new StandardizedError(
-            '無法設置高於自己的權限',
+            '無法更改高於自己權限的成員',
             'ValidationError',
             'UPDATEMEMBER',
-            'PERMISSION_TOO_HIGH',
+            'PERMISSION_DENIED',
             403,
           );
         }

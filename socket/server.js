@@ -217,6 +217,7 @@ const serverHandler = {
       const operator = await Get.user(operatorId);
       const user = await Get.user(userId);
       const server = await Get.server(serverId);
+      const userMember = await Get.member(user.id, server.id);
       const operatorMember = await Get.member(operator.id, server.id);
       let userSocket;
       io.sockets.sockets.forEach((_socket) => {
@@ -239,6 +240,15 @@ const serverHandler = {
         if (operatorMember.permissionLevel < 5) {
           throw new StandardizedError(
             '你沒有足夠的權限踢出其他用戶',
+            'ValidationError',
+            'DISCONNECTSERVER',
+            'PERMISSION_DENIED',
+            403,
+          );
+        }
+        if (operatorMember.permissionLevel <= userMember.permissionLevel) {
+          throw new StandardizedError(
+            '你沒有足夠的權限踢出該用戶',
             'ValidationError',
             'DISCONNECTSERVER',
             'PERMISSION_DENIED',
