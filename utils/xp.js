@@ -11,35 +11,70 @@ const xpSystem = {
   elapsedTime: new Map(), // userId -> elapsedTime
 
   create: async (userId) => {
-    // Validate data
-    if (!userId) {
-      throw new StandardizedError(
-        '無效的資料',
-        'ValidationError',
-        'XP_SYSTEM',
-        'DATA_INVALID',
-        400,
+    try {
+      // Validate data
+      if (!userId) {
+        throw new StandardizedError(
+          '無效的資料',
+          'ValidationError',
+          'XP_SYSTEM',
+          'DATA_INVALID',
+          400,
+        );
+      }
+
+      xpSystem.timeFlag.set(userId, Date.now());
+
+      new Logger('XPSystem').info(
+        `User(${userId}) XP system created with ${xpSystem.elapsedTime.get(
+          userId,
+        )}ms elapsed time`,
+      );
+    } catch (error) {
+      new Logger('XPSystem').error(
+        `Error creating XP system for user(${userId}): ${error.message}`,
       );
     }
-
-    await xpSystem.refreshUser(userId);
-    xpSystem.timeFlag.set(userId, Date.now());
   },
 
   delete: async (userId) => {
-    // Validate data
-    if (!userId) {
-      throw new StandardizedError(
-        '無效的資料',
-        'ValidationError',
-        'XP_SYSTEM',
-        'DATA_INVALID',
-        400,
+    try {
+      // Validate data
+      if (!userId) {
+        throw new StandardizedError(
+          '無效的資料',
+          'ValidationError',
+          'XP_SYSTEM',
+          'DATA_INVALID',
+          400,
+        );
+      }
+
+      const timeFlag = xpSystem.timeFlag.get(userId);
+
+      if (timeFlag) {
+        const now = Date.now();
+        const elapsedTime = xpSystem.elapsedTime.get(userId) || 0;
+        let newElapsedTime = elapsedTime + (now - timeFlag);
+        while (newElapsedTime >= XP_SYSTEM.INTERVAL_MS) {
+          await xpSystem.obtainXp(userId);
+          newElapsedTime -= XP_SYSTEM.INTERVAL_MS;
+        }
+        xpSystem.elapsedTime.set(userId, newElapsedTime);
+      }
+
+      xpSystem.timeFlag.delete(userId);
+
+      new Logger('XPSystem').info(
+        `User(${userId}) XP system deleted with ${xpSystem.elapsedTime.get(
+          userId,
+        )}ms elapsed time`,
+      );
+    } catch (error) {
+      new Logger('XPSystem').error(
+        `Error deleting XP system for user(${userId}): ${error.message}`,
       );
     }
-
-    await xpSystem.refreshUser(userId);
-    xpSystem.timeFlag.delete(userId);
   },
 
   setup: () => {
@@ -66,14 +101,15 @@ const xpSystem = {
   refreshAllUsers: async () => {
     for (const [userId, timeFlag] of xpSystem.timeFlag.entries()) {
       try {
+        const now = Date.now();
         const elapsedTime = xpSystem.elapsedTime.get(userId) || 0;
-        let newElapsedTime = elapsedTime + Date.now() - timeFlag;
+        let newElapsedTime = elapsedTime + now - timeFlag;
         while (newElapsedTime >= XP_SYSTEM.INTERVAL_MS) {
           await xpSystem.obtainXp(userId);
           newElapsedTime -= XP_SYSTEM.INTERVAL_MS;
         }
         xpSystem.elapsedTime.set(userId, newElapsedTime);
-        xpSystem.timeFlag.set(userId, Date.now()); // Reset timeFlag
+        xpSystem.timeFlag.set(userId, now); // Reset timeFlag
         new Logger('XPSystem').info(
           `XP interval refreshed for user(${userId})`,
         );
@@ -88,25 +124,7 @@ const xpSystem = {
     );
   },
 
-  refreshUser: async (userId) => {
-    try {
-      const timeFlag = xpSystem.timeFlag.get(userId);
-      if (timeFlag) {
-        const elapsedTime = xpSystem.elapsedTime.get(userId) || 0;
-        let newElapsedTime = elapsedTime + Date.now() - timeFlag;
-        while (newElapsedTime >= XP_SYSTEM.INTERVAL_MS) {
-          await xpSystem.obtainXp(userId);
-          newElapsedTime -= XP_SYSTEM.INTERVAL_MS;
-        }
-        xpSystem.elapsedTime.set(userId, newElapsedTime);
-      }
-      new Logger('XPSystem').info(`XP interval refreshed for user(${userId})`);
-    } catch (error) {
-      new Logger('XPSystem').error(
-        `Error refreshing XP interval for user(${userId}): ${error.message}`,
-      );
-    }
-  },
+  refreshUser: async (userId) => {},
 
   getRequiredXP: (level) => {
     return Math.ceil(
