@@ -12,6 +12,8 @@ const {
 } = utils;
 // Handlers
 const rtcHandler = require('./rtc');
+const serverHandler = require('./server');
+const channelHandler = require('./channel');
 
 const userHandler = {
   searchUser: async (io, socket, data) => {
@@ -74,6 +76,20 @@ const userHandler = {
           _socket.disconnect();
         }
       });
+
+      // Check if user is already connected to a server
+      if (operator.currentServerId) {
+        await serverHandler.connectServer(io, socket, {
+          serverId: operator.currentServerId,
+          userId: operator.id,
+        });
+      }
+      if (operator.currentChannelId) {
+        await channelHandler.connectChannel(io, socket, {
+          channelId: operator.currentChannelId,
+          userId: operator.id,
+        });
+      }
 
       // Emit data (to the operator)
       io.to(socket.id).emit('userUpdate', operator);
