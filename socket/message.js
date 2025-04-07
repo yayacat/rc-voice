@@ -79,6 +79,9 @@ const messageHandler = {
       };
       await Set.member(operatorMember.id, member_update);
 
+      // Play sound
+      io.to(`channel_${channel.id}`).emit('playSound', 'recieveChannelMessage');
+
       // Emit updated data (to the operator)
       io.to(socket.id).emit('memberUpdate', member_update);
 
