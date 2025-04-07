@@ -11,11 +11,33 @@ const xpSystem = {
   elapsedTime: new Map(), // userId -> elapsedTime
 
   create: async (userId) => {
+    // Validate data
+    if (!userId) {
+      throw new StandardizedError(
+        '無效的資料',
+        'ValidationError',
+        'XP_SYSTEM',
+        'DATA_INVALID',
+        400,
+      );
+    }
+
     await xpSystem.refreshUser(userId);
     xpSystem.timeFlag.set(userId, Date.now());
   },
 
   delete: async (userId) => {
+    // Validate data
+    if (!userId) {
+      throw new StandardizedError(
+        '無效的資料',
+        'ValidationError',
+        'XP_SYSTEM',
+        'DATA_INVALID',
+        400,
+      );
+    }
+
     await xpSystem.refreshUser(userId);
     xpSystem.timeFlag.delete(userId);
   },
@@ -23,7 +45,15 @@ const xpSystem = {
   setup: () => {
     try {
       // Set up XP interval
-      setInterval(async () => xpSystem.refreshAllUsers(), 600000);
+      setInterval(
+        () =>
+          xpSystem.refreshAllUsers().catch((error) => {
+            new Logger('XPSystem').error(
+              `Error refreshing XP interval: ${error.message}`,
+            );
+          }),
+        600000,
+      );
 
       new Logger('XPSystem').info(`XP system setup complete`);
     } catch (error) {
