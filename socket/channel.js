@@ -173,11 +173,11 @@ const channelHandler = {
       // Join RTC channel
       rtcHandler.join(io, userSocket, { channelId: channel.id });
 
-      // Play sound
-      io.to(`channel_${channel.id}`).emit('playSound', 'join');
-
       // Join channel
       userSocket.join(`channel_${channel.id}`);
+
+      // Play sound
+      io.to(`channel_${channel.id}`).emit('playSound', 'join');
 
       // Emit updated data (to the user)
       io.to(userSocket.id).emit('userUpdate', user_update);
@@ -296,11 +296,11 @@ const channelHandler = {
       // Leave RTC channel
       await rtcHandler.leave(io, userSocket, { channelId: channel.id });
 
-      // Leave channel
-      userSocket.leave(`channel_${channel.id}`);
-
       // Play sound
       io.to(`channel_${channel.id}`).emit('playSound', 'leave');
+
+      // Leave channel
+      userSocket.leave(`channel_${channel.id}`);
 
       // Emit updated data (to the user)
       io.to(userSocket.id).emit('userUpdate', user_update);
