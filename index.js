@@ -242,6 +242,7 @@ const server = http.createServer((req, res) => {
         await Set.user(userId, {
           name: username,
           avatar: userId,
+          createdAt: Date.now(),
         });
 
         // Create account password list
