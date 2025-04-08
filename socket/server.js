@@ -115,6 +115,13 @@ const serverHandler = {
               userId: user.id,
             },
           });
+
+          // Emit data (to the user)
+          io.to(userSocket.id).emit('serverUpdate', null);
+
+          new Logger('Server').warn(
+            `User(${user.id}) tried to connect to server(${server.id}) but was denied because of non-member`,
+          );
           return;
         }
       }
