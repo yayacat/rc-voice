@@ -124,8 +124,6 @@ const xpSystem = {
     );
   },
 
-  refreshUser: async (userId) => {},
-
   getRequiredXP: (level) => {
     return Math.ceil(
       XP_SYSTEM.BASE_REQUIRE_XP * Math.pow(XP_SYSTEM.GROWTH_RATE, level),
@@ -162,7 +160,7 @@ const xpSystem = {
 
       let requiredXp = 0;
       while (true) {
-        requiredXp = xpSystem.getRequiredXP(user.level);
+        requiredXp = xpSystem.getRequiredXP(user.level - 1);
         if (user.xp < requiredXp) break;
         user.level += 1;
         user.xp -= requiredXp;
