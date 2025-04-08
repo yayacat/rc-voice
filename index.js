@@ -113,12 +113,12 @@ const server = http.createServer((req, res) => {
         // }
 
         // Get database
+        const { account, password } = data;
         const accountPasswords = (await db.get(`accountPasswords`)) || {};
         const accountUserIds = (await db.get(`accountUserIds`)) || {};
         const users = (await db.get(`users`)) || {};
 
         // Validate data
-        const { account, password } = data;
         if (!account || !password) {
           throw new StandardizedError(
             '無效的帳號或密碼',
@@ -216,10 +216,10 @@ const server = http.createServer((req, res) => {
         // }
 
         // Get database
+        const { account, confirmPassword, password, username } = data;
         const accountPasswords = (await db.get(`accountPasswords`)) || {};
 
         // Validate data
-        const { account, confirmPassword, password, username } = data;
         Func.validate.account(account.trim());
         Func.validate.password(confirmPassword.trim());
         Func.validate.nickname(username.trim());
@@ -240,6 +240,7 @@ const server = http.createServer((req, res) => {
         await Set.user(userId, {
           name: username,
           avatar: userId,
+          createdAt: Date.now(),
         });
 
         // Create account password list

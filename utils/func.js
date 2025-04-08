@@ -127,6 +127,15 @@ const func = {
           400,
         );
       }
+      if (/\./.test(account)) {
+        throw new StandardizedError(
+          '帳號不能包含點號',
+          'ValidationError',
+          'ACCOUNT',
+          'ACCOUNT_INVALID',
+          400,
+        );
+      }
       return account;
     },
 
@@ -161,6 +170,15 @@ const func = {
       if (!/^[A-Za-z0-9@$!%*#?&]+$/.test(password)) {
         throw new StandardizedError(
           '密碼只能包含英文字母、數字和特殊字符(@$!%*#?&)',
+          'ValidationError',
+          'PASSWORD',
+          'PASSWORD_INVALID',
+          400,
+        );
+      }
+      if (/\./.test(password)) {
+        throw new StandardizedError(
+          '密碼不能包含點號',
           'ValidationError',
           'PASSWORD',
           'PASSWORD_INVALID',
@@ -572,6 +590,18 @@ const func = {
           'ValidationError',
           'CHANNEL',
           'VISIBILITY_INVALID',
+          400,
+        );
+      }
+      if (
+        channel.password &&
+        (channel.password.length < 1 || channel.password.length > 4)
+      ) {
+        throw new StandardizedError(
+          '密碼長度必須在1-4個字符之間',
+          'ValidationError',
+          'CHANNEL',
+          'PASSWORD_INVALID',
           400,
         );
       }

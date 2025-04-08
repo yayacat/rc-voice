@@ -4,10 +4,11 @@ const db = new QuickDB();
 
 // Constants
 const { SERVER_URL, XP_SYSTEM } = require('../constant');
+const Func = require('./func');
 
 const set = {
   user: async (id, data) => {
-    const users = await db.get('users');
+    const users = (await db.get('users')) || {};
     const ALLOWED_FIELDS = [
       'name',
       'avatar',
@@ -33,6 +34,7 @@ const set = {
     const filteredData = Object.fromEntries(
       Object.entries(data).filter(([key]) => ALLOWED_FIELDS.includes(key)),
     );
+
     users[id] = {
       name: '',
       avatar: '',
@@ -177,6 +179,7 @@ const set = {
       'forbidGuestUrl',
       'type',
       'visibility',
+      'password',
       'voiceMode',
       'categoryId',
       'serverId',
@@ -202,6 +205,7 @@ const set = {
       type: 'channel',
       visibility: 'public',
       voiceMode: 'free',
+      password: '',
       categoryId: '',
       serverId: '',
       createdAt: 0,
@@ -400,6 +404,10 @@ const set = {
     };
     await db.set(`directMessages.${id}`, directMessages[id]);
     return directMessages[id];
+  },
+
+  accountPassword: async (account, password) => {
+    await db.set(`accountPasswords.${account}`, password);
   },
 };
 

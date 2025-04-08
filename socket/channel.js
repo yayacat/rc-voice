@@ -23,7 +23,7 @@ const channelHandler = {
       // }
 
       // Validate data
-      const { userId, channelId } = data;
+      const { userId, channelId, password } = data;
       if (!userId || !channelId) {
         throw new StandardizedError(
           '無效的資料',
@@ -73,16 +73,19 @@ const channelHandler = {
             'PERMISSION_DENIED',
             403,
           );
+
         if (
           !channel.isLobby &&
           channel.visibility === 'private' &&
-          operatorMember.permissionLevel < 3
+          operatorMember.permissionLevel < 3 &&
+          channel.password &&
+          (!password || password !== channel.password)
         )
           throw new StandardizedError(
-            '你需要成為該群組的管理員才能加入該頻道',
+            '你需要輸入正確的密碼才能加入該頻道',
             'ValidationError',
             'CONNECTCHANNEL',
-            'PERMISSION_DENIED',
+            'PASSWORD_INCORRECT',
             403,
           );
         if (operatorMember.permissionLevel < 5 && channel.userLimit > 0) {
