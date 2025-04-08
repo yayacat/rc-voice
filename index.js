@@ -113,12 +113,13 @@ const server = http.createServer((req, res) => {
         // }
 
         // Get database
+        const { account, password } = data;
+        const sanitizedAccount = Func.sanitizeDbKey(account);
         const accountPasswords = (await db.get(`accountPasswords`)) || {};
         const accountUserIds = (await db.get(`accountUserIds`)) || {};
         const users = (await db.get(`users`)) || {};
 
         // Validate data
-        const { account, password } = data;
         if (!account || !password) {
           throw new StandardizedError(
             '無效的帳號或密碼',
@@ -128,7 +129,7 @@ const server = http.createServer((req, res) => {
             401,
           );
         }
-        const exist = accountPasswords[account];
+        const exist = accountPasswords[sanitizedAccount];
         if (!exist) {
           throw new StandardizedError(
             '找不到此帳號',
@@ -138,7 +139,7 @@ const server = http.createServer((req, res) => {
             401,
           );
         }
-        if (password !== accountPasswords[account]) {
+        if (password !== accountPasswords[sanitizedAccount]) {
           throw new StandardizedError(
             '帳號或密碼錯誤',
             'ValidationError',
@@ -147,7 +148,7 @@ const server = http.createServer((req, res) => {
             401,
           );
         }
-        const userId = accountUserIds[account];
+        const userId = accountUserIds[sanitizedAccount];
         if (!userId) {
           throw new StandardizedError(
             '用戶不存在',
@@ -182,7 +183,7 @@ const server = http.createServer((req, res) => {
           message: '登入成功',
           data: { token: token },
         });
-        new Logger('Auth').success(`User logged in: ${account}`);
+        new Logger('Auth').success(`User logged in: ${sanitizedAccount}`);
       } catch (error) {
         if (!(error instanceof StandardizedError)) {
           error = new StandardizedError(
@@ -216,15 +217,16 @@ const server = http.createServer((req, res) => {
         // }
 
         // Get database
+        const { account, confirmPassword, password, username } = data;
+        const sanitizedAccount = Func.sanitizeDbKey(account.trim());
         const accountPasswords = (await db.get(`accountPasswords`)) || {};
 
         // Validate data
-        const { account, confirmPassword, password, username } = data;
-        Func.validate.account(account.trim());
+        Func.validate.account(sanitizedAccount);
         Func.validate.password(confirmPassword.trim());
         Func.validate.nickname(username.trim());
 
-        const exists = accountPasswords[account];
+        const exists = accountPasswords[sanitizedAccount];
         if (exists) {
           throw new StandardizedError(
             '帳號已存在',
@@ -243,8 +245,8 @@ const server = http.createServer((req, res) => {
         });
 
         // Create account password list
-        await db.set(`accountPasswords.${account}`, password);
-        await db.set(`accountUserIds.${account}`, userId);
+        await db.set(`accountPasswords.${sanitizedAccount}`, password);
+        await db.set(`accountUserIds.${sanitizedAccount}`, userId);
 
         sendSuccess(res, {
           message: '註冊成功',
@@ -252,7 +254,7 @@ const server = http.createServer((req, res) => {
             // user: await Get.user(user.id),
           },
         });
-        new Logger('Auth').success(`User registered: ${account}`);
+        new Logger('Auth').success(`User registered: ${sanitizedAccount}`);
       } catch (error) {
         if (!(error instanceof StandardizedError)) {
           error = new StandardizedError(

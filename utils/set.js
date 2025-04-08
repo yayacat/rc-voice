@@ -4,10 +4,11 @@ const db = new QuickDB();
 
 // Constants
 const { SERVER_URL, XP_SYSTEM } = require('../constant');
+const Func = require('./func');
 
 const set = {
   user: async (id, data) => {
-    const users = await db.get('users');
+    const users = (await db.get('users')) || {};
     const ALLOWED_FIELDS = [
       'name',
       'avatar',
@@ -30,9 +31,13 @@ const set = {
       'createdAt',
     ];
 
-    const filteredData = Object.fromEntries(
-      Object.entries(data).filter(([key]) => ALLOWED_FIELDS.includes(key)),
-    );
+    const sanitizedData = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (ALLOWED_FIELDS.includes(key)) {
+        sanitizedData[Func.sanitizeDbKey(key)] = value;
+      }
+    }
+
     users[id] = {
       name: '',
       avatar: '',
@@ -54,7 +59,7 @@ const set = {
       lastActiveAt: 0,
       createdAt: 0,
       ...users[id],
-      ...filteredData,
+      ...sanitizedData,
       id,
     };
     await db.set(`users.${id}`, users[id]);
@@ -402,6 +407,11 @@ const set = {
     };
     await db.set(`directMessages.${id}`, directMessages[id]);
     return directMessages[id];
+  },
+
+  accountPassword: async (account, password) => {
+    const sanitizedAccount = Func.sanitizeDbKey(account);
+    await db.set(`accountPasswords.${sanitizedAccount}`, password);
   },
 };
 

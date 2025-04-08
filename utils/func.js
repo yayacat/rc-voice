@@ -127,6 +127,15 @@ const func = {
           400,
         );
       }
+      if (/\./.test(account)) {
+        throw new StandardizedError(
+          '帳號不能包含點號',
+          'ValidationError',
+          'ACCOUNT',
+          'ACCOUNT_INVALID',
+          400,
+        );
+      }
       return account;
     },
 
@@ -161,6 +170,15 @@ const func = {
       if (!/^[A-Za-z0-9@$!%*#?&]+$/.test(password)) {
         throw new StandardizedError(
           '密碼只能包含英文字母、數字和特殊字符(@$!%*#?&)',
+          'ValidationError',
+          'PASSWORD',
+          'PASSWORD_INVALID',
+          400,
+        );
+      }
+      if (/\./.test(password)) {
+        throw new StandardizedError(
+          '密碼不能包含點號',
           'ValidationError',
           'PASSWORD',
           'PASSWORD_INVALID',
@@ -798,6 +816,18 @@ const func = {
       }
       return directMessage;
     },
+  },
+
+  sanitizeDbKey: (key) => {
+    if (typeof key !== 'string') return key;
+    // 將點號替換為其他安全的字符，例如使用 "|" 或 ":"
+    return key.replace(/\./g, '|');
+  },
+
+  desanitizeDbKey: (key) => {
+    if (typeof key !== 'string') return key;
+    // 將替換的字符轉換回點號
+    return key.replace(/\|/g, '.');
   },
 };
 
