@@ -817,18 +817,6 @@ const func = {
       return directMessage;
     },
   },
-
-  sanitizeDbKey: (key) => {
-    if (typeof key !== 'string') return key;
-    // 將點號替換為其他安全的字符，例如使用 "|" 或 ":"
-    return key.replace(/\./g, '|');
-  },
-
-  desanitizeDbKey: (key) => {
-    if (typeof key !== 'string') return key;
-    // 將替換的字符轉換回點號
-    return key.replace(/\|/g, '.');
-  },
 };
 
 module.exports = { ...func };

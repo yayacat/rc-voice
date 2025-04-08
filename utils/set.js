@@ -31,12 +31,9 @@ const set = {
       'createdAt',
     ];
 
-    const sanitizedData = {};
-    for (const [key, value] of Object.entries(data)) {
-      if (ALLOWED_FIELDS.includes(key)) {
-        sanitizedData[Func.sanitizeDbKey(key)] = value;
-      }
-    }
+    const filteredData = Object.fromEntries(
+      Object.entries(data).filter(([key]) => ALLOWED_FIELDS.includes(key)),
+    );
 
     users[id] = {
       name: '',
@@ -59,7 +56,7 @@ const set = {
       lastActiveAt: 0,
       createdAt: 0,
       ...users[id],
-      ...sanitizedData,
+      ...filteredData,
       id,
     };
     await db.set(`users.${id}`, users[id]);
@@ -410,8 +407,7 @@ const set = {
   },
 
   accountPassword: async (account, password) => {
-    const sanitizedAccount = Func.sanitizeDbKey(account);
-    await db.set(`accountPasswords.${sanitizedAccount}`, password);
+    await db.set(`accountPasswords.${account}`, password);
   },
 };
 

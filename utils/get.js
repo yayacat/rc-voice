@@ -14,9 +14,8 @@ const get = {
   searchUser: async (query) => {
     const users = (await db.get('users')) || {};
     const accountUserIds = (await db.get('accountUserIds')) || {};
-    const sanitizedQuery = Func.sanitizeDbKey(query);
     const target = Object.values(users).find(
-      (u) => u.id === accountUserIds[sanitizedQuery],
+      (u) => u.id === accountUserIds[query],
     );
     if (!target) return null;
     return target;
