@@ -112,6 +112,7 @@ const xpSystem = {
         while (newElapsedTime >= XP_SYSTEM.INTERVAL_MS) {
           if (await xpSystem.obtainXp(userId))
             newElapsedTime -= XP_SYSTEM.INTERVAL_MS;
+          else break;
         }
         xpSystem.elapsedTime.set(userId, newElapsedTime);
         xpSystem.timeFlag.set(userId, now); // Reset timeFlag
