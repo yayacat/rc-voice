@@ -1,16 +1,14 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { v4: uuidv4 } = require('uuid');
-const { QuickDB } = require('quick.db');
-const db = new QuickDB();
 // Utils
 const utils = require('../utils');
-const {
-  standardizedError: StandardizedError,
-  logger: Logger,
-  get: Get,
-  set: Set,
-  func: Func,
-} = utils;
+const { Logger, Func } = utils;
+
+// Database
+const DB = require('../db');
+
+// StandardizedError
+const StandardizedError = require('../standardizedError');
 
 const messageHandler = {
   sendMessage: async (io, socket, data) => {
@@ -41,14 +39,11 @@ const messageHandler = {
       const operatorId = await Func.validate.socket(socket);
 
       // Get data
-      const operator = await Get.user(operatorId);
-      const user = await Get.user(userId);
-      const server = await Get.server(serverId);
-      const channel = await Get.channel(channelId);
-      const operatorMember = await Get.member(operator.id, server.id);
+      const channel = await DB.get.channel(channelId);
+      const operatorMember = await DB.get.member(operatorId, serverId);
 
       // Validate operation
-      if (operator.id !== user.id) {
+      if (operatorId !== userId) {
         throw new StandardizedError(
           '無法傳送非自己的訊息',
           'SENDMESSAGE',
@@ -65,11 +60,11 @@ const messageHandler = {
 
       // Create new message
       const messageId = uuidv4();
-      await Set.message(messageId, {
+      await DB.set.message(messageId, {
         ...newMessage,
-        senderId: user.id,
-        serverId: server.id,
-        channelId: channel.id,
+        senderId: userId,
+        serverId: serverId,
+        channelId: channelId,
         timestamp: Date.now().valueOf(),
       });
 
@@ -77,28 +72,30 @@ const messageHandler = {
       const member_update = {
         lastMessageTime: Date.now().valueOf(),
       };
-      await Set.member(operatorMember.id, member_update);
+      await DB.set.member(operatorId, serverId, member_update);
 
       // Play sound
-      io.to(`channel_${channel.id}`).emit('playSound', 'recieveChannelMessage');
+      io.to(`channel_${channelId}`).emit('playSound', 'recieveChannelMessage');
 
       // Emit updated data (to the operator)
       io.to(socket.id).emit('memberUpdate', member_update);
 
       // Emit updated data (to all users in the channel)
-      io.to(`channel_${channel.id}`).emit('channelUpdate', {
-        messages: [
-          ...(await Get.channelMessages(channel.id)),
-          ...(await Get.channelInfoMessages(channel.id)),
-        ],
-      });
-      io.to(`channel_${channel.id}`).emit('channelMessagesUpdate', [
-        ...(await Get.channelMessages(channel.id)),
-        ...(await Get.channelInfoMessages(channel.id)),
+      io.to(`channel_${channelId}`).emit('channelMessagesUpdate', [
+        ...(await DB.get.channelMessages(channelId)),
+        ...(await DB.get.channelInfoMessages(channelId)),
       ]);
 
+      // Will be removed in the future
+      io.to(`channel_${channelId}`).emit('channelUpdate', {
+        messages: [
+          ...(await DB.get.channelMessages(channelId)),
+          ...(await DB.get.channelInfoMessages(channelId)),
+        ],
+      });
+
       new Logger('Message').success(
-        `User(${operator.id}) sent ${newMessage.content} to channel(${channel.id})`,
+        `User(${operatorId}) sent ${newMessage.content} to channel(${channelId})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
@@ -147,24 +144,21 @@ const messageHandler = {
       const operatorId = await Func.validate.socket(socket);
 
       // Get data
-      const operator = await Get.user(operatorId);
-      const user = await Get.user(userId);
-      const target = await Get.user(targetId);
       let userSocket;
       io.sockets.sockets.forEach((_socket) => {
-        if (_socket.userId === user.id) {
+        if (_socket.userId === userId) {
           userSocket = _socket;
         }
       });
       let targetSocket;
       io.sockets.sockets.forEach((_socket) => {
-        if (_socket.userId === target.id) {
+        if (_socket.userId === targetId) {
           targetSocket = _socket;
         }
       });
 
       // Validate operation
-      if (operator.id !== user.id) {
+      if (operatorId !== userId) {
         throw new StandardizedError(
           '無法傳送非自己的私訊',
           'SENDDIRECTMESSAGE',
@@ -175,28 +169,28 @@ const messageHandler = {
 
       // Create new message
       const directMessageId = uuidv4();
-      await Set.directMessage(directMessageId, {
+      await DB.set.directMessage(directMessageId, {
         ...newDirectMessage,
-        senderId: user.id,
-        userId1: user.id.localeCompare(target.id) < 0 ? user.id : target.id,
-        userId2: user.id.localeCompare(target.id) < 0 ? target.id : user.id,
+        senderId: userId,
+        userId1: userId.localeCompare(targetId) < 0 ? userId : targetId,
+        userId2: userId.localeCompare(targetId) < 0 ? targetId : userId,
         timestamp: Date.now().valueOf(),
       });
 
       // Emit updated data (to user and target *if online*)
       io.to(userSocket.id).emit(
         'directMessageUpdate',
-        await Get.directMessages(user.id, target.id),
+        await DB.get.directMessages(userId, targetId),
       );
       if (targetSocket) {
         io.to(targetSocket.id).emit(
           'directMessageUpdate',
-          await Get.directMessages(user.id, target.id),
+          await DB.get.directMessages(userId, targetId),
         );
       }
 
       new Logger('Message').success(
-        `User(${user.id}) sent ${newDirectMessage.content} to User(${target.id})`,
+        `User(${userId}) sent ${newDirectMessage.content} to User(${targetId})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {

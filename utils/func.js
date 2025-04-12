@@ -1,11 +1,15 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { QuickDB } = require('quick.db');
-const db = new QuickDB();
 const sharp = require('sharp');
+
 // Utils
-const StandardizedError = require('./standardizedError');
-const Map = require('./map');
+const Session = require('./session');
 const JWT = require('./jwt');
+
+// Database
+const DB = require('../db');
+
+// StandardizedError
+const StandardizedError = require('../standardizedError');
 
 const func = {
   calculateSimilarity: (str1, str2) => {
@@ -40,8 +44,9 @@ const func = {
   },
 
   generateUniqueDisplayId: async (baseId = 20000000) => {
-    const servers = (await db.get('servers')) || {};
+    const servers = (await DB.get.all('servers')) || {};
     let displayId = baseId + Object.keys(servers).length;
+    console.log(servers);
     // Ensure displayId is unique
     while (
       Object.values(servers).some((server) => server.displayId === displayId)
@@ -90,7 +95,7 @@ const func = {
   },
 
   validate: {
-    account: async (account) => {
+    account: (account) => {
       if (!account) {
         throw new StandardizedError(
           '帳號不可為空',
@@ -139,7 +144,7 @@ const func = {
       return account;
     },
 
-    password: async (password) => {
+    password: (password) => {
       if (!password) {
         throw new StandardizedError(
           '密碼不可為空',
@@ -167,15 +172,16 @@ const func = {
           400,
         );
       }
-      if (!/^[A-Za-z0-9@$!%*#?&]+$/.test(password)) {
-        throw new StandardizedError(
-          '密碼只能包含英文字母、數字和特殊字符(@$!%*#?&)',
-          'ValidationError',
-          'PASSWORD',
-          'PASSWORD_INVALID',
-          400,
-        );
-      }
+      // FIXME: Password is base64 encoded, use another method to validate
+      // if (!/^[a-zA-Z0-9@$!%*#?&]+$/.test(password)) {
+      //   throw new StandardizedError(
+      //     '密碼只能包含英文字母、數字和特殊字符(@$!%*#?&)',
+      //     'ValidationError',
+      //     'PASSWORD',
+      //     'PASSWORD_INVALID',
+      //     400,
+      //   );
+      // }
       if (/\./.test(password)) {
         throw new StandardizedError(
           '密碼不能包含點號',
@@ -188,7 +194,7 @@ const func = {
       return password;
     },
 
-    nickname: async (nickname) => {
+    nickname: (nickname) => {
       if (!nickname) {
         throw new StandardizedError(
           '暱稱不可為空',
@@ -219,7 +225,7 @@ const func = {
       return nickname;
     },
 
-    socket: async (socket) => {
+    socket: (socket) => {
       if (!socket) {
         throw new StandardizedError(
           '無可用的 socket',
@@ -247,7 +253,7 @@ const func = {
           401,
         );
       }
-      if (!Map.sessionToUser.get(socket.sessionId)) {
+      if (!Session.sessionToUser.get(socket.sessionId)) {
         throw new StandardizedError(
           `無效的 session ID(${socket.sessionId})`,
           'ValidationError',
@@ -289,7 +295,7 @@ const func = {
       return userId;
     },
 
-    user: async (user) => {
+    user: (user) => {
       if (!user) {
         throw new StandardizedError(
           '使用者不存在',

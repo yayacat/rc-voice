@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 // Utils
 const utils = require('../utils');
-const {
-  standardizedError: StandardizedError,
-  logger: Logger,
-  get: Get,
-  set: Set,
-  func: Func,
-} = utils;
+const { Logger, Func } = utils;
+
+// Database
+const DB = require('../db');
+
+// StandardizedError
+const StandardizedError = require('../standardizedError');
 
 const memberHandler = {
   createMember: async (io, socket, data) => {
@@ -37,13 +37,11 @@ const memberHandler = {
       const operatorId = await Func.validate.socket(socket);
 
       // Get data
-      const operator = await Get.user(operatorId);
-      const user = await Get.user(userId);
-      const server = await Get.server(serverId);
-      const operatorMember = await Get.member(operator.id, server.id);
+      const server = await DB.get.server(serverId);
+      const operatorMember = await DB.get.member(operatorId, serverId);
 
-      if (operator.id === user.id) {
-        if (newMember.permissionLevel !== 1 && server.ownerId != operator.id) {
+      if (operatorId === userId) {
+        if (newMember.permissionLevel !== 1 && server.ownerId !== operatorId) {
           throw new StandardizedError(
             '必須是遊客',
             'ValidationError',
@@ -52,7 +50,7 @@ const memberHandler = {
             403,
           );
         }
-        if (newMember.permissionLevel !== 6 && server.ownerId === operator.id) {
+        if (newMember.permissionLevel !== 6 && server.ownerId === operatorId) {
           throw new StandardizedError(
             '必須是群組創建者',
             'ValidationError',
@@ -92,29 +90,28 @@ const memberHandler = {
       }
 
       // Create member
-      const memberId = `mb_${userId}-${serverId}`;
-      const member = await Set.member(memberId, {
+      await DB.set.member(userId, serverId, {
         ...newMember,
-        userId: user.id,
-        serverId: server.id,
         createdAt: Date.now(),
       });
 
       // Emit updated data (to all users in the server)
-      io.to(`server_${server.id}`).emit('serverUpdate', {
-        members: await Get.serverMembers(server.id),
-      });
-      io.to(`server_${server.id}`).emit(
+      io.to(`server_${serverId}`).emit(
         'serverMembersUpdate',
-        await Get.serverMembers(server.id),
+        await DB.get.serverMembers(serverId),
       );
-      io.to(`server_${server.id}`).emit(
+      io.to(`server_${serverId}`).emit(
         'serverActiveMembersUpdate',
-        await Get.serverUsers(server.id),
+        await DB.get.serverUsers(serverId),
       );
 
+      // Will be removed in the future
+      io.to(`server_${serverId}`).emit('serverUpdate', {
+        members: await DB.get.serverMembers(serverId),
+      });
+
       new Logger('Member').success(
-        `Member(${member.id}) of User(${user.id}) in Server(${server.id}) created by User(${operator.id})`,
+        `Member(${userId}-${serverId}) of User(${userId}) in Server(${serverId}) created by User(${operatorId})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
@@ -163,19 +160,16 @@ const memberHandler = {
       const operatorId = await Func.validate.socket(socket);
 
       // Get data
-      const operator = await Get.user(operatorId);
-      const user = await Get.user(userId);
-      const server = await Get.server(serverId);
-      const member = await Get.member(userId, serverId);
-      const operatorMember = await Get.member(operator.id, server.id);
+      const operatorMember = await DB.get.member(operatorId, serverId);
+      const userMember = await DB.get.member(userId, serverId);
       let userSocket;
       io.sockets.sockets.forEach((_socket) => {
-        if (_socket.userId === user.id) {
+        if (_socket.userId === userId) {
           userSocket = _socket;
         }
       });
 
-      if (operator.id === user.id) {
+      if (operatorId === userId) {
         if (editedMember.permissionLevel) {
           throw new StandardizedError(
             '無法更改自己的權限',
@@ -195,7 +189,7 @@ const memberHandler = {
             403,
           );
         }
-        if (member.permissionLevel > 5) {
+        if (userMember.permissionLevel > 5) {
           throw new StandardizedError(
             '無法更改群創建者的權限',
             'ValidationError',
@@ -205,7 +199,7 @@ const memberHandler = {
           );
         }
         if (
-          member.permissionLevel === 1 &&
+          userMember.permissionLevel === 1 &&
           editedMember.permissionLevel &&
           !operatorMember.permissionLevel > 5
         ) {
@@ -259,23 +253,25 @@ const memberHandler = {
       }
 
       // Update member
-      await Set.member(member.id, editedMember);
+      await DB.set.member(userId, serverId, editedMember);
 
       // Emit updated data (to all users in the server)
-      io.to(`server_${server.id}`).emit('serverUpdate', {
-        members: await Get.serverMembers(server.id),
-      });
-      io.to(`server_${server.id}`).emit(
+      io.to(`server_${serverId}`).emit(
         'serverMembersUpdate',
-        await Get.serverMembers(server.id),
+        await DB.get.serverMembers(serverId),
       );
-      io.to(`server_${server.id}`).emit(
+      io.to(`server_${serverId}`).emit(
         'serverActiveMembersUpdate',
-        await Get.serverUsers(server.id),
+        await DB.get.serverUsers(serverId),
       );
 
+      // Will be removed in the future
+      io.to(`server_${serverId}`).emit('serverUpdate', {
+        members: await DB.get.serverMembers(serverId),
+      });
+
       // Emit updated data (to the user *if the user is in the server*)
-      io.in(`server_${server.id}`)
+      io.in(`server_${serverId}`)
         .fetchSockets()
         .then((sockets) => {
           sockets.forEach((socket) => {
@@ -286,7 +282,7 @@ const memberHandler = {
         });
 
       new Logger('Member').success(
-        `Member(${member.id}) of User(${user.id}) in Server(${server.id}) updated by User(${operator.id})`,
+        `Member(${userId}-${serverId}) of User(${userId}) in Server(${serverId}) updated by User(${operatorId})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {

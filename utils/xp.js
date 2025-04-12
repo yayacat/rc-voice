@@ -1,10 +1,15 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 // Constants
 const { XP_SYSTEM } = require('../constant');
+
 // Utils
 const Logger = require('./logger');
-const Get = require('./get');
-const Set = require('./set');
+
+// Database
+const DB = require('../db');
+
+// StandardizedError
+const StandardizedError = require('../standardizedError');
 
 const xpSystem = {
   timeFlag: new Map(), // socket -> timeFlag
@@ -132,24 +137,24 @@ const xpSystem = {
 
   obtainXp: async (userId) => {
     try {
-      const user = await Get.user(userId);
+      const user = await DB.get.user(userId);
       if (!user) {
         new Logger('XPSystem').warn(
           `User(${userId}) not found, cannot obtain XP`,
         );
         return false;
       }
-      const server = await Get.server(user.currentServerId);
+      const server = await DB.get.server(user.currentServerId);
       if (!server) {
         new Logger('XPSystem').warn(
           `Server(${user.currentServerId}) not found, cannot obtain XP`,
         );
         return false;
       }
-      const member = await Get.member(user.id, server.id);
+      const member = await DB.get.member(user.userId, server.serverId);
       if (!member) {
         new Logger('XPSystem').warn(
-          `User(${user.id}) not found in server(${server.id}), cannot update contribution`,
+          `User(${user.userId}) not found in server(${server.serverId}), cannot update contribution`,
         );
         return false;
       }
@@ -173,7 +178,7 @@ const xpSystem = {
         requiredXp: requiredXp,
         progress: user.xp / requiredXp,
       };
-      await Set.user(user.id, userUpdate);
+      await DB.set.user(user.userId, userUpdate);
 
       // Update member contribution if in a server
       const memberUpdate = {
@@ -182,7 +187,7 @@ const xpSystem = {
             (member.contribution + XP_SYSTEM.BASE_XP * vipBoost) * 100,
           ) / 100,
       };
-      await Set.member(member.id, memberUpdate);
+      await DB.set.member(user.userId, server.serverId, memberUpdate);
 
       // Update server wealth
       const serverUpdate = {
@@ -190,12 +195,7 @@ const xpSystem = {
           Math.round((server.wealth + XP_SYSTEM.BASE_XP * vipBoost) * 100) /
           100,
       };
-      await Set.server(server.id, serverUpdate);
-
-      new Logger('XPSystem').info(
-        `User(${userId}) obtained ${XP_SYSTEM.BASE_XP * vipBoost} XP`,
-      );
-      return true;
+      await DB.set.server(server.serverId, serverUpdate);
     } catch (error) {
       new Logger('XPSystem').error(
         `Error obtaining user(${userId}) XP: ${error.message}`,

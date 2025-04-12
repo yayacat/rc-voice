@@ -1,15 +1,16 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { v4: uuidv4 } = require('uuid');
+
 // Utils
 const utils = require('../utils');
-const {
-  standardizedError: StandardizedError,
-  logger: Logger,
-  get: Get,
-  set: Set,
-  func: Func,
-  xp: XP,
-} = utils;
+const { Logger, Func, Xp } = utils;
+
+// Database
+const DB = require('../db');
+
+// StandardizedError
+const StandardizedError = require('../standardizedError');
+
 // Handlers
 const rtcHandler = require('./rtc');
 const messageHandler = require('./message');
@@ -20,11 +21,13 @@ const channelHandler = {
       // data = {
       //   userId: string
       //   channelId: string
+      //   serverId: string
+      //   password?: string
       // }
 
       // Validate data
-      const { userId, channelId, password } = data;
-      if (!userId || !channelId) {
+      const { userId, channelId, serverId, password } = data;
+      if (!userId || !channelId || !serverId) {
         throw new StandardizedError(
           '無效的資料',
           'ValidationError',
@@ -38,61 +41,60 @@ const channelHandler = {
       const operatorId = await Func.validate.socket(socket);
 
       // Get data
-      const operator = await Get.user(operatorId);
-      const user = await Get.user(userId);
-      const channel = await Get.channel(channelId);
-      const server = await Get.server(channel.serverId);
-      const operatorMember = await Get.member(operator.id, server.id);
+      const operatorMember = await DB.get.member(operatorId, serverId);
+      const user = await DB.get.user(userId);
+      const channel = await DB.get.channel(channelId);
+      const channelMembers = await DB.get.channelMembers(channelId);
+      const server = await DB.get.server(serverId);
       let userSocket;
       io.sockets.sockets.forEach((_socket) => {
-        if (_socket.userId === user.id) {
+        if (_socket.userId === userId) {
           userSocket = _socket;
         }
       });
 
       // Validate operation
-      if (operator.id === user.id) {
-        if (channel.visibility === 'readonly')
-          throw new StandardizedError(
-            '該頻道為唯獨頻道',
-            'ValidationError',
-            'CONNECTCHANNEL',
-            'CHANNEL_IS_READONLY',
-            403,
-          );
-        if (
-          !channel.isLobby &&
-          (server.visibility === 'private' ||
-            channel.visibility === 'member') &&
-          operatorMember.permissionLevel < 2
-        )
-          throw new StandardizedError(
-            '你需要成為該群組的會員才能加入該頻道',
-            'ValidationError',
-            'CONNECTCHANNEL',
-            'PERMISSION_DENIED',
-            403,
-          );
+      if (!channel.isLobby) {
+        if (operatorId === userId) {
+          if (channel.visibility === 'readonly') {
+            throw new StandardizedError(
+              '該頻道為唯獨頻道',
+              'ValidationError',
+              'CONNECTCHANNEL',
+              'CHANNEL_IS_READONLY',
+              403,
+            );
+          }
+          if (
+            (server.visibility === 'private' ||
+              channel.visibility === 'member') &&
+            operatorMember.permissionLevel < 2
+          )
+            throw new StandardizedError(
+              '你需要成為該群組的會員才能加入該頻道',
+              'ValidationError',
+              'CONNECTCHANNEL',
+              'PERMISSION_DENIED',
+              403,
+            );
 
-        if (
-          !channel.isLobby &&
-          channel.visibility === 'private' &&
-          operatorMember.permissionLevel < 3 &&
-          channel.password &&
-          (!password || password !== channel.password)
-        )
-          throw new StandardizedError(
-            '你需要輸入正確的密碼才能加入該頻道',
-            'ValidationError',
-            'CONNECTCHANNEL',
-            'PASSWORD_INCORRECT',
-            403,
-          );
-        if (operatorMember.permissionLevel < 5 && channel.userLimit > 0) {
-          const usersInChannel = server.users.filter(
-            (u) => u.currentChannelId === channel.id,
-          );
-          if (usersInChannel.length >= channel.userLimit) {
+          if (
+            channel.password &&
+            password !== channel.password &&
+            operatorMember.permissionLevel < 3
+          )
+            throw new StandardizedError(
+              '你需要輸入正確的密碼才能加入該頻道',
+              'ValidationError',
+              'CONNECTCHANNEL',
+              'PASSWORD_INCORRECT',
+              403,
+            );
+          if (
+            channel.userLimit > 0 &&
+            channelMembers.length >= channel.userLimit &&
+            operatorMember.permissionLevel < 5
+          ) {
             throw new StandardizedError(
               '該頻道已達人數上限',
               'ValidationError',
@@ -101,101 +103,102 @@ const channelHandler = {
               403,
             );
           }
+        } else {
+          if (channel.visibility === 'readonly')
+            throw new StandardizedError(
+              '該頻道為唯獨頻道',
+              'ValidationError',
+              'CONNECTCHANNEL',
+              'CHANNEL_IS_READONLY',
+              403,
+            );
+          if (operatorMember.permissionLevel < 5)
+            throw new StandardizedError(
+              '你沒有足夠的權限移動其他用戶到該頻道',
+              'ValidationError',
+              'CONNECTCHANNEL',
+              'PERMISSION_DENIED',
+              403,
+            );
+          if (
+            (server.visibility === 'private' ||
+              channel.visibility === 'member') &&
+            operatorMember.permissionLevel < 2
+          )
+            throw new StandardizedError(
+              '你沒有足夠的權限移動其他用戶到該頻道',
+              'ValidationError',
+              'CONNECTCHANNEL',
+              'PERMISSION_DENIED',
+              403,
+            );
+          if (
+            channel.visibility === 'private' &&
+            operatorMember.permissionLevel < 3
+          )
+            throw new StandardizedError(
+              '你沒有足夠的權限移動其他用戶到該頻道',
+              'ValidationError',
+              'CONNECTCHANNEL',
+              'PERMISSION_DENIED',
+              403,
+            );
         }
-      } else {
-        if (channel.visibility === 'readonly')
-          throw new StandardizedError(
-            '該頻道為唯獨頻道',
-            'ValidationError',
-            'CONNECTCHANNEL',
-            'CHANNEL_IS_READONLY',
-            403,
-          );
-        if (operatorMember.permissionLevel < 5)
-          throw new StandardizedError(
-            '你沒有足夠的權限移動其他用戶到該頻道',
-            'ValidationError',
-            'CONNECTCHANNEL',
-            'PERMISSION_DENIED',
-            403,
-          );
-        if (
-          !channel.isLobby &&
-          (server.visibility === 'private' ||
-            channel.visibility === 'member') &&
-          operatorMember.permissionLevel < 2
-        )
-          throw new StandardizedError(
-            '你沒有足夠的權限移動其他用戶到該頻道',
-            'ValidationError',
-            'CONNECTCHANNEL',
-            'PERMISSION_DENIED',
-            403,
-          );
-        if (
-          !channel.isLobby &&
-          channel.visibility === 'private' &&
-          operatorMember.permissionLevel < 3
-        )
-          throw new StandardizedError(
-            '你沒有足夠的權限移動其他用戶到該頻道',
-            'ValidationError',
-            'CONNECTCHANNEL',
-            'PERMISSION_DENIED',
-            403,
-          );
       }
 
+      // Disconnect previous channel
       if (user.currentChannelId) {
-        // Disconnect the user from the current channel
         await channelHandler.disconnectChannel(io, socket, {
+          userId: userId,
           channelId: user.currentChannelId,
-          userId: user.id,
+          serverId: user.currentServerId,
         });
       }
 
       // Update user
-      const user_update = {
-        currentChannelId: channel.id,
+      const updatedUser = {
+        currentChannelId: channelId,
         lastActiveAt: Date.now(),
       };
-      await Set.user(user.id, user_update);
+      await DB.set.user(userId, updatedUser);
 
       // Update Member
-      const member_update = {
+      const updatedMember = {
         lastJoinChannelTime: Date.now(),
       };
-      await Set.member(operatorMember.id, member_update);
+      await DB.set.member(userId, serverId, updatedMember);
 
       // Setup user interval for accumulate contribution
-      await XP.create(user.id);
+      await Xp.create(userId);
 
       // Join RTC channel
-      rtcHandler.join(io, userSocket, { channelId: channel.id });
+      rtcHandler.join(io, userSocket, { channelId: channelId });
 
       // Join channel
-      userSocket.join(`channel_${channel.id}`);
+      userSocket.join(`channel_${channelId}`);
 
       // Play sound
       io.to(`channel_${channel.id}`).emit('playSound', 'join');
 
       // Emit updated data (to the user)
-      io.to(userSocket.id).emit('userUpdate', user_update);
-      io.to(userSocket.id).emit('memberUpdate', member_update);
-      io.to(userSocket.id).emit('channelUpdate', await Get.channel(channel.id));
+      io.to(userSocket.id).emit('userUpdate', updatedUser);
+      io.to(userSocket.id).emit('memberUpdate', updatedMember);
+      io.to(userSocket.id).emit('channelUpdate', channel);
 
       // Emit updated data (to all users in the server)
-      io.to(`server_${server.id}`).emit('serverUpdate', {
-        members: await Get.serverMembers(server.id),
-        users: await Get.serverUsers(server.id),
-      });
-      io.to(`server_${server.id}`).emit(
+      io.to(`server_${channel.serverId}`).emit(
         'serverActiveMembersUpdate',
-        await Get.serverUsers(server.id),
+        await DB.get.serverUsers(channel.serverId),
       );
 
+      // Will be removed in the future
+      io.to(`server_${channel.serverId}`).emit('serverUpdate', {
+        members: await DB.get.serverMembers(channel.serverId),
+        users: await DB.get.serverUsers(channel.serverId),
+      });
+
       new Logger('Channel').success(
-        `User(${user.id}) connected to channel(${channel.id}) by User(${operator.id})`,
+        `User(${userId}) connected to channel(${channelId}) by User(${operatorId})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
@@ -223,11 +226,12 @@ const channelHandler = {
       // data = {
       //   userId: string
       //   channelId: string
+      //   serverId: string
       // }
 
       // Validate data
-      const { userId, channelId } = data;
-      if (!userId || !channelId) {
+      const { userId, channelId, serverId } = data;
+      if (!userId || !channelId || !serverId) {
         throw new StandardizedError(
           '無效的資料',
           'ValidationError',
@@ -240,15 +244,13 @@ const channelHandler = {
       const operatorId = await Func.validate.socket(socket);
 
       // Get data
-      const operator = await Get.user(operatorId);
-      const user = await Get.user(userId);
-      const channel = await Get.channel(channelId);
-      const server = await Get.server(channel.serverId);
-      const userMember = await Get.member(user.id, server.id);
-      const operatorMember = await Get.member(operator.id, server.id);
+      const operatorMember = await DB.get.member(operatorId, serverId);
+      const user = await DB.get.user(userId);
+      const userMember = await DB.get.member(userId, serverId);
+      const channel = await DB.get.channel(channelId);
       let userSocket;
       io.sockets.sockets.forEach((_socket) => {
-        if (_socket.userId === user.id) {
+        if (_socket.userId === userId) {
           userSocket = _socket;
         }
       });
@@ -264,7 +266,7 @@ const channelHandler = {
       }
 
       // Validate operation
-      if (operator.id !== user.id) {
+      if (operatorId !== userId) {
         if (operatorMember.permissionLevel < 5)
           throw new StandardizedError(
             '你沒有足夠的權限踢除其他用戶',
@@ -284,40 +286,42 @@ const channelHandler = {
       }
 
       // Update user
-      const user_update = {
+      const updatedUser = {
         currentChannelId: null,
         lastActiveAt: Date.now(),
       };
-      await Set.user(userId, user_update);
+      await DB.set.user(userId, updatedUser);
 
       // Clear user contribution interval
-      await XP.delete(user.id);
+      await Xp.delete(userId);
 
       // Leave RTC channel
-      await rtcHandler.leave(io, userSocket, { channelId: channel.id });
+      await rtcHandler.leave(io, userSocket, { channelId: channelId });
 
       // Play sound
-      io.to(`channel_${channel.id}`).emit('playSound', 'leave');
+      io.to(`channel_${channelId}`).emit('playSound', 'leave');
 
       // Leave channel
       userSocket.leave(`channel_${channel.id}`);
 
       // Emit updated data (to the user)
-      io.to(userSocket.id).emit('userUpdate', user_update);
+      io.to(userSocket.id).emit('userUpdate', updatedUser);
       io.to(userSocket.id).emit('channelUpdate', null);
 
       // Emit updated data (to all users in the server)
-      io.to(`server_${server.id}`).emit('serverUpdate', {
-        members: await Get.serverMembers(server.id),
-        users: await Get.serverUsers(server.id),
-      });
-      io.to(`server_${server.id}`).emit(
+      io.to(`server_${channel.serverId}`).emit(
         'serverActiveMembersUpdate',
-        await Get.serverUsers(server.id),
+        await DB.get.serverUsers(channel.serverId),
       );
 
+      // Will be removed in the future
+      io.to(`server_${channel.serverId}`).emit('serverUpdate', {
+        members: await DB.get.serverMembers(channel.serverId),
+        users: await DB.get.serverUsers(channel.serverId),
+      });
+
       new Logger('Channel').success(
-        `User(${user.id}) disconnected from channel(${channel.id}) by User(${operator.id})`,
+        `User(${userId}) disconnected from channel(${channelId}) by User(${operatorId})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
@@ -366,9 +370,7 @@ const channelHandler = {
       const operatorId = await Func.validate.socket(socket);
 
       // Get data
-      const operator = await Get.user(operatorId);
-      const server = await Get.server(serverId);
-      const operatorMember = await Get.member(operator.id, server.id);
+      const operatorMember = await DB.get.member(operatorId, serverId);
 
       // Validate permission
       if (operatorMember.permissionLevel < 5) {
@@ -383,17 +385,17 @@ const channelHandler = {
 
       // Create new channel
       const channelId = uuidv4();
-      const channel = await Set.channel(channelId, {
+      await DB.set.channel(channelId, {
         ...newChannel,
-        serverId: server.id,
-        order: await Get.serverChannels(server.id).length,
+        serverId: serverId,
+        order: (await DB.get.serverChannels(serverId)).length,
         createdAt: Date.now().valueOf(),
       });
 
       if (newChannel.categoryId) {
-        const parentChannel = await Get.channel(newChannel.categoryId);
+        const parentChannel = await DB.get.channel(newChannel.categoryId);
         if (parentChannel) {
-          await Set.channel(parentChannel.id, {
+          await DB.set.channel(parentChannel.channelId, {
             isRoot: true,
             type: 'category',
           });
@@ -401,16 +403,18 @@ const channelHandler = {
       }
 
       // Emit updated data (to all users in the server)
-      io.to(`server_${server.id}`).emit('serverUpdate', {
-        channels: await Get.serverChannels(server.id),
-      });
-      io.to(`server_${server.id}`).emit(
+      io.to(`server_${serverId}`).emit(
         'serverChannelsUpdate',
-        await Get.serverChannels(server.id),
+        await DB.get.serverChannels(serverId),
       );
 
+      // Will be removed in the future
+      io.to(`server_${serverId}`).emit('serverUpdate', {
+        channels: await DB.get.serverChannels(serverId),
+      });
+
       new Logger('Channel').success(
-        `Channel(${channel.id}) created in server(${server.id}) by User(${operator.id})`,
+        `Channel(${channelId}) created in server(${serverId}) by User(${operatorId})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
@@ -441,6 +445,7 @@ const channelHandler = {
       //     ...
       //   },
       // };
+      console.log(data);
 
       // Validate data
       const { channel: _editedChannel, channelId, serverId } = data;
@@ -459,10 +464,8 @@ const channelHandler = {
       const operatorId = await Func.validate.socket(socket);
 
       // Get data
-      const operator = await Get.user(operatorId);
-      const server = await Get.server(serverId);
-      const channel = await Get.channel(channelId);
-      const operatorMember = await Get.member(operator.id, server.id);
+      const operatorMember = await DB.get.member(operatorId, serverId);
+      const channel = await DB.get.channel(channelId);
 
       // Validate operation
       if (operatorMember.permissionLevel < 5) {
@@ -490,9 +493,10 @@ const channelHandler = {
                 : 'VOICE_CHANGE_TO_QUEUE',
             timestamp: Date.now().valueOf(),
           },
+          userId: operatorId,
+          serverId,
           channelId,
         });
-
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
@@ -508,9 +512,10 @@ const channelHandler = {
               : 'TEXT_CHANGE_TO_FREE_SPEECH',
             timestamp: Date.now().valueOf(),
           },
+          userId: operatorId,
+          serverId,
           channelId,
         });
-
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
@@ -526,9 +531,10 @@ const channelHandler = {
               : 'TEXT_CHANGE_TO_ALLOWED_TEXT',
             timestamp: Date.now().valueOf(),
           },
+          userId: operatorId,
+          serverId,
           channelId,
         });
-
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
@@ -544,9 +550,10 @@ const channelHandler = {
               : 'TEXT_CHANGE_TO_ALLOWED_URL',
             timestamp: Date.now().valueOf(),
           },
+          userId: operatorId,
+          serverId,
           channelId,
         });
-
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
@@ -560,9 +567,10 @@ const channelHandler = {
             content: `TEXT_CHANGE_TO_MAX_LENGTH ${editedChannel.guestTextMaxLength}`,
             timestamp: Date.now().valueOf(),
           },
+          userId: operatorId,
+          serverId,
           channelId,
         });
-
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
@@ -576,9 +584,10 @@ const channelHandler = {
             content: `TEXT_CHANGE_TO_WAIT_TIME ${editedChannel.guestTextWaitTime}`,
             timestamp: Date.now().valueOf(),
           },
+          userId: operatorId,
+          serverId,
           channelId,
         });
-
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
@@ -592,29 +601,32 @@ const channelHandler = {
             content: `TEXT_CHANGE_TO_GAP_TIME ${editedChannel.guestTextGapTime}`,
             timestamp: Date.now().valueOf(),
           },
+          userId: operatorId,
+          serverId,
           channelId,
         });
-
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       // Update channel
-      await Set.channel(channel.id, editedChannel);
+      await DB.set.channel(channelId, editedChannel);
 
       // Emit updated data (to all users in the channel)
-      io.to(`channel_${channel.id}`).emit('channelUpdate', editedChannel);
+      io.to(`channel_${channelId}`).emit('channelUpdate', editedChannel);
 
       // Emit updated data (to all users in the server)
-      io.to(`server_${server.id}`).emit('serverUpdate', {
-        channels: await Get.serverChannels(server.id),
-      });
-      io.to(`server_${server.id}`).emit(
+      io.to(`server_${serverId}`).emit(
         'serverChannelsUpdate',
-        await Get.serverChannels(server.id),
+        await DB.get.serverChannels(serverId),
       );
 
+      // Will be removed in the future
+      io.to(`server_${serverId}`).emit('serverUpdate', {
+        channels: await DB.get.serverChannels(serverId),
+      });
+
       new Logger('Channel').success(
-        `Channel(${channel.id}) updated in server(${server.id}) by User(${operator.id})`,
+        `Channel(${channelId}) updated in server(${serverId}) by User(${operatorId})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
@@ -659,10 +671,8 @@ const channelHandler = {
       const operatorId = await Func.validate.socket(socket);
 
       // Get data
-      const operator = await Get.user(operatorId);
-      const channel = await Get.channel(channelId);
-      const server = await Get.server(serverId);
-      const operatorMember = await Get.member(operator.id, server.id);
+      const operatorMember = await DB.get.member(operatorId, serverId);
+      const channel = await DB.get.channel(channelId);
 
       // Validate operation
       if (operatorMember.permissionLevel < 5) {
@@ -676,18 +686,20 @@ const channelHandler = {
       }
 
       // Update channel
-      await Set.channel(channelId, { serverId: null });
+      await DB.set.channel(channelId, { serverId: null });
 
       // If the deleted channel has a parent channel, update the parent channel status
       if (channel.categoryId) {
-        const serverChannels = await Get.serverChannels(server.id);
-        const parentChannel = await Get.channel(channel.categoryId);
+        const serverChannels = await DB.get.serverChannels(serverId);
+        const parentChannel = await DB.get.channel(channel.categoryId);
         const parentChannelHasChildren = serverChannels.some(
-          (c) => c.categoryId === parentChannel.id && c.id !== channel.id,
+          (c) =>
+            c.categoryId === parentChannel.channelId &&
+            c.channelId !== channelId,
         );
 
         if (!parentChannelHasChildren) {
-          await Set.channel(parentChannel.id, {
+          await DB.set.channel(parentChannel.channelId, {
             isRoot: true,
             type: 'channel',
             categoryId: null,
@@ -697,16 +709,18 @@ const channelHandler = {
       }
 
       // Emit updated data (to all users in the server)
-      io.to(`server_${server.id}`).emit('serverUpdate', {
-        channels: await Get.serverChannels(server.id),
-      });
-      io.to(`server_${server.id}`).emit(
+      io.to(`server_${serverId}`).emit(
         'serverChannelsUpdate',
-        await Get.serverChannels(server.id),
+        await DB.get.serverChannels(serverId),
       );
 
+      // Will be removed in the future
+      io.to(`server_${serverId}`).emit('serverUpdate', {
+        channels: await DB.get.serverChannels(serverId),
+      });
+
       new Logger('Channel').info(
-        `Channel(${channel.id}) deleted in server(${server.id}) by User(${operator.id})`,
+        `Channel(${channelId}) deleted in server(${serverId}) by User(${operatorId})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
