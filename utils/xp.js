@@ -172,30 +172,30 @@ const xpSystem = {
       }
 
       // Update user
-      const userUpdate = {
+      const updatedUser = {
         level: user.level,
         xp: user.xp,
         requiredXp: requiredXp,
         progress: user.xp / requiredXp,
       };
-      await DB.set.user(user.userId, userUpdate);
+      await DB.set.user(user.userId, updatedUser);
 
       // Update member contribution if in a server
-      const memberUpdate = {
+      const updatedMember = {
         contribution:
           Math.round(
             (member.contribution + XP_SYSTEM.BASE_XP * vipBoost) * 100,
           ) / 100,
       };
-      await DB.set.member(user.userId, server.serverId, memberUpdate);
+      await DB.set.member(user.userId, server.serverId, updatedMember);
 
       // Update server wealth
-      const serverUpdate = {
+      const updatedServer = {
         wealth:
           Math.round((server.wealth + XP_SYSTEM.BASE_XP * vipBoost) * 100) /
           100,
       };
-      await DB.set.server(server.serverId, serverUpdate);
+      await DB.set.server(server.serverId, updatedServer);
     } catch (error) {
       new Logger('XPSystem').error(
         `Error obtaining user(${userId}) XP: ${error.message}`,
