@@ -172,8 +172,8 @@ const messageHandler = {
       await DB.set.directMessage(directMessageId, {
         ...newDirectMessage,
         senderId: userId,
-        userId1: userId.localeCompare(targetId) < 0 ? userId : targetId,
-        userId2: userId.localeCompare(targetId) < 0 ? targetId : userId,
+        user1Id: userId.localeCompare(targetId) < 0 ? userId : targetId,
+        user2Id: userId.localeCompare(targetId) < 0 ? targetId : userId,
         timestamp: Date.now().valueOf(),
       });
 

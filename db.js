@@ -705,8 +705,8 @@ const Database = {
         const ALLOWED_FIELDS = [
           'content',
           'sender_id',
-          'user_id_1',
-          'user_id_2',
+          'user1_id',
+          'user2_id',
           'timestamp',
         ];
         const { keys, values } = validateData(data, ALLOWED_FIELDS);
@@ -1473,14 +1473,12 @@ const Database = {
           FROM direct_messages 
           LEFT JOIN users 
           ON direct_messages.sender_id = users.user_id
-          WHERE direct_messages.user_id_1 = ?
-          AND direct_messages.user_id_2 = ?
+          WHERE direct_messages.user1_id = ?
+          AND direct_messages.user2_id = ?
           ORDER BY direct_messages.timestamp DESC`,
           [userId1, userId2],
         );
-        const data = datas[0];
-        if (!data) return null;
-        return convertToCamelCase(data);
+        return datas.map((data) => convertToCamelCase(data));
       } catch (error) {
         if (!(error instanceof StandardizedError)) {
           error = new StandardizedError(
@@ -1761,8 +1759,8 @@ const Database = {
         const userId2 = userId.localeCompare(targetId) < 0 ? targetId : userId;
         await query(
           `DELETE FROM direct_messages 
-          WHERE direct_messages.user_id_1 = ?
-          AND direct_messages.user_id_2 = ?`,
+          WHERE direct_messages.user1_id = ?
+          AND direct_messages.user2_id = ?`,
           [userId1, userId2],
         );
       } catch (error) {
