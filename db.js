@@ -960,9 +960,9 @@ const Database = {
     userFriends: async (userId) => {
       try {
         const datas = await query(
-          `SELECT * 
+          `SELECT *, friends.user_id AS user_id
           FROM friends 
-          LEFT JOIN users 
+          LEFT JOIN users
           ON friends.target_id = users.user_id
           WHERE friends.user_id = ?
           ORDER BY friends.created_at DESC`,
