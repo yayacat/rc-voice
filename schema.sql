@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- 主機： 127.0.0.1
--- 產生時間： 2025-04-13 00:34:12
+-- 產生時間： 2025-04-13 01:57:42
 -- 伺服器版本： 10.4.26-MariaDB-log
 -- PHP 版本： 8.2.26
 
@@ -68,6 +68,7 @@ CREATE TABLE `channels` (
   `forbid_guest_text` tinyint(3) UNSIGNED NOT NULL DEFAULT 0,
   `forbid_guest_url` tinyint(3) UNSIGNED NOT NULL DEFAULT 0,
   `type` varchar(255) NOT NULL DEFAULT 'channel',
+  `visibility` varchar(255) NOT NULL DEFAULT 'public',
   `voice_mode` varchar(255) NOT NULL DEFAULT 'free',
   `category_id` char(36) DEFAULT NULL,
   `server_id` char(36) NOT NULL,
