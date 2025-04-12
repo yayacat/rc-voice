@@ -161,7 +161,7 @@ const serverHandler = {
 
       // Emit data (only to the user)
       io.to(userSocket.id).emit('userUpdate', updatedUser);
-      io.to(userSocket.id).emit('serverUpdate', await Get.server(server.id));
+      io.to(userSocket.id).emit('serverUpdate', server);
 
       // Connect to the server's lobby channel
       await channelHandler.connectChannel(io, socket, {
