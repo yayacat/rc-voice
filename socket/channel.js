@@ -302,7 +302,7 @@ const channelHandler = {
       io.to(`channel_${channelId}`).emit('playSound', 'leave');
 
       // Leave channel
-      userSocket.leave(`channel_${channel.id}`);
+      userSocket.leave(`channel_${channelId}`);
 
       // Emit updated data (to the user)
       io.to(userSocket.id).emit('userUpdate', updatedUser);
