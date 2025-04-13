@@ -129,8 +129,7 @@ const serverHandler = {
           userId: userId,
           serverId: serverId,
           member: {
-            permissionLevel:
-              specialUsers.getSpecialPermissionLevel(userId) || 1,
+            permissionLevel: 1,
           },
         });
       }
