@@ -193,5 +193,9 @@ module.exports = (io) => {
     socket.on('RTCIceCandidate', async (data) =>
       rtcHandler.candidate(io, socket, data),
     );
+    // Echo
+    socket.on('ping', async () => {
+      socket.emit('pong');
+    });
   });
 };
