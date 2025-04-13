@@ -98,7 +98,9 @@ const transformChannel = async () => {
   const channels = await db.get('channels');
 
   for (const [key, channel] of Object.entries(channels)) {
-    const { id: channelId, order, ...rest } = channel;
+    const { id: channelId, ...rest } = channel;
+
+    if (rest.order < 0) rest.order = 0;
 
     if (!rest.serverId) continue;
 
@@ -130,7 +132,9 @@ const transformFriendGroup = async () => {
   const friendGroups = await db.get('friendGroups');
 
   for (const [key, friendGroup] of Object.entries(friendGroups)) {
-    const { id: friendGroupId, order, ...rest } = friendGroup;
+    const { id: friendGroupId, ...rest } = friendGroup;
+
+    if (rest.order < 0) rest.order = 0;
 
     if (typeof rest.createdAt != 'number') rest.createdAt = 0;
 
