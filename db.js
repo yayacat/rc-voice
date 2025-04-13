@@ -1069,9 +1069,10 @@ const Database = {
           FROM members 
           LEFT JOIN users 
           ON members.user_id = users.user_id
-          WHERE users.current_server_id = ?
+          WHERE members.server_id = ?
+          AND users.current_server_id = ?
           ORDER BY members.created_at DESC`,
-          [serverId],
+          [serverId, serverId],
         );
         if (!datas) return null;
         return datas.map((data) => convertToCamelCase(data));
