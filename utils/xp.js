@@ -104,27 +104,30 @@ const xpSystem = {
   },
 
   refreshAllUsers: async () => {
-    for (const [userId, timeFlag] of xpSystem.timeFlag.entries()) {
-      try {
-        const now = Date.now();
-        const elapsedTime = xpSystem.elapsedTime.get(userId) || 0;
-        let newElapsedTime = elapsedTime + now - timeFlag;
-        while (newElapsedTime >= XP_SYSTEM.INTERVAL_MS) {
-          if (await xpSystem.obtainXp(userId))
-            newElapsedTime -= XP_SYSTEM.INTERVAL_MS;
-          else break;
+    const refreshTasks = Array.from(xpSystem.timeFlag.entries()).map(
+      async ([userId, timeFlag]) => {
+        try {
+          const now = Date.now();
+          const elapsedTime = xpSystem.elapsedTime.get(userId) || 0;
+          let newElapsedTime = elapsedTime + now - timeFlag;
+          while (newElapsedTime >= XP_SYSTEM.INTERVAL_MS) {
+            const success = await xpSystem.obtainXp(userId);
+            if (success) newElapsedTime -= XP_SYSTEM.INTERVAL_MS;
+            else break;
+          }
+          xpSystem.elapsedTime.set(userId, newElapsedTime);
+          xpSystem.timeFlag.set(userId, now); // Reset timeFlag
+          new Logger('XPSystem').info(
+            `XP interval refreshed for user(${userId})`,
+          );
+        } catch (error) {
+          new Logger('XPSystem').error(
+            `Error refreshing XP interval for user(${userId}): ${error.message}`,
+          );
         }
-        xpSystem.elapsedTime.set(userId, newElapsedTime);
-        xpSystem.timeFlag.set(userId, now); // Reset timeFlag
-        new Logger('XPSystem').info(
-          `XP interval refreshed for user(${userId})`,
-        );
-      } catch (error) {
-        new Logger('XPSystem').error(
-          `Error refreshing XP interval for user(${userId}): ${error.message}`,
-        );
-      }
-    }
+      },
+    );
+    await Promise.all(refreshTasks);
     new Logger('XPSystem').info(
       `XP interval refreshed complete, ${xpSystem.timeFlag.size} users updated`,
     );
