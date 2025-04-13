@@ -31,7 +31,7 @@ CREATE TABLE `accounts` (
   `account` varchar(255) NOT NULL,
   `password` char(60) NOT NULL COMMENT 'BCRYPT',
   `user_id` char(36) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -43,7 +43,7 @@ CREATE TABLE `badges` (
   `badge_id` char(36) NOT NULL,
   `name` varchar(255) NOT NULL DEFAULT 'Unknown',
   `description` varchar(255) NOT NULL DEFAULT ''
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -73,7 +73,7 @@ CREATE TABLE `channels` (
   `category_id` char(36) DEFAULT NULL,
   `server_id` char(36) NOT NULL,
   `created_at` bigint(20) NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -89,7 +89,7 @@ CREATE TABLE `direct_messages` (
   `user1_id` char(36) NOT NULL,
   `user2_id` char(36) NOT NULL,
   `timestamp` bigint(20) NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -103,7 +103,7 @@ CREATE TABLE `friends` (
   `is_blocked` tinyint(3) UNSIGNED NOT NULL DEFAULT 0,
   `friend_group_id` char(36) DEFAULT NULL,
   `created_at` bigint(20) NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -116,7 +116,7 @@ CREATE TABLE `friend_applications` (
   `receiver_id` char(36) NOT NULL,
   `description` varchar(255) NOT NULL DEFAULT '',
   `created_at` bigint(20) NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -130,7 +130,7 @@ CREATE TABLE `friend_groups` (
   `order` int(10) UNSIGNED NOT NULL DEFAULT 0,
   `user_id` char(36) NOT NULL,
   `created_at` bigint(20) NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -148,7 +148,7 @@ CREATE TABLE `members` (
   `permission_level` int(10) UNSIGNED NOT NULL DEFAULT 0,
   `is_blocked` tinyint(3) UNSIGNED NOT NULL DEFAULT 0,
   `created_at` bigint(20) NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -161,7 +161,7 @@ CREATE TABLE `member_applications` (
   `server_id` char(36) NOT NULL,
   `description` varchar(255) NOT NULL DEFAULT '',
   `created_at` bigint(20) NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -177,7 +177,7 @@ CREATE TABLE `messages` (
   `server_id` char(36) NOT NULL,
   `channel_id` char(36) NOT NULL,
   `timestamp` bigint(20) NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -204,7 +204,7 @@ CREATE TABLE `servers` (
   `lobby_id` char(36) DEFAULT NULL,
   `owner_id` char(36) DEFAULT NULL,
   `created_at` bigint(20) NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -233,7 +233,7 @@ CREATE TABLE `users` (
   `current_server_id` char(36) DEFAULT NULL,
   `last_active_at` bigint(20) NOT NULL DEFAULT 0,
   `created_at` bigint(20) NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -246,7 +246,7 @@ CREATE TABLE `user_badges` (
   `badge_id` char(36) NOT NULL,
   `order` int(10) UNSIGNED NOT NULL DEFAULT 0,
   `created_at` bigint(20) NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -261,7 +261,7 @@ CREATE TABLE `user_servers` (
   `recent` tinyint(3) UNSIGNED NOT NULL DEFAULT 0,
   `favorite` tinyint(3) UNSIGNED NOT NULL DEFAULT 0,
   `timestamp` bigint(20) NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- 已傾印資料表的索引

@@ -473,7 +473,7 @@ const Database = {
 
     friend: async (userId, targetId, data) => {
       try {
-        const ALLOWED_FIELDS = ['isBlocked', 'friend_group_id', 'created_at'];
+        const ALLOWED_FIELDS = ['is_blocked', 'friend_group_id', 'created_at'];
         const { keys, values } = validateData(data, ALLOWED_FIELDS);
         const exists = await query(
           `SELECT * 
