@@ -863,6 +863,9 @@ const channelHandler = {
       // Get data
       const operatorMember = await DB.get.member(operatorId, serverId);
       const channel = await DB.get.channel(channelId);
+      const channelUsers = await DB.get.channelUsers(channelId);
+      const channelChildren = await DB.get.channelChildren(channelId);
+      const channelMessages = await DB.get.channelMessages(channelId);
 
       // Validate operation
       if (operatorMember.permissionLevel < 5) {
@@ -879,53 +882,46 @@ const channelHandler = {
         const categoryChildren = await DB.get.channelChildren(
           channel.categoryId,
         );
-
         if (!categoryChildren.length) {
           await DB.set.channel(channel.categoryId, {
             type: 'channel',
           });
         }
-      } else {
-        const channelChildren = await DB.get.channelChildren(channelId);
-        const channelUsers = await DB.get.channelUsers(channelId);
-        const channelMessages = await DB.get.channelMessages(channelId);
+      }
 
-        if (channelChildren.length) {
-          const serverChannels = await DB.get.serverChannels(serverId);
+      if (channelChildren.length) {
+        const serverChannels = await DB.get.serverChannels(serverId);
+        await Promise.all(
+          channelChildren.map(
+            async (child, index) =>
+              await DB.set.channel(child.channelId, {
+                categoryId: null,
+                order: serverChannels.length + index,
+              }),
+          ),
+        );
+      }
 
-          await Promise.all(
-            channelChildren.map(
-              async (child, index) =>
-                await DB.set.channel(child.channelId, {
-                  categoryId: null,
-                  order: serverChannels.length + index,
-                }),
-            ),
-          );
-        }
+      if (channelUsers.length) {
+        const server = await DB.get.server(serverId);
+        await Promise.all(
+          channelUsers.map(
+            async (user) =>
+              await channelHandler.connectChannel(io, socket, {
+                userId: user.userId,
+                channelId: server.lobbyId,
+                serverId: serverId,
+              }),
+          ),
+        );
+      }
 
-        if (channelUsers.length) {
-          const server = await DB.get.server(serverId);
-
-          await Promise.all(
-            channelUsers.map(
-              async (user) =>
-                await channelHandler.connectChannel(io, socket, {
-                  userId: user.userId,
-                  channelId: server.lobbyId,
-                  serverId: serverId,
-                }),
-            ),
-          );
-        }
-
-        if (channelMessages.length) {
-          await Promise.all(
-            channelMessages.map(
-              async (message) => await DB.delete.message(message.messageId),
-            ),
-          );
-        }
+      if (channelMessages.length) {
+        await Promise.all(
+          channelMessages.map(
+            async (message) => await DB.delete.message(message.messageId),
+          ),
+        );
       }
 
       // Update channel
