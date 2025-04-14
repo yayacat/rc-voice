@@ -1068,13 +1068,12 @@ const Database = {
       try {
         const datas = await query(
           `SELECT * 
-          FROM members 
-          LEFT JOIN users 
-          ON members.user_id = users.user_id
-          WHERE members.server_id = ?
-          AND users.current_server_id = ?
-          ORDER BY members.created_at DESC`,
-          [serverId, serverId],
+          FROM users 
+          LEFT JOIN members 
+          ON users.user_id = members.user_id
+          WHERE users.current_server_id = ?
+          ORDER BY users.created_at DESC`,
+          [serverId],
         );
         if (!datas) return null;
         return datas.map((data) => convertToCamelCase(data));
@@ -1252,11 +1251,11 @@ const Database = {
       try {
         const datas = await query(
           `SELECT * 
-          FROM members 
-          LEFT JOIN users 
-          ON members.user_id = users.user_id
+          FROM users 
+          LEFT JOIN members 
+          ON users.user_id = members.user_id
           WHERE users.current_channel_id = ?
-          ORDER BY members.created_at DESC`,
+          ORDER BY users.created_at DESC`,
           [channelId],
         );
         if (!datas) return null;
