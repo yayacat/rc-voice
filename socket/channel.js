@@ -370,6 +370,7 @@ const channelHandler = {
 
       // Get data
       const operatorMember = await DB.get.member(operatorId, serverId);
+      const serverChannels = await DB.get.serverChannels(serverId);
 
       // Validate permission
       if (operatorMember.permissionLevel < 5) {
@@ -382,22 +383,10 @@ const channelHandler = {
         );
       }
 
-      let order;
       if (newChannel.categoryId) {
-        const category = await DB.get.channel(newChannel.categoryId);
-        const categoryChildren = await DB.get.channelChildren(
-          newChannel.categoryId,
-        );
-        order = categoryChildren.length;
-
-        if (category.type === 'channel') {
-          await DB.set.channel(category.channelId, {
-            type: 'category',
-          });
-        }
-      } else {
-        const serverChannels = await DB.get.serverChannels(serverId);
-        order = serverChannels.length;
+        await DB.set.channel(newChannel.categoryId, {
+          type: 'category',
+        });
       }
 
       // Create new channel
@@ -405,7 +394,11 @@ const channelHandler = {
       await DB.set.channel(channelId, {
         ...newChannel,
         serverId: serverId,
-        order: order,
+        order: serverChannels.filter((ch) =>
+          newChannel.categoryId
+            ? ch.categoryId === newChannel.categoryId
+            : !ch.categoryId,
+        ).length,
         createdAt: Date.now().valueOf(),
       });
 
@@ -927,14 +920,13 @@ const channelHandler = {
 
         if (channelChildren.length) {
           const serverChannels = await DB.get.serverChannels(serverId);
-          const order = serverChannels.length;
 
           await Promise.all(
             channelChildren.map(
               async (child, index) =>
                 await DB.set.channel(child.channelId, {
                   categoryId: null,
-                  order: order + index,
+                  order: serverChannels.length + index,
                 }),
             ),
           );
