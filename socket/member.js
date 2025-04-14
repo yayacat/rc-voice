@@ -105,11 +105,6 @@ const memberHandler = {
         await DB.get.serverUsers(serverId),
       );
 
-      // Will be removed in the future
-      io.to(`server_${serverId}`).emit('serverUpdate', {
-        members: await DB.get.serverMembers(serverId),
-      });
-
       new Logger('Member').success(
         `Member(${userId}-${serverId}) of User(${userId}) in Server(${serverId}) created by User(${operatorId})`,
       );
@@ -264,11 +259,6 @@ const memberHandler = {
         'serverActiveMembersUpdate',
         await DB.get.serverUsers(serverId),
       );
-
-      // Will be removed in the future
-      io.to(`server_${serverId}`).emit('serverUpdate', {
-        members: await DB.get.serverMembers(serverId),
-      });
 
       // Emit updated data (to the user *if the user is in the server*)
       io.in(`server_${serverId}`)

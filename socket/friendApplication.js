@@ -78,11 +78,6 @@ const friendApplicationHandler = {
           'userFriendApplicationsUpdate',
           await DB.get.userFriendApplications(receiverId),
         );
-
-        // Will be removed in the future
-        io.to(receiverSocket.id).emit('userUpdate', {
-          friendApplications: await DB.get.userFriendApplications(receiverId),
-        });
       }
 
       new Logger('FriendApplication').success(
@@ -168,11 +163,6 @@ const friendApplicationHandler = {
           'userFriendApplicationsUpdate',
           await DB.get.userFriendApplications(receiverId),
         );
-
-        // Will be removed in the future
-        io.to(receiverSocket.id).emit('userUpdate', {
-          friendApplications: await DB.get.userFriendApplications(receiverId),
-        });
       }
 
       new Logger('FriendApplication').success(
@@ -245,11 +235,6 @@ const friendApplicationHandler = {
           'userFriendApplicationsUpdate',
           await DB.get.userFriendApplications(receiverId),
         );
-
-        // Will be removed in the future
-        io.to(receiverSocket.id).emit('userUpdate', {
-          friendApplications: await DB.get.userFriendApplications(receiverId),
-        });
       }
       new Logger('FriendApplication').success(
         `Friend application(${senderId}-${receiverId}) of User(${senderId}) and User(${receiverId}) deleted by User(${operatorId})`,

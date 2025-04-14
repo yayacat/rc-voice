@@ -86,14 +86,6 @@ const messageHandler = {
         ...(await DB.get.channelInfoMessages(channelId)),
       ]);
 
-      // Will be removed in the future
-      io.to(`channel_${channelId}`).emit('channelUpdate', {
-        messages: [
-          ...(await DB.get.channelMessages(channelId)),
-          ...(await DB.get.channelInfoMessages(channelId)),
-        ],
-      });
-
       new Logger('Message').success(
         `User(${operatorId}) sent ${newMessage.content} to channel(${channelId})`,
       );

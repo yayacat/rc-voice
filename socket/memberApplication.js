@@ -74,11 +74,6 @@ const memberApplicationHandler = {
         await DB.get.serverMemberApplications(serverId),
       );
 
-      // Will be removed in the future
-      io.to(`server_${serverId}`).emit('serverUpdate', {
-        memberApplications: await DB.get.serverMemberApplications(serverId),
-      });
-
       new Logger('MemberApplication').success(
         `Member application(${userId}-${serverId}) of User(${userId}) and server(${serverId}) created by User(${operatorId})`,
       );
@@ -156,11 +151,6 @@ const memberApplicationHandler = {
         await DB.get.serverMemberApplications(serverId),
       );
 
-      // Will be removed in the future
-      io.to(`server_${serverId}`).emit('serverUpdate', {
-        memberApplications: await DB.get.serverMemberApplications(serverId),
-      });
-
       new Logger('MemberApplication').success(
         `Member application(${userId}-${serverId}) of User(${userId}) and server(${serverId}) updated by User(${operatorId})`,
       );
@@ -231,11 +221,6 @@ const memberApplicationHandler = {
         'serverMemberApplicationsUpdate',
         await DB.get.serverMemberApplications(serverId),
       );
-
-      // Will be removed in the future
-      io.to(`server_${serverId}`).emit('serverUpdate', {
-        memberApplications: await DB.get.serverMemberApplications(serverId),
-      });
 
       new Logger('MemberApplication').success(
         `Member application(${userId}-${serverId}) of User(${userId}) and server(${serverId}) deleted by User(${operatorId})`,

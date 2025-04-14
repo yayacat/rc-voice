@@ -68,11 +68,6 @@ const friendGroupHandler = {
         await DB.get.userFriendGroups(userId),
       );
 
-      // Will be removed in the future
-      io.to(userSocket.id).emit('userUpdate', {
-        friendGroups: await DB.get.userFriendGroups(userId),
-      });
-
       new Logger('FriendGroup').success(
         `FriendGroup(${friendGroupId}) of User(${userId}) created by User(${operatorId})`,
       );
@@ -150,12 +145,6 @@ const friendGroupHandler = {
       io.to(userSocket.id).emit('userUpdate', {
         friendGroups: await DB.get.userFriendGroups(userId),
       });
-
-      // Will be removed in the future
-      io.to(userSocket.id).emit(
-        'userFriendGroupsUpdate',
-        await DB.get.userFriendGroups(userId),
-      );
 
       new Logger('FriendGroup').success(
         `FriendGroup(${friendGroupId}) of User(${userId}) updated by User(${operatorId})`,
@@ -241,11 +230,6 @@ const friendGroupHandler = {
         'userFriendGroupsUpdate',
         await DB.get.userFriendGroups(userId),
       );
-
-      // Will be removed in the future
-      io.to(userSocket.id).emit('userUpdate', {
-        friendGroups: await DB.get.userFriendGroups(userId),
-      });
 
       new Logger('FriendGroup').success(
         `FriendGroup(${friendGroupId}) of User(${userId}) deleted by User(${operatorId})`,

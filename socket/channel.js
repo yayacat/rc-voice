@@ -191,12 +191,6 @@ const channelHandler = {
         await DB.get.serverUsers(channel.serverId),
       );
 
-      // Will be removed in the future
-      io.to(`server_${channel.serverId}`).emit('serverUpdate', {
-        members: await DB.get.serverMembers(channel.serverId),
-        users: await DB.get.serverUsers(channel.serverId),
-      });
-
       new Logger('Channel').success(
         `User(${userId}) connected to channel(${channelId}) by User(${operatorId})`,
       );
@@ -313,12 +307,6 @@ const channelHandler = {
         await DB.get.serverUsers(channel.serverId),
       );
 
-      // Will be removed in the future
-      io.to(`server_${channel.serverId}`).emit('serverUpdate', {
-        members: await DB.get.serverMembers(channel.serverId),
-        users: await DB.get.serverUsers(channel.serverId),
-      });
-
       new Logger('Channel').success(
         `User(${userId}) disconnected from channel(${channelId}) by User(${operatorId})`,
       );
@@ -407,12 +395,6 @@ const channelHandler = {
         'serverChannelsUpdate',
         await DB.get.serverChannels(serverId),
       );
-
-      // Will be removed in the future
-      io.to(`server_${serverId}`).emit('serverUpdate', {
-        channels: await DB.get.serverChannels(serverId),
-      });
-
       new Logger('Channel').success(
         `Channel(${channelId}) created in server(${serverId}) by User(${operatorId})`,
       );
@@ -618,11 +600,6 @@ const channelHandler = {
         'serverChannelsUpdate',
         await DB.get.serverChannels(serverId),
       );
-
-      // Will be removed in the future
-      io.to(`server_${serverId}`).emit('serverUpdate', {
-        channels: await DB.get.serverChannels(serverId),
-      });
 
       new Logger('Channel').success(
         `Channel(${channelId}) updated in server(${serverId}) by User(${operatorId})`,
@@ -838,11 +815,6 @@ const channelHandler = {
         await DB.get.serverChannels(serverId),
       );
 
-      // Will be removed in the future
-      io.to(`server_${serverId}`).emit('serverUpdate', {
-        channels: await DB.get.serverChannels(serverId),
-      });
-
       new Logger('Channel').success(
         `Multiple channels updated in server(${serverId}) by User(${operatorId})`,
       );
@@ -964,11 +936,6 @@ const channelHandler = {
         'serverChannelsUpdate',
         await DB.get.serverChannels(serverId),
       );
-
-      // Will be removed in the future
-      io.to(`server_${serverId}`).emit('serverUpdate', {
-        channels: await DB.get.serverChannels(serverId),
-      });
 
       new Logger('Channel').info(
         `Channel(${channelId}) deleted in server(${serverId}) by User(${operatorId})`,
