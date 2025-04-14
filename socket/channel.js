@@ -445,7 +445,6 @@ const channelHandler = {
       //     ...
       //   },
       // };
-      console.log(data);
 
       // Validate data
       const { channel: _editedChannel, channelId, serverId } = data;
@@ -627,6 +626,223 @@ const channelHandler = {
 
       new Logger('Channel').success(
         `Channel(${channelId}) updated in server(${serverId}) by User(${operatorId})`,
+      );
+    } catch (error) {
+      if (!(error instanceof StandardizedError)) {
+        error = new StandardizedError(
+          `編輯頻道時發生無法預期的錯誤: ${error.message}`,
+          'ServerError',
+          'UPDATECHANNEL',
+          'EXCEPTION_ERROR',
+          500,
+        );
+      }
+
+      // Emit data (to the operator)
+      io.to(socket.id).emit('error', error);
+
+      new Logger('Channel').error(
+        `Error updating channel: ${error.error_message} (${socket.id})`,
+      );
+    }
+  },
+
+  updateChannels: async (io, socket, data) => {
+    try {
+      // data = {
+      //   serverId: string
+      //   channels: {
+      //     channelId: string
+      //     ...
+      //   }[],
+      // };
+
+      // Validate data
+      const { channels: _editedChannels, serverId } = data;
+      if (!_editedChannels || !serverId) {
+        throw new StandardizedError(
+          '無效的資料',
+          'ValidationError',
+          'UPDATECHANNEL',
+          'DATA_INVALID',
+          400,
+        );
+      }
+      const editedChannels = _editedChannels.map((ch) =>
+        Func.validate.channel(ch),
+      );
+
+      // Validate socket
+      const operatorId = await Func.validate.socket(socket);
+
+      // Get data
+      const operatorMember = await DB.get.member(operatorId, serverId);
+
+      editedChannels.forEach(async (editedChannel) => {
+        const channelId = editedChannel.channelId;
+        const channel = await DB.get.channel(channelId);
+
+        // Validate operation
+        if (operatorMember.permissionLevel < 5) {
+          throw new StandardizedError(
+            '你沒有足夠的權限編輯頻道',
+            'ValidationError',
+            'UPDATECHANNEL',
+            'PERMISSION_DENIED',
+            403,
+          );
+        }
+
+        if (
+          editedChannel.voiceMode &&
+          editedChannel.voiceMode !== channel.voiceMode
+        ) {
+          messageHandler.sendMessage(io, socket, {
+            message: {
+              type: 'info',
+              content:
+                editedChannel.voiceMode === 'free'
+                  ? 'VOICE_CHANGE_TO_FREE_SPEECH'
+                  : editedChannel.voiceMode === 'forbidden'
+                  ? 'VOICE_CHANGE_TO_FORBIDDEN_SPEECH'
+                  : 'VOICE_CHANGE_TO_QUEUE',
+              timestamp: Date.now().valueOf(),
+            },
+            userId: operatorId,
+            serverId,
+            channelId,
+          });
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        if (
+          editedChannel.forbidText !== undefined &&
+          editedChannel.forbidText !== channel.forbidText
+        ) {
+          messageHandler.sendMessage(io, socket, {
+            message: {
+              type: 'info',
+              content: editedChannel.forbidText
+                ? 'TEXT_CHANGE_TO_FORBIDDEN_SPEECH'
+                : 'TEXT_CHANGE_TO_FREE_SPEECH',
+              timestamp: Date.now().valueOf(),
+            },
+            userId: operatorId,
+            serverId,
+            channelId,
+          });
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        if (
+          editedChannel.forbidGuestText !== undefined &&
+          editedChannel.forbidGuestText !== channel.forbidGuestText
+        ) {
+          messageHandler.sendMessage(io, socket, {
+            message: {
+              type: 'info',
+              content: editedChannel.forbidGuestText
+                ? 'TEXT_CHANGE_TO_FORBIDDEN_TEXT'
+                : 'TEXT_CHANGE_TO_ALLOWED_TEXT',
+              timestamp: Date.now().valueOf(),
+            },
+            userId: operatorId,
+            serverId,
+            channelId,
+          });
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        if (
+          editedChannel.forbidGuestUrl !== undefined &&
+          editedChannel.forbidGuestUrl !== channel.forbidGuestUrl
+        ) {
+          messageHandler.sendMessage(io, socket, {
+            message: {
+              type: 'info',
+              content: editedChannel.forbidGuestUrl
+                ? 'TEXT_CHANGE_TO_FORBIDDEN_URL'
+                : 'TEXT_CHANGE_TO_ALLOWED_URL',
+              timestamp: Date.now().valueOf(),
+            },
+            userId: operatorId,
+            serverId,
+            channelId,
+          });
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        if (
+          editedChannel.guestTextMaxLength !== undefined &&
+          editedChannel.guestTextMaxLength !== channel.guestTextMaxLength
+        ) {
+          messageHandler.sendMessage(io, socket, {
+            message: {
+              type: 'info',
+              content: `TEXT_CHANGE_TO_MAX_LENGTH ${editedChannel.guestTextMaxLength}`,
+              timestamp: Date.now().valueOf(),
+            },
+            userId: operatorId,
+            serverId,
+            channelId,
+          });
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        if (
+          editedChannel.guestTextWaitTime !== undefined &&
+          editedChannel.guestTextWaitTime !== channel.guestTextWaitTime
+        ) {
+          messageHandler.sendMessage(io, socket, {
+            message: {
+              type: 'info',
+              content: `TEXT_CHANGE_TO_WAIT_TIME ${editedChannel.guestTextWaitTime}`,
+              timestamp: Date.now().valueOf(),
+            },
+            userId: operatorId,
+            serverId,
+            channelId,
+          });
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        if (
+          editedChannel.guestTextGapTime !== undefined &&
+          editedChannel.guestTextGapTime !== channel.guestTextGapTime
+        ) {
+          messageHandler.sendMessage(io, socket, {
+            message: {
+              type: 'info',
+              content: `TEXT_CHANGE_TO_GAP_TIME ${editedChannel.guestTextGapTime}`,
+              timestamp: Date.now().valueOf(),
+            },
+            userId: operatorId,
+            serverId,
+            channelId,
+          });
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+
+        // Update channel
+        await DB.set.channel(channelId, editedChannel);
+
+        // Emit updated data (to all users in the channel)
+        io.to(`channel_${channelId}`).emit('channelUpdate', editedChannel);
+      });
+
+      // Emit updated data (to all users in the server)
+      io.to(`server_${serverId}`).emit(
+        'serverChannelsUpdate',
+        await DB.get.serverChannels(serverId),
+      );
+
+      // Will be removed in the future
+      io.to(`server_${serverId}`).emit('serverUpdate', {
+        channels: await DB.get.serverChannels(serverId),
+      });
+
+      new Logger('Channel').success(
+        `Multiple channels updated in server(${serverId}) by User(${operatorId})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {

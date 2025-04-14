@@ -127,6 +127,9 @@ module.exports = (io) => {
     socket.on('updateChannel', async (data) =>
       channelHandler.updateChannel(io, socket, data),
     );
+    socket.on('updateChannels', async (data) =>
+      channelHandler.updateChannels(io, socket, data),
+    );
     socket.on('deleteChannel', async (data) =>
       channelHandler.deleteChannel(io, socket, data),
     );
