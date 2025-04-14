@@ -923,6 +923,7 @@ const channelHandler = {
       } else {
         const channelChildren = await DB.get.channelChildren(channelId);
         const channelMembers = await DB.get.channelMembers(channelId);
+        const channelMessages = await DB.get.channelMessages(channelId);
 
         if (channelChildren.length) {
           const serverChannels = await DB.get.serverChannels(serverId);
@@ -950,6 +951,14 @@ const channelHandler = {
                   channelId: server.lobbyId,
                   serverId: member.serverId,
                 }),
+            ),
+          );
+        }
+
+        if (channelMessages.length) {
+          await Promise.all(
+            channelMessages.map(
+              async (message) => await DB.delete.message(message.messageId),
             ),
           );
         }
