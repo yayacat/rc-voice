@@ -125,9 +125,10 @@ const userHandler = {
 
       // Get data
       const operator = await DB.get.user(operatorId);
+      const channelId = operator.currentChannelId;
+      const serverId = operator.currentServerId;
 
       // Disconnect channel
-      const channelId = operator.currentChannelId;
       if (channelId) {
         // Update user
         const updatedUser = {
@@ -158,7 +159,6 @@ const userHandler = {
       }
 
       // Disconnect server
-      const serverId = operator.currentServerId;
       if (serverId) {
         // Update user
         const updatedUser = {
