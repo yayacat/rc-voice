@@ -200,6 +200,11 @@ const xpSystem = {
           100,
       };
       await DB.set.server(server.serverId, updatedServer);
+
+      new Logger('XPSystem').info(
+        `User(${userId}) obtained ${XP_SYSTEM.BASE_XP * vipBoost} XP`,
+      );
+      return true;
     } catch (error) {
       new Logger('XPSystem').error(
         `Error obtaining user(${userId}) XP: ${error.message}`,
