@@ -882,7 +882,7 @@ const channelHandler = {
         const categoryChildren = await DB.get.channelChildren(
           channel.categoryId,
         );
-        if (!categoryChildren.length) {
+        if (categoryChildren.length <= 1) {
           await DB.set.channel(channel.categoryId, {
             type: 'channel',
           });
