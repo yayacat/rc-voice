@@ -62,6 +62,7 @@ const messageHandler = {
       const message = {
         ...newMessage,
         ...(await DB.get.member(userId, serverId)),
+        ...(await DB.get.user(userId)),
         senderId: userId,
         serverId: serverId,
         channelId: channelId,
