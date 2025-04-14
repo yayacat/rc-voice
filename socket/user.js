@@ -152,10 +152,10 @@ const userHandler = {
         io.to(`channel_${channelId}`).emit('playSound', 'leave');
 
         // Emit updated data (to all users in the server)
-        io.to(`server_${serverId}`).emit('serverUpdate', {
-          members: await DB.get.serverMembers(serverId),
-          users: await DB.get.serverUsers(serverId),
-        });
+        io.to(`server_${serverId}`).emit(
+          'serverActiveMembersUpdate',
+          await DB.get.serverUsers(serverId),
+        );
       }
 
       // Disconnect server
