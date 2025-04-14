@@ -226,7 +226,7 @@ const friendGroupHandler = {
         await Promise.all(
           friendGroupFriends.map(
             async (friend) =>
-              await DB.set.friend(friend.friendId, {
+              await DB.set.friend(friend.userId, friend.targetId, {
                 friendGroupId: null,
               }),
           ),

@@ -956,7 +956,7 @@ const channelHandler = {
       }
 
       // Update channel
-      await DB.set.channel(channelId, { serverId: null });
+      await DB.delete.channel(channelId);
 
       // Emit updated data (to all users in the server)
       io.to(`server_${serverId}`).emit(
