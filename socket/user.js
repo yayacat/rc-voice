@@ -126,20 +126,7 @@ const userHandler = {
       // Get data
       const operator = await DB.get.user(operatorId);
 
-      // Disconnect server or channel
-      const serverId = operator.currentServerId;
-      if (serverId) {
-        // Update user
-        const updatedUser = {
-          currentServerId: null,
-          lastActiveAt: Date.now(),
-        };
-        await DB.set.user(operatorId, updatedUser);
-
-        // Leave the server
-        socket.leave(`server_${serverId}`);
-      }
-
+      // Disconnect channel
       const channelId = operator.currentChannelId;
       if (channelId) {
         // Update user
@@ -168,6 +155,20 @@ const userHandler = {
           members: await DB.get.serverMembers(serverId),
           users: await DB.get.serverUsers(serverId),
         });
+      }
+
+      // Disconnect server
+      const serverId = operator.currentServerId;
+      if (serverId) {
+        // Update user
+        const updatedUser = {
+          currentServerId: null,
+          lastActiveAt: Date.now(),
+        };
+        await DB.set.user(operatorId, updatedUser);
+
+        // Leave the server
+        socket.leave(`server_${serverId}`);
       }
 
       // Remove maps
