@@ -59,14 +59,14 @@ const messageHandler = {
       }
 
       // Create new message
-      const messageId = uuidv4();
-      await DB.set.message(messageId, {
+      const message = {
         ...newMessage,
+        ...(await DB.get.member(userId, serverId)),
         senderId: userId,
         serverId: serverId,
         channelId: channelId,
         timestamp: Date.now().valueOf(),
-      });
+      };
 
       // Update member
       const updatedMember = {
@@ -81,10 +81,7 @@ const messageHandler = {
       io.to(socket.id).emit('memberUpdate', updatedMember);
 
       // Emit updated data (to all users in the channel)
-      io.to(`channel_${channelId}`).emit('channelMessagesUpdate', [
-        ...(await DB.get.channelMessages(channelId)),
-        ...(await DB.get.channelInfoMessages(channelId)),
-      ]);
+      io.to(`channel_${channelId}`).emit('onMessage', message);
 
       new Logger('Message').success(
         `User(${operatorId}) sent ${newMessage.content} to channel(${channelId})`,
@@ -160,25 +157,19 @@ const messageHandler = {
       }
 
       // Create new message
-      const directMessageId = uuidv4();
-      await DB.set.directMessage(directMessageId, {
+      const directMessage = {
         ...newDirectMessage,
+        ...(await DB.get.user(userId)),
         senderId: userId,
         user1Id: userId.localeCompare(targetId) < 0 ? userId : targetId,
         user2Id: userId.localeCompare(targetId) < 0 ? targetId : userId,
         timestamp: Date.now().valueOf(),
-      });
+      };
 
       // Emit updated data (to user and target *if online*)
-      io.to(userSocket.id).emit(
-        'directMessageUpdate',
-        await DB.get.directMessages(userId, targetId),
-      );
+      io.to(userSocket.id).emit('onDirectMessage', directMessage);
       if (targetSocket) {
-        io.to(targetSocket.id).emit(
-          'directMessageUpdate',
-          await DB.get.directMessages(userId, targetId),
-        );
+        io.to(targetSocket.id).emit('onDirectMessage', directMessage);
       }
 
       new Logger('Message').success(

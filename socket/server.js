@@ -158,14 +158,6 @@ const serverHandler = {
       // Join the server
       userSocket.join(`server_${serverId}`);
 
-      // Emit data (only to the user)
-      io.to(userSocket.id).emit('userUpdate', updatedUser);
-      io.to(userSocket.id).emit(
-        'userServersUpdate',
-        await DB.get.userServers(userId),
-      );
-      io.to(userSocket.id).emit('serverUpdate', server);
-
       // Connect to the server's lobby channel
       await channelHandler.connectChannel(io, socket, {
         userId: userId,
@@ -175,7 +167,15 @@ const serverHandler = {
 
       // Emit data (only to the user)
       io.to(userSocket.id).emit('userUpdate', updatedUser);
-      io.to(userSocket.id).emit('serverUpdate', server);
+      io.to(userSocket.id).emit(
+        'userServersUpdate',
+        await DB.get.userServers(userId),
+      );
+      io.to(userSocket.id).emit(
+        'serverChannelsUpdate',
+        await DB.get.serverChannels(serverId),
+      );
+      io.to(userSocket.id).emit('serverUpdate', await DB.get.server(serverId));
 
       new Logger('Server').success(
         `User(${userId}) connected to server(${serverId}) by User(${operatorId})`,
