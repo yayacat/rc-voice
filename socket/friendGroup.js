@@ -201,6 +201,7 @@ const friendGroupHandler = {
 
       // Validate socket
       const operatorId = await Func.validate.socket(socket);
+      const friendGroupFriends = await DB.get.friendGroupFriends(friendGroupId);
 
       // Get data
       let userSocket;
@@ -218,6 +219,17 @@ const friendGroupHandler = {
           'DELETEFRIENDGROUP',
           'PERMISSION_DENIED',
           403,
+        );
+      }
+
+      if (friendGroupFriends.length) {
+        await Promise.all(
+          friendGroupFriends.map(
+            async (friend) =>
+              await DB.set.friend(friend.friendId, {
+                friendGroupId: null,
+              }),
+          ),
         );
       }
 

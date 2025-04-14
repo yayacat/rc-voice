@@ -1223,6 +1223,31 @@ const Database = {
       }
     },
 
+    channelChildren: async (channelId) => {
+      try {
+        const datas = await query(
+          `SELECT * 
+          FROM channels 
+          WHERE channels.category_id = ?
+          ORDER BY channels.\`order\` DESC`,
+          [channelId],
+        );
+        if (!datas) return null;
+        return datas.map((data) => convertToCamelCase(data));
+      } catch (error) {
+        if (!(error instanceof StandardizedError)) {
+          error = new StandardizedError(
+            `查詢 channelChildren.${channelId} 時發生無法預期的錯誤: ${error.message}`,
+            'AccessDatabaseError',
+            'GET',
+            'DATABASE_ERROR',
+            500,
+          );
+        }
+        throw error;
+      }
+    },
+
     channelMembers: async (channelId) => {
       try {
         const datas = await query(
@@ -1323,6 +1348,31 @@ const Database = {
         if (!(error instanceof StandardizedError)) {
           error = new StandardizedError(
             `查詢 friendGroup.${friendGroupId} 時發生無法預期的錯誤: ${error.message}`,
+            'AccessDatabaseError',
+            'GET',
+            'DATABASE_ERROR',
+            500,
+          );
+        }
+        throw error;
+      }
+    },
+
+    friendGroupFriends: async (friendGroupId) => {
+      try {
+        const datas = await query(
+          `SELECT * 
+          FROM friends 
+          WHERE friends.friend_group_id = ?
+          ORDER BY friends.created_at DESC`,
+          [friendGroupId],
+        );
+        if (!datas) return null;
+        return datas.map((data) => convertToCamelCase(data));
+      } catch (error) {
+        if (!(error instanceof StandardizedError)) {
+          error = new StandardizedError(
+            `查詢 friendGroupFriends.${friendGroupId} 時發生無法預期的錯誤: ${error.message}`,
             'AccessDatabaseError',
             'GET',
             'DATABASE_ERROR',

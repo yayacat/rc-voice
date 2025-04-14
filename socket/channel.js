@@ -245,7 +245,6 @@ const channelHandler = {
 
       // Get data
       const operatorMember = await DB.get.member(operatorId, serverId);
-      const user = await DB.get.user(userId);
       const userMember = await DB.get.member(userId, serverId);
       const channel = await DB.get.channel(channelId);
       let userSocket;
@@ -383,24 +382,32 @@ const channelHandler = {
         );
       }
 
+      let order;
+      if (newChannel.categoryId) {
+        const category = await DB.get.channel(newChannel.categoryId);
+        const categoryChildren = await DB.get.channelChildren(
+          newChannel.categoryId,
+        );
+        order = categoryChildren.length;
+
+        if (category.type === 'channel') {
+          await DB.set.channel(category.channelId, {
+            type: 'category',
+          });
+        }
+      } else {
+        const serverChannels = await DB.get.serverChannels(serverId);
+        order = serverChannels.length;
+      }
+
       // Create new channel
       const channelId = uuidv4();
       await DB.set.channel(channelId, {
         ...newChannel,
         serverId: serverId,
-        order: (await DB.get.serverChannels(serverId)).length,
+        order: order,
         createdAt: Date.now().valueOf(),
       });
-
-      if (newChannel.categoryId) {
-        const parentChannel = await DB.get.channel(newChannel.categoryId);
-        if (parentChannel) {
-          await DB.set.channel(parentChannel.channelId, {
-            isRoot: true,
-            type: 'category',
-          });
-        }
-      }
 
       // Emit updated data (to all users in the server)
       io.to(`server_${serverId}`).emit(
@@ -903,28 +910,53 @@ const channelHandler = {
         );
       }
 
-      // Update channel
-      await DB.set.channel(channelId, { serverId: null });
-
-      // If the deleted channel has a parent channel, update the parent channel status
       if (channel.categoryId) {
-        const serverChannels = await DB.get.serverChannels(serverId);
-        const parentChannel = await DB.get.channel(channel.categoryId);
-        const parentChannelHasChildren = serverChannels.some(
-          (c) =>
-            c.categoryId === parentChannel.channelId &&
-            c.channelId !== channelId,
+        const categoryChildren = await DB.get.channelChildren(
+          channel.categoryId,
         );
 
-        if (!parentChannelHasChildren) {
-          await DB.set.channel(parentChannel.channelId, {
-            isRoot: true,
+        if (!categoryChildren.length) {
+          await DB.set.channel(channel.categoryId, {
             type: 'channel',
-            categoryId: null,
-            order: parentChannel.order,
           });
         }
+      } else {
+        const channelChildren = await DB.get.channelChildren(channelId);
+        const channelMembers = await DB.get.channelMembers(channelId);
+
+        if (channelChildren.length) {
+          const serverChannels = await DB.get.serverChannels(serverId);
+          const order = serverChannels.length;
+
+          await Promise.all(
+            channelChildren.map(
+              async (child, index) =>
+                await DB.set.channel(child.channelId, {
+                  categoryId: null,
+                  order: order + index,
+                }),
+            ),
+          );
+        }
+
+        if (channelMembers.length) {
+          const server = await DB.get.server(serverId);
+
+          await Promise.all(
+            channelMembers.map(
+              async (member) =>
+                await channelHandler.connectChannel(io, socket, {
+                  userId: member.userId,
+                  channelId: server.lobbyId,
+                  serverId: member.serverId,
+                }),
+            ),
+          );
+        }
       }
+
+      // Update channel
+      await DB.set.channel(channelId, { serverId: null });
 
       // Emit updated data (to all users in the server)
       io.to(`server_${serverId}`).emit(
