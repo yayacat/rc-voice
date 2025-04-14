@@ -261,15 +261,9 @@ const memberHandler = {
       );
 
       // Emit updated data (to the user *if the user is in the server*)
-      io.in(`server_${serverId}`)
-        .fetchSockets()
-        .then((sockets) => {
-          sockets.forEach((socket) => {
-            if (socket.id === userSocket.id) {
-              socket.emit('memberUpdate', editedMember);
-            }
-          });
-        });
+      if (Array.from(userSocket.rooms).includes(`server_${serverId}`)) {
+        io.to(userSocket.id).emit('memberUpdate', editedMember);
+      }
 
       new Logger('Member').success(
         `Member(${userId}-${serverId}) of User(${userId}) in Server(${serverId}) updated by User(${operatorId})`,

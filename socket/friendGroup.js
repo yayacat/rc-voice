@@ -142,9 +142,10 @@ const friendGroupHandler = {
       await DB.set.friendGroup(friendGroupId, editedFriendGroup);
 
       // Emit updated data (to the user)
-      io.to(userSocket.id).emit('userUpdate', {
-        friendGroups: await DB.get.userFriendGroups(userId),
-      });
+      io.to(userSocket.id).emit(
+        'userFriendGroupsUpdate',
+        await DB.get.userFriendGroups(userId),
+      );
 
       new Logger('FriendGroup').success(
         `FriendGroup(${friendGroupId}) of User(${userId}) updated by User(${operatorId})`,

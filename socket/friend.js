@@ -82,11 +82,13 @@ const friendHandler = {
         createdAt: Date.now(),
       });
 
-      // Emit data (to the user and target)
+      // Emit data (to the user)
       io.to(userSocket.id).emit(
         'userFriendsUpdate',
         await DB.get.userFriends(userId),
       );
+
+      // Emit data (to the target *if online*)
       if (targetSocket) {
         io.to(targetSocket.id).emit(
           'userFriendsUpdate',
@@ -171,14 +173,14 @@ const friendHandler = {
       // Update friend
       await DB.set.friend(userId, targetId, editedFriend);
 
-      // Emit data (to the user and target)
-      io.to(userSocket.id).emit('friendUpdate', editedFriend);
+      // Emit data (to the user)
       io.to(userSocket.id).emit(
         'userFriendsUpdate',
         await DB.get.userFriends(userId),
       );
+
+      // Emit data (to the target *if online*)
       if (targetSocket) {
-        io.to(targetSocket.id).emit('friendUpdate', editedFriend);
         io.to(targetSocket.id).emit(
           'userFriendsUpdate',
           await DB.get.userFriends(targetId),
@@ -257,11 +259,13 @@ const friendHandler = {
       await DB.delete.friend(userId, targetId);
       await DB.delete.friend(targetId, userId);
 
-      // Emit data (to the user and target)
+      // Emit data (to the user)
       io.to(userSocket.id).emit(
         'userFriendsUpdate',
         await DB.get.userFriends(userId),
       );
+
+      // Emit data (to the target *if online*)
       if (targetSocket) {
         io.to(targetSocket.id).emit(
           'userFriendsUpdate',

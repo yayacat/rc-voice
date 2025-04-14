@@ -167,6 +167,7 @@ const serverHandler = {
 
       // Emit data (only to the user)
       io.to(userSocket.id).emit('userUpdate', updatedUser);
+      io.to(userSocket.id).emit('serverUpdate', await DB.get.server(serverId));
       io.to(userSocket.id).emit(
         'userServersUpdate',
         await DB.get.userServers(userId),
@@ -175,7 +176,6 @@ const serverHandler = {
         'serverChannelsUpdate',
         await DB.get.serverChannels(serverId),
       );
-      io.to(userSocket.id).emit('serverUpdate', await DB.get.server(serverId));
 
       new Logger('Server').success(
         `User(${userId}) connected to server(${serverId}) by User(${operatorId})`,

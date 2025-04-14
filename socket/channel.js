@@ -172,23 +172,29 @@ const channelHandler = {
       await Xp.create(userId);
 
       // Join RTC channel
-      rtcHandler.join(io, userSocket, { channelId: channelId });
+      await rtcHandler.join(io, userSocket, { channelId: channelId });
 
       // Join channel
       userSocket.join(`channel_${channelId}`);
 
       // Play sound
-      io.to(`channel_${channel.id}`).emit('playSound', 'join');
+      io.to(`channel_${channelId}`).emit('playSound', 'join');
 
       // Emit updated data (to the user)
       io.to(userSocket.id).emit('userUpdate', updatedUser);
-      io.to(userSocket.id).emit('memberUpdate', updatedMember);
-      io.to(userSocket.id).emit('channelUpdate', channel);
+      io.to(userSocket.id).emit(
+        'channelUpdate',
+        await DB.get.channel(channelId),
+      );
+      io.to(userSocket.id).emit(
+        'memberUpdate',
+        await DB.get.member(userId, serverId),
+      );
 
       // Emit updated data (to all users in the server)
-      io.to(`server_${channel.serverId}`).emit(
+      io.to(`server_${serverId}`).emit(
         'serverActiveMembersUpdate',
-        await DB.get.serverUsers(channel.serverId),
+        await DB.get.serverUsers(serverId),
       );
 
       new Logger('Channel').success(
@@ -395,6 +401,7 @@ const channelHandler = {
         'serverChannelsUpdate',
         await DB.get.serverChannels(serverId),
       );
+
       new Logger('Channel').success(
         `Channel(${channelId}) created in server(${serverId}) by User(${operatorId})`,
       );

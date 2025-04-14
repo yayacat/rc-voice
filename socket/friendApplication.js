@@ -228,14 +228,17 @@ const friendApplicationHandler = {
         );
       }
 
+      // Delete friend application
       await DB.delete.friendApplication(senderId, receiverId);
 
+      // Emit updated data (to the receiver)
       if (receiverSocket) {
         io.to(receiverSocket.id).emit(
           'userFriendApplicationsUpdate',
           await DB.get.userFriendApplications(receiverId),
         );
       }
+
       new Logger('FriendApplication').success(
         `Friend application(${senderId}-${receiverId}) of User(${senderId}) and User(${receiverId}) deleted by User(${operatorId})`,
       );
