@@ -44,7 +44,7 @@ const channelHandler = {
       const operatorMember = await DB.get.member(operatorId, serverId);
       const user = await DB.get.user(userId);
       const channel = await DB.get.channel(channelId);
-      const channelMembers = await DB.get.channelMembers(channelId);
+      const channelUsers = await DB.get.channelUsers(channelId);
       const server = await DB.get.server(serverId);
       let userSocket;
       io.sockets.sockets.forEach((_socket) => {
@@ -92,7 +92,7 @@ const channelHandler = {
             );
           if (
             channel.userLimit > 0 &&
-            channelMembers.length >= channel.userLimit &&
+            channelUsers.length >= channel.userLimit &&
             operatorMember.permissionLevel < 5
           ) {
             throw new StandardizedError(
@@ -887,7 +887,7 @@ const channelHandler = {
         }
       } else {
         const channelChildren = await DB.get.channelChildren(channelId);
-        const channelMembers = await DB.get.channelMembers(channelId);
+        const channelUsers = await DB.get.channelUsers(channelId);
         const channelMessages = await DB.get.channelMessages(channelId);
 
         if (channelChildren.length) {
@@ -904,16 +904,16 @@ const channelHandler = {
           );
         }
 
-        if (channelMembers.length) {
+        if (channelUsers.length) {
           const server = await DB.get.server(serverId);
 
           await Promise.all(
-            channelMembers.map(
-              async (member) =>
+            channelUsers.map(
+              async (user) =>
                 await channelHandler.connectChannel(io, socket, {
-                  userId: member.userId,
+                  userId: user.userId,
                   channelId: server.lobbyId,
-                  serverId: member.serverId,
+                  serverId: serverId,
                 }),
             ),
           );

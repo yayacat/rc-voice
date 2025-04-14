@@ -1071,9 +1071,10 @@ const Database = {
           FROM users 
           LEFT JOIN members 
           ON users.user_id = members.user_id
+          AND members.server_id = ?
           WHERE users.current_server_id = ?
           ORDER BY users.created_at DESC`,
-          [serverId],
+          [serverId, serverId],
         );
         if (!datas) return null;
         return datas.map((data) => convertToCamelCase(data));
@@ -1247,13 +1248,11 @@ const Database = {
       }
     },
 
-    channelMembers: async (channelId) => {
+    channelUsers: async (channelId) => {
       try {
         const datas = await query(
           `SELECT * 
-          FROM users 
-          LEFT JOIN members 
-          ON users.user_id = members.user_id
+          FROM users
           WHERE users.current_channel_id = ?
           ORDER BY users.created_at DESC`,
           [channelId],
@@ -1263,7 +1262,7 @@ const Database = {
       } catch (error) {
         if (!(error instanceof StandardizedError)) {
           error = new StandardizedError(
-            `查詢 channelMembers.${channelId} 時發生無法預期的錯誤: ${error.message}`,
+            `查詢 channelUsers.${channelId} 時發生無法預期的錯誤: ${error.message}`,
             'AccessDatabaseError',
             'GET',
             'DATABASE_ERROR',
