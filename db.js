@@ -29,7 +29,9 @@ function convertToCamelCase(obj) {
 
 function validateData(data, allowedFields) {
   const convertedData = convertToSnakeCase(data);
-  const keys = Object.keys(convertedData);
+  const keys = Object.keys(convertedData).filter((k) =>
+    allowedFields.includes(k),
+  );
   const values = keys.map((k) => convertedData[k]);
   if (keys.length === 0 || values.length === 0) {
     throw new StandardizedError(
@@ -49,17 +51,17 @@ function validateData(data, allowedFields) {
       401,
     );
   }
-  for (const key of keys) {
-    if (!allowedFields.includes(key)) {
-      throw new StandardizedError(
-        `Invalid field: ${key}`,
-        'AccessDatabaseError',
-        'SET',
-        'DATA_INVALID',
-        401,
-      );
-    }
-  }
+  // for (const key of keys) {
+  //   if (!allowedFields.includes(key)) {
+  //     throw new StandardizedError(
+  //       `Invalid field: ${key}`,
+  //       'AccessDatabaseError',
+  //       'SET',
+  //       'DATA_INVALID',
+  //       401,
+  //     );
+  //   }
+  // }
   return { keys, values };
 }
 
