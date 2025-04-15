@@ -367,7 +367,7 @@ const channelHandler = {
           403,
         );
       }
-      if (category && category.type === 'category') {
+      if (category && category.categoryId) {
         throw new StandardizedError(
           '無法在二級頻道下創建頻道',
           'ValidationError',
@@ -377,7 +377,7 @@ const channelHandler = {
         );
       }
 
-      if (category && category.type === 'channel') {
+      if (category && !category.categoryId) {
         await DB.set.channel(category.channelId, {
           type: 'category',
         });
