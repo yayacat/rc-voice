@@ -43,7 +43,7 @@ const memberApplicationHandler = {
 
       // Validate operator
       if (operatorId === userId) {
-        if (operatorMember.permissionLevel !== 1) {
+        if (operatorMember && operatorMember.permissionLevel !== 1) {
           throw new StandardizedError(
             '非遊客無法創建會員申請',
             'ValidationError',
