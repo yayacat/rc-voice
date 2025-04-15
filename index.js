@@ -233,13 +233,14 @@ const server = http.createServer((req, res) => {
         await DB.set.user(userId, {
           name: username,
           avatar: userId,
+          avatarUrl: `data:image/png;base64,${SERVER_URL}/images/userAvatars/`,
           createdAt: Date.now(),
         });
 
         // Create account password list
         await DB.set.account(account, {
           password,
-          user_id: userId,
+          userId: userId,
         });
 
         sendSuccess(res, {
@@ -1099,7 +1100,7 @@ const server = http.createServer((req, res) => {
           message: 'success',
           data: {
             avatar: fileName,
-            avatarUrl: `${SERVER_URL}/images/${Path()}/${fullFileName}`,
+            avatarUrl: `data:image/png;base64,${SERVER_URL}/images/${Path()}/${fullFileName}`,
           },
         });
       } catch (error) {
