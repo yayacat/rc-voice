@@ -70,7 +70,12 @@ const userHandler = {
       io.sockets.sockets.forEach((_socket) => {
         if (_socket.userId === operator.id && _socket.id !== socket.id) {
           io.to(_socket.id).emit('openPopup', {
-            popupType: 'anotherDeviceLogin',
+            type: 'dialogAlert',
+            initialData: {
+              title: '另一個設備已登入',
+              content: '請重新登入',
+              submitTo: 'dialogAlert',
+            },
           });
           _socket.disconnect();
         }

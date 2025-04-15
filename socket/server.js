@@ -106,7 +106,7 @@ const serverHandler = {
           operatorMember.permissionLevel < 2
         ) {
           io.to(userSocket.id).emit('openPopup', {
-            popupType: 'applyMember',
+            type: 'applyMember',
             initialData: {
               serverId: serverId,
               userId: userId,
