@@ -91,19 +91,10 @@ const serverHandler = {
       });
 
       // Validate operation
-      if (operatorId !== userId) {
-        throw new StandardizedError(
-          '無法移動其他用戶的群組',
-          'ValidationError',
-          'CONNECTSERVER',
-          'PERMISSION_DENIED',
-          403,
-        );
-      } else {
+      if (operatorId === userId) {
         if (
           server.visibility === 'invisible' &&
-          operatorMember &&
-          operatorMember.permissionLevel < 2
+          (!operatorMember || operatorMember.permissionLevel < 2)
         ) {
           io.to(userSocket.id).emit('openPopup', {
             type: 'applyMember',
@@ -113,14 +104,19 @@ const serverHandler = {
             },
           });
 
-          // Emit data (to the user)
-          io.to(userSocket.id).emit('serverUpdate', null);
-
           new Logger('Server').warn(
             `User(${userId}) tried to connect to server(${serverId}) but was denied because of non-member`,
           );
           return;
         }
+      } else {
+        throw new StandardizedError(
+          '無法移動其他用戶的群組',
+          'ValidationError',
+          'CONNECTSERVER',
+          'PERMISSION_DENIED',
+          403,
+        );
       }
 
       // Create new membership if there isn't one
