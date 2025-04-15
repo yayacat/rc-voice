@@ -860,7 +860,7 @@ const Database = {
           `SELECT * 
           FROM friend_groups
           WHERE friend_groups.user_id = ?
-          ORDER BY friend_groups.\`order\` DESC`,
+          ORDER BY friend_groups.\`order\`, friend_groups.created_at DESC`,
           [userId],
         );
         if (!datas) return null;
@@ -888,7 +888,7 @@ const Database = {
           LEFT JOIN badges
           ON user_badges.badge_id = badges.badge_id
           WHERE user_badges.user_id = ?
-          ORDER BY badges.\`order\` DESC`,
+          ORDER BY badges.\`order\`, badges.created_at DESC`,
           [userId],
         );
         if (!datas) return null;
@@ -1108,7 +1108,7 @@ const Database = {
           `SELECT * 
           FROM channels
           WHERE channels.server_id = ?
-          ORDER BY channels.\`order\` DESC`,
+          ORDER BY channels.\`order\`, channels.created_at DESC`,
           [serverId],
         );
         if (!datas) return null;
@@ -1190,7 +1190,7 @@ const Database = {
           `SELECT * 
           FROM categories 
           WHERE categories.category_id = ?
-          ORDER BY categories.\`order\` DESC`,
+          ORDER BY categories.\`order\`, categories.created_at DESC`,
           [categoryId],
         );
         const data = datas[0];
@@ -1217,7 +1217,7 @@ const Database = {
           `SELECT * 
           FROM channels 
           WHERE channels.channel_id = ?
-          ORDER BY channels.\`order\` DESC`,
+          ORDER BY channels.\`order\`, channels.created_at DESC`,
           [channelId],
         );
         const data = datas[0];
@@ -1244,7 +1244,7 @@ const Database = {
           `SELECT * 
           FROM channels 
           WHERE channels.category_id = ?
-          ORDER BY channels.\`order\` DESC`,
+          ORDER BY channels.\`order\`, channels.created_at DESC`,
           [channelId],
         );
         if (!datas) return null;
@@ -1354,7 +1354,7 @@ const Database = {
           `SELECT * 
           FROM friend_groups 
           WHERE friend_groups.friend_group_id = ?
-          ORDER BY friend_groups.\`order\` DESC`,
+          ORDER BY friend_groups.\`order\`, friend_groups.created_at DESC`,
           [friendGroupId],
         );
         const data = datas[0];
