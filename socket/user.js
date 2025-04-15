@@ -68,7 +68,7 @@ const userHandler = {
 
       // Check if user is already connected
       io.sockets.sockets.forEach((_socket) => {
-        if (_socket.userId === operator.id && _socket.id !== socket.id) {
+        if (_socket.userId === socket.userId && _socket.id !== socket.id) {
           io.to(_socket.id).emit('openPopup', {
             type: 'dialogAlert',
             initialData: {
@@ -78,6 +78,10 @@ const userHandler = {
             },
           });
           _socket.disconnect();
+
+          new Logger('WebSocket').warn(
+            `User(${socket.userId}) is already connected to another device, force logout`,
+          );
         }
       });
 
