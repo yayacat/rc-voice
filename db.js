@@ -754,6 +754,7 @@ const Database = {
   get: {
     all: async (querys) => {
       try {
+        if (!querys) return null;
         const datas = await query(
           `SELECT * 
           FROM ${querys}`,
@@ -776,6 +777,7 @@ const Database = {
 
     account: async (account) => {
       try {
+        if (!account) return null;
         const res = await query(
           `SELECT *
           FROM accounts
@@ -799,12 +801,9 @@ const Database = {
       }
     },
 
-    avatar: async (avatarUrl) => {
-      return `data:image/png;base64,${avatarUrl}`;
-    },
-
     searchUser: async (querys) => {
       try {
+        if (!querys) return null;
         const res = await query(
           `SELECT accounts.user_id 
           FROM accounts
@@ -830,6 +829,7 @@ const Database = {
 
     user: async (userId) => {
       try {
+        if (!userId) return null;
         const datas = await query(
           `SELECT *
           FROM users
@@ -855,6 +855,7 @@ const Database = {
 
     userFriendGroups: async (userId) => {
       try {
+        if (!userId) return null;
         const datas = await query(
           `SELECT * 
           FROM friend_groups
@@ -880,6 +881,7 @@ const Database = {
 
     userBadges: async (userId) => {
       try {
+        if (!userId) return null;
         const datas = await query(
           `SELECT * 
           FROM user_badges
@@ -907,6 +909,7 @@ const Database = {
 
     userServers: async (userId) => {
       try {
+        if (!userId) return null;
         const datas = await query(
           `SELECT *
           FROM user_servers
@@ -934,6 +937,7 @@ const Database = {
 
     userMembers: async (userId) => {
       try {
+        if (!userId) return null;
         const datas = await query(
           `SELECT * 
           FROM members 
@@ -961,6 +965,7 @@ const Database = {
 
     userFriends: async (userId) => {
       try {
+        if (!userId) return null;
         const datas = await query(
           `SELECT *, friends.user_id AS user_id
           FROM friends 
@@ -988,6 +993,7 @@ const Database = {
 
     userFriendApplications: async (userId) => {
       try {
+        if (!userId) return null;
         const datas = await query(
           `SELECT * 
           FROM friend_applications 
@@ -1015,6 +1021,7 @@ const Database = {
 
     searchServer: async (querys) => {
       try {
+        if (!querys) return null;
         const datas = await query(
           `SELECT * 
           FROM servers 
@@ -1041,6 +1048,7 @@ const Database = {
 
     server: async (serverId) => {
       try {
+        if (!serverId) return null;
         const datas = await query(
           `SELECT * 
           FROM servers 
@@ -1066,6 +1074,7 @@ const Database = {
 
     serverUsers: async (serverId) => {
       try {
+        if (!serverId) return null;
         const datas = await query(
           `SELECT * 
           FROM users 
@@ -1094,6 +1103,7 @@ const Database = {
 
     serverChannels: async (serverId) => {
       try {
+        if (!serverId) return null;
         const datas = await query(
           `SELECT * 
           FROM channels
@@ -1119,6 +1129,7 @@ const Database = {
 
     serverMembers: async (serverId) => {
       try {
+        if (!serverId) return null;
         const datas = await query(
           `SELECT * 
           FROM members 
@@ -1146,6 +1157,7 @@ const Database = {
 
     serverMemberApplications: async (serverId) => {
       try {
+        if (!serverId) return null;
         const datas = await query(
           `SELECT * 
           FROM member_applications 
@@ -1173,6 +1185,7 @@ const Database = {
 
     category: async (categoryId) => {
       try {
+        if (!categoryId) return null;
         const datas = await query(
           `SELECT * 
           FROM categories 
@@ -1199,6 +1212,7 @@ const Database = {
 
     channel: async (channelId) => {
       try {
+        if (!channelId) return null;
         const datas = await query(
           `SELECT * 
           FROM channels 
@@ -1225,6 +1239,7 @@ const Database = {
 
     channelChildren: async (channelId) => {
       try {
+        if (!channelId) return null;
         const datas = await query(
           `SELECT * 
           FROM channels 
@@ -1250,6 +1265,7 @@ const Database = {
 
     channelUsers: async (channelId) => {
       try {
+        if (!channelId) return null;
         const datas = await query(
           `SELECT * 
           FROM users
@@ -1275,6 +1291,7 @@ const Database = {
 
     channelMessages: async (channelId) => {
       try {
+        if (!channelId) return null;
         const datas = await query(
           `SELECT * 
           FROM messages 
@@ -1332,6 +1349,7 @@ const Database = {
 
     friendGroup: async (friendGroupId) => {
       try {
+        if (!friendGroupId) return null;
         const datas = await query(
           `SELECT * 
           FROM friend_groups 
@@ -1358,6 +1376,7 @@ const Database = {
 
     friendGroupFriends: async (friendGroupId) => {
       try {
+        if (!friendGroupId) return null;
         const datas = await query(
           `SELECT * 
           FROM friends 
@@ -1383,6 +1402,7 @@ const Database = {
 
     member: async (userId, serverId) => {
       try {
+        if (!userId || !serverId) return null;
         const datas = await query(
           `SELECT * 
           FROM members 
@@ -1410,6 +1430,7 @@ const Database = {
 
     memberApplication: async (userId, serverId) => {
       try {
+        if (!userId || !serverId) return null;
         const datas = await query(
           `SELECT * 
           FROM member_applications 
@@ -1437,6 +1458,7 @@ const Database = {
 
     friend: async (userId, targetId) => {
       try {
+        if (!userId || !targetId) return null;
         const datas = await query(
           `SELECT * 
           FROM friends 
@@ -1464,6 +1486,7 @@ const Database = {
 
     friendApplication: async (senderId, receiverId) => {
       try {
+        if (!senderId || !receiverId) return null;
         const datas = await query(
           `SELECT * 
           FROM friend_applications 
@@ -1491,6 +1514,7 @@ const Database = {
 
     message: async (messageId) => {
       try {
+        if (!messageId) return null;
         const datas = await query(
           `SELECT * 
           FROM messages 
@@ -1517,6 +1541,7 @@ const Database = {
 
     directMessages: async (userId, targetId) => {
       try {
+        if (!userId || !targetId) return null;
         const userId1 = userId.localeCompare(targetId) < 0 ? userId : targetId;
         const userId2 = userId.localeCompare(targetId) < 0 ? targetId : userId;
         const datas = await query(
