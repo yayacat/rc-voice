@@ -254,16 +254,6 @@ const channelHandler = {
         }
       });
 
-      if (!userSocket) {
-        throw new StandardizedError(
-          '無法找到使用者的 Socket',
-          'ValidationError',
-          'DISCONNECTCHANNEL',
-          'SOCKET_NOT_FOUND',
-          404,
-        );
-      }
-
       // Validate operation
       if (operatorId !== userId) {
         if (operatorMember.permissionLevel < 5)
@@ -365,8 +355,9 @@ const channelHandler = {
       // Get data
       const operatorMember = await DB.get.member(operatorId, serverId);
       const serverChannels = await DB.get.serverChannels(serverId);
+      const category = await DB.get.channel(newChannel.categoryId);
 
-      // Validate permission
+      // Validate operation
       if (operatorMember.permissionLevel < 5) {
         throw new StandardizedError(
           '你沒有足夠的權限創建頻道',
@@ -376,9 +367,18 @@ const channelHandler = {
           403,
         );
       }
+      if (category.categoryId || category.type === 'category') {
+        throw new StandardizedError(
+          '無法在二級頻道下創建頻道',
+          'ValidationError',
+          'CREATECHANNEL',
+          'PERMISSION_DENIED',
+          403,
+        );
+      }
 
-      if (newChannel.categoryId) {
-        await DB.set.channel(newChannel.categoryId, {
+      if (category.type === 'channel') {
+        await DB.set.channel(category.channelId, {
           type: 'category',
         });
       }
