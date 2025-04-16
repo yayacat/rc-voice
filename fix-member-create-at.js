@@ -11,7 +11,7 @@ const fixMemberCreateAt = async () => {
     const { userId, serverId, id, ...rest } = member;
 
     await DB.set.member(userId, serverId, {
-      createdAt: rest.joinedAt || 0,
+      createdAt: parseInt(rest.createdAt),
     });
   }
 

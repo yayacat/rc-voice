@@ -393,7 +393,7 @@ const channelHandler = {
             ? ch.categoryId === newChannel.categoryId
             : !ch.categoryId,
         ).length,
-        createdAt: Date.now().valueOf(),
+        createdAt: Date.now(),
       });
 
       // Emit updated data (to all users in the server)

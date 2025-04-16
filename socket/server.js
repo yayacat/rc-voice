@@ -368,6 +368,7 @@ const serverHandler = {
         member: {
           permissionLevel: 6,
         },
+        createdAt: Date.now(),
       });
 
       // Create channel (lobby)
