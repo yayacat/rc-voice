@@ -941,7 +941,7 @@ const Database = {
         const datas = await query(
           `SELECT * 
           FROM members 
-          LEFT JOIN servers
+          RIGHT JOIN servers
           ON members.server_id = servers.server_id
           WHERE members.user_id = ?
           ORDER BY members.created_at DESC`,
@@ -967,9 +967,9 @@ const Database = {
       try {
         if (!userId) return null;
         const datas = await query(
-          `SELECT *, friends.user_id AS user_id
+          `SELECT *
           FROM friends 
-          LEFT JOIN users
+          RIGHT JOIN users
           ON friends.target_id = users.user_id
           WHERE friends.user_id = ?
           ORDER BY friends.created_at DESC`,
@@ -997,7 +997,7 @@ const Database = {
         const datas = await query(
           `SELECT * 
           FROM friend_applications 
-          LEFT JOIN users 
+          RIGHT JOIN users 
           ON friend_applications.sender_id = users.user_id
           WHERE friend_applications.receiver_id = ?
           ORDER BY friend_applications.created_at DESC`,
@@ -1077,12 +1077,12 @@ const Database = {
         if (!serverId) return null;
         const datas = await query(
           `SELECT * 
-          FROM users 
-          LEFT JOIN members 
-          ON users.user_id = members.user_id
+          FROM members 
+          RIGHT JOIN users 
+          ON members.user_id = users.user_id
           AND members.server_id = ?
           WHERE users.current_server_id = ?
-          ORDER BY users.created_at DESC`,
+          ORDER BY members.created_at DESC`,
           [serverId, serverId],
         );
         if (!datas) return null;
@@ -1133,7 +1133,7 @@ const Database = {
         const datas = await query(
           `SELECT * 
           FROM members 
-          LEFT JOIN users 
+          RIGHT JOIN users 
           ON members.user_id = users.user_id  
           WHERE members.server_id = ?
           ORDER BY members.created_at DESC`,
@@ -1161,7 +1161,7 @@ const Database = {
         const datas = await query(
           `SELECT * 
           FROM member_applications 
-          LEFT JOIN users 
+          RIGHT JOIN users 
           ON member_applications.user_id = users.user_id
           WHERE member_applications.server_id = ?
           ORDER BY member_applications.created_at DESC`,
@@ -1279,38 +1279,6 @@ const Database = {
         if (!(error instanceof StandardizedError)) {
           error = new StandardizedError(
             `查詢 channelUsers.${channelId} 時發生無法預期的錯誤: ${error.message}`,
-            'AccessDatabaseError',
-            'GET',
-            'DATABASE_ERROR',
-            500,
-          );
-        }
-        throw error;
-      }
-    },
-
-    channelMessages: async (channelId) => {
-      try {
-        if (!channelId) return null;
-        const datas = await query(
-          `SELECT * 
-          FROM messages 
-          LEFT JOIN users 
-          ON messages.sender_id = users.user_id
-          LEFT JOIN members
-          ON messages.sender_id = members.user_id 
-          AND messages.server_id = members.server_id
-          WHERE messages.channel_id = ?
-          AND messages.type = 'general'
-          ORDER BY messages.timestamp DESC`,
-          [channelId],
-        );
-        if (!datas) return null;
-        return datas.map((data) => convertToCamelCase(data));
-      } catch (error) {
-        if (!(error instanceof StandardizedError)) {
-          error = new StandardizedError(
-            `查詢 channelMessages.${channelId} 時發生無法預期的錯誤: ${error.message}`,
             'AccessDatabaseError',
             'GET',
             'DATABASE_ERROR',
@@ -1502,63 +1470,6 @@ const Database = {
         if (!(error instanceof StandardizedError)) {
           error = new StandardizedError(
             `查詢 friendApplication.${senderId}-${receiverId} 時發生無法預期的錯誤: ${error.message}`,
-            'AccessDatabaseError',
-            'GET',
-            'DATABASE_ERROR',
-            500,
-          );
-        }
-        throw error;
-      }
-    },
-
-    message: async (messageId) => {
-      try {
-        if (!messageId) return null;
-        const datas = await query(
-          `SELECT * 
-          FROM messages 
-          WHERE messages.message_id = ?
-          ORDER BY messages.timestamp DESC`,
-          [messageId],
-        );
-        const data = datas[0];
-        if (!data) return null;
-        return convertToCamelCase(data);
-      } catch (error) {
-        if (!(error instanceof StandardizedError)) {
-          error = new StandardizedError(
-            `查詢 message.${messageId} 時發生無法預期的錯誤: ${error.message}`,
-            'AccessDatabaseError',
-            'GET',
-            'DATABASE_ERROR',
-            500,
-          );
-        }
-        throw error;
-      }
-    },
-
-    directMessages: async (userId, targetId) => {
-      try {
-        if (!userId || !targetId) return null;
-        const userId1 = userId.localeCompare(targetId) < 0 ? userId : targetId;
-        const userId2 = userId.localeCompare(targetId) < 0 ? targetId : userId;
-        const datas = await query(
-          `SELECT * 
-          FROM direct_messages 
-          LEFT JOIN users 
-          ON direct_messages.sender_id = users.user_id
-          WHERE direct_messages.user1_id = ?
-          AND direct_messages.user2_id = ?
-          ORDER BY direct_messages.timestamp DESC`,
-          [userId1, userId2],
-        );
-        return datas.map((data) => convertToCamelCase(data));
-      } catch (error) {
-        if (!(error instanceof StandardizedError)) {
-          error = new StandardizedError(
-            `查詢 directMessages.${userId}-${targetId} 時發生無法預期的錯誤: ${error.message}`,
             'AccessDatabaseError',
             'GET',
             'DATABASE_ERROR',

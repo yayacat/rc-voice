@@ -655,41 +655,6 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    if (req.url == '/refresh/channelMessages') {
-      req.on('end', async () => {
-        try {
-          const data = JSON.parse(body);
-          const { channelId } = data;
-          if (!channelId) {
-            throw new StandardizedError(
-              '無效的資料',
-              'ValidationError',
-              'REFRESHCHANNELMESSAGES',
-              'DATA_INVALID',
-              400,
-            );
-          }
-          sendSuccess(res, {
-            message: 'success',
-            data: await DB.get.channelMessages(channelId),
-          });
-        } catch (error) {
-          if (!(error instanceof StandardizedError)) {
-            error = new StandardizedError(
-              `刷新資料時發生預期外的錯誤: ${error.message}`,
-              'ServerError',
-              'REFRESHCHANNELMESSAGES',
-              'EXCEPTION_ERROR',
-              500,
-            );
-          }
-          sendError(res, error.status_code, error.error_message);
-          new Logger('Server').error(`Refresh error: ${error.error_message}`);
-        }
-      });
-      return;
-    }
-
     if (req.url == '/refresh/friendGroup') {
       req.on('end', async () => {
         try {
@@ -859,39 +824,6 @@ const server = http.createServer((req, res) => {
         }
       });
       return;
-    }
-
-    if (req.url == '/refresh/directMessage') {
-      req.on('end', async () => {
-        try {
-          const data = JSON.parse(body);
-          const { userId, targetId } = data;
-          if (!userId || !targetId) {
-            throw new StandardizedError(
-              '無效的資料',
-              'ValidationError',
-              'REFRESHDIRECTMESSAGE',
-              'DATA_INVALID',
-            );
-          }
-          sendSuccess(res, {
-            message: 'success',
-            data: await DB.get.directMessages(userId, targetId),
-          });
-        } catch (error) {
-          if (!(error instanceof StandardizedError)) {
-            error = new StandardizedError(
-              `刷新資料時發生預期外的錯誤: ${error.message}`,
-              'ServerError',
-              'REFRESHDIRECTMESSAGE',
-              'EXCEPTION_ERROR',
-              500,
-            );
-          }
-          sendError(res, error.status_code, error.error_message);
-          new Logger('Server').error(`Refresh error: ${error.error_message}`);
-        }
-      });
     }
     return;
   }
