@@ -10,10 +10,8 @@ const fixMemberCreateAt = async () => {
   for (const [key, member] of Object.entries(members)) {
     const { userId, serverId, id, ...rest } = member;
 
-    if (rest.createdAt === 0 || !rest.createdAt) rest.createdAt = rest.joinedAt;
-
     await DB.set.member(userId, serverId, {
-      ...rest,
+      createdAt: rest.joinedAt || 0,
     });
   }
 
