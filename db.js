@@ -939,7 +939,7 @@ const Database = {
       try {
         if (!userId) return null;
         const datas = await query(
-          `SELECT members.created_at as created_at, * 
+          `SELECT members.created_at AS created_at, members.*, servers.* 
           FROM members 
           LEFT JOIN servers
           ON members.server_id = servers.server_id
@@ -967,7 +967,7 @@ const Database = {
       try {
         if (!userId) return null;
         const datas = await query(
-          `SELECT friends.created_at as created_at, *
+          `SELECT friends.created_at AS created_at, friends.*, users.*
           FROM friends 
           LEFT JOIN users
           ON friends.target_id = users.user_id
@@ -995,7 +995,7 @@ const Database = {
       try {
         if (!userId) return null;
         const datas = await query(
-          `SELECT friend_applications.created_at as created_at, * 
+          `SELECT friend_applications.created_at AS created_at, friend_applications.*, users.*
           FROM friend_applications 
           LEFT JOIN users 
           ON friend_applications.sender_id = users.user_id
@@ -1076,7 +1076,7 @@ const Database = {
       try {
         if (!serverId) return null;
         const datas = await query(
-          `SELECT members.created_at as created_at, * 
+          `SELECT members.created_at AS created_at, members.*, users.* 
           FROM members 
           LEFT JOIN users 
           ON members.user_id = users.user_id
@@ -1131,7 +1131,7 @@ const Database = {
       try {
         if (!serverId) return null;
         const datas = await query(
-          `SELECT members.created_at as created_at, * 
+          `SELECT members.created_at AS created_at, members.*, users.* 
           FROM members 
           LEFT JOIN users 
           ON members.user_id = users.user_id  
@@ -1159,7 +1159,7 @@ const Database = {
       try {
         if (!serverId) return null;
         const datas = await query(
-          `SELECT member_applications.created_at as created_at, * 
+          `SELECT member_applications.created_at AS created_at, member_applications.*, users.* 
           FROM member_applications 
           LEFT JOIN users 
           ON member_applications.user_id = users.user_id
