@@ -939,9 +939,9 @@ const Database = {
       try {
         if (!userId) return null;
         const datas = await query(
-          `SELECT * 
+          `SELECT members.created_at as created_at, * 
           FROM members 
-          RIGHT JOIN servers
+          LEFT JOIN servers
           ON members.server_id = servers.server_id
           WHERE members.user_id = ?
           ORDER BY members.created_at DESC`,
@@ -967,9 +967,9 @@ const Database = {
       try {
         if (!userId) return null;
         const datas = await query(
-          `SELECT *
+          `SELECT friends.created_at as created_at, *
           FROM friends 
-          RIGHT JOIN users
+          LEFT JOIN users
           ON friends.target_id = users.user_id
           WHERE friends.user_id = ?
           ORDER BY friends.created_at DESC`,
@@ -995,9 +995,9 @@ const Database = {
       try {
         if (!userId) return null;
         const datas = await query(
-          `SELECT * 
+          `SELECT friend_applications.created_at as created_at, * 
           FROM friend_applications 
-          RIGHT JOIN users 
+          LEFT JOIN users 
           ON friend_applications.sender_id = users.user_id
           WHERE friend_applications.receiver_id = ?
           ORDER BY friend_applications.created_at DESC`,
@@ -1076,9 +1076,9 @@ const Database = {
       try {
         if (!serverId) return null;
         const datas = await query(
-          `SELECT * 
+          `SELECT members.created_at as created_at, * 
           FROM members 
-          RIGHT JOIN users 
+          LEFT JOIN users 
           ON members.user_id = users.user_id
           AND members.server_id = ?
           WHERE users.current_server_id = ?
@@ -1131,9 +1131,9 @@ const Database = {
       try {
         if (!serverId) return null;
         const datas = await query(
-          `SELECT * 
+          `SELECT members.created_at as created_at, * 
           FROM members 
-          RIGHT JOIN users 
+          LEFT JOIN users 
           ON members.user_id = users.user_id  
           WHERE members.server_id = ?
           ORDER BY members.created_at DESC`,
@@ -1159,9 +1159,9 @@ const Database = {
       try {
         if (!serverId) return null;
         const datas = await query(
-          `SELECT * 
+          `SELECT member_applications.created_at as created_at, * 
           FROM member_applications 
-          RIGHT JOIN users 
+          LEFT JOIN users 
           ON member_applications.user_id = users.user_id
           WHERE member_applications.server_id = ?
           ORDER BY member_applications.created_at DESC`,
