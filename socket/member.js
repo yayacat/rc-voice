@@ -261,7 +261,10 @@ const memberHandler = {
       );
 
       // Emit updated data (to the user *if the user is in the server*)
-      if (Array.from(userSocket.rooms).includes(`server_${serverId}`)) {
+      if (
+        userSocket &&
+        Array.from(userSocket.rooms).includes(`server_${serverId}`)
+      ) {
         io.to(userSocket.id).emit('memberUpdate', editedMember);
       }
 
