@@ -922,14 +922,6 @@ const channelHandler = {
         );
       }
 
-      if (channelMessages.length) {
-        await Promise.all(
-          channelMessages.map(
-            async (message) => await DB.delete.message(message.messageId),
-          ),
-        );
-      }
-
       // Update channel
       await DB.delete.channel(channelId);
 
