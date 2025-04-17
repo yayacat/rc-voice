@@ -872,7 +872,6 @@ const channelHandler = {
       const channel = await DB.get.channel(channelId);
       const channelUsers = await DB.get.channelUsers(channelId);
       const channelChildren = await DB.get.channelChildren(channelId);
-      const channelMessages = await DB.get.channelMessages(channelId);
 
       // Validate operation
       if (operatorMember.permissionLevel < 5) {
