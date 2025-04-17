@@ -63,13 +63,12 @@ async function backupDatabase() {
         }
         // console.log("creationOrder:", creationOrder);
 
-        let sqlContent = `-- Database: ${database}\n`;
-        sqlContent += `-- Backup generated on: ${new Date().toISOString()}\n\n`;
+        let sqlContent = `-- Database: ${database};\n`;
+        sqlContent += `-- Backup generated on: ${new Date().toISOString()};\n\n`;
 
         // Generate DROP TABLE statements
         const generateDropTableStatements = true;
         if (generateDropTableStatements) {
-            sqlContent += `-- WARNING: Following statements will DROP ALL TABLES in the database!\n`;
             const dropOrder = [
                 'accounts',
                 'badges',
@@ -91,12 +90,12 @@ async function backupDatabase() {
                     sqlContent += `DROP TABLE IF EXISTS \`${tableName}\`;\n`;
                 }
             }
-            sqlContent += `-- End of DROP TABLE statements\n\n`;
+            sqlContent += `-- End of DROP TABLE statements;\n\n`;
         }
 
         // **修改這裡：在產生 CREATE TABLE 語句前後加入禁用和啟用外鍵檢查**
         for (const tableName of creationOrder) {
-            sqlContent += `-- Table structure for ${tableName}\n`;
+            sqlContent += `-- Table structure for ${tableName};\n`;
             sqlContent += createTableStatements[tableName] + ';\n\n';
         }
 
@@ -105,7 +104,7 @@ async function backupDatabase() {
             console.log(`正在備份表格資料: ${tableName}`);
             const [rows] = await connection.execute(`SELECT * FROM \`${tableName}\``);
             if (rows && rows.length > 0) {
-                sqlContent += `-- Dumping data for table ${tableName}\n`;
+                sqlContent += `-- Dumping data for table ${tableName};\n`;
                 for (const row of rows) {
                     const columns = Object.keys(row).map(col => `\`${col}\``).join(', ');
                     const values = Object.values(row)
@@ -116,6 +115,8 @@ async function backupDatabase() {
                 sqlContent += '\n';
             }
         }
+
+        sqlContent += `-- End of data;\n`;
 
         await fs.mkdir('./backups', { recursive: true });
         await fs.writeFile(backupFilePath, sqlContent, 'utf8');
