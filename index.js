@@ -2,27 +2,25 @@
 const http = require('http');
 const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
-const { QuickDB } = require('quick.db');
-const db = new QuickDB();
+
 const fs = require('fs').promises;
 const path = require('path');
 const formidable = require('formidable');
 
 // Utils
 const utils = require('./utils');
-const {
-  standardizedError: StandardizedError,
-  logger: Logger,
-  get: Get,
-  set: Set,
-  func: Func,
-  jwt: JWT,
-  clean: Clean,
-} = utils;
+const { Logger, Func, JWT, Xp } = utils;
+
+// Database
+const DB = require('./db');
+
+// StandardizedError
+const StandardizedError = require('./standardizedError');
 
 // Constants
 const {
   PORT,
+  SERVER_URL,
   CONTENT_TYPE_JSON,
   MIME_TYPES,
   UPLOADS_PATH,
@@ -31,7 +29,48 @@ const {
   UPLOADS_DIR,
   SERVER_AVATAR_DIR,
   USER_AVATAR_DIR,
+  // BACKUP_DIR,
 } = require('./constant');
+
+// const DB_PATH = path.join(__dirname, './json.sqlite');
+
+// const backupDatabase = async () => {
+//   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+//   const backupFileName = `json_backup_${timestamp}.sqlite`;
+//   const backupFilePath = path.join(BACKUP_DIR, backupFileName);
+
+//   try {
+//     await fs.copyFile(DB_PATH, backupFilePath);
+//     console.log(`備份成功: ${backupFilePath}`);
+//   } catch (err) {
+//     console.error('備份失敗:', err);
+//   }
+
+//   try {
+//     const files = await fs.readdir(BACKUP_DIR);
+//     const now = Date.now();
+//     const expirationTime = 8 * 60 * 60 * 1000;
+
+//     await Promise.all(
+//       files.map(async (file) => {
+//         const filePath = path.join(BACKUP_DIR, file);
+//         const stats = await fs.stat(filePath);
+//         const fileAge = now - stats.mtimeMs;
+
+//         if (fileAge > expirationTime) {
+//           await fs.unlink(filePath);
+//           console.log(`刪除過期備份: ${filePath}`);
+//         }
+//       }),
+//     );
+//   } catch (err) {
+//     console.error('刪除過期備份文件時發生錯誤:', err);
+//   }
+// };
+
+// const BACKUP_INTERVAL_MS = 60 * 60 * 1000;
+
+// setInterval(backupDatabase, BACKUP_INTERVAL_MS);
 
 // Send Error/Success Response
 const sendError = (res, statusCode, message) => {
@@ -70,12 +109,9 @@ const server = http.createServer((req, res) => {
         // }
 
         // Get database
-        const accountPasswords = (await db.get(`accountPasswords`)) || {};
-        const accountUserIds = (await db.get(`accountUserIds`)) || {};
-        const users = (await db.get(`users`)) || {};
+        const { account, password } = data;
 
         // Validate data
-        const { account, password } = data;
         if (!account || !password) {
           throw new StandardizedError(
             '無效的帳號或密碼',
@@ -85,8 +121,8 @@ const server = http.createServer((req, res) => {
             401,
           );
         }
-        const exist = accountPasswords[account];
-        if (!exist) {
+        const accountData = await DB.get.account(account);
+        if (!accountData) {
           throw new StandardizedError(
             '找不到此帳號',
             'ValidationError',
@@ -95,7 +131,7 @@ const server = http.createServer((req, res) => {
             401,
           );
         }
-        if (password !== accountPasswords[account]) {
+        if (password !== accountData.password) {
           throw new StandardizedError(
             '帳號或密碼錯誤',
             'ValidationError',
@@ -104,7 +140,7 @@ const server = http.createServer((req, res) => {
             401,
           );
         }
-        const userId = accountUserIds[account];
+        const userId = accountData.user_id;
         if (!userId) {
           throw new StandardizedError(
             '用戶不存在',
@@ -114,7 +150,7 @@ const server = http.createServer((req, res) => {
             404,
           );
         }
-        const user = users[userId];
+        const user = await DB.get.user(userId);
         if (!user) {
           throw new StandardizedError(
             '用戶不存在',
@@ -126,13 +162,14 @@ const server = http.createServer((req, res) => {
         }
 
         // Update user
-        await Set.user(user.id, {
+        await DB.set.user(userId, {
+          ...user.data,
           lastActiveAt: Date.now(),
         });
 
         // Generate JWT token
         const token = JWT.generateToken({
-          userId: user.id,
+          userId,
         });
 
         sendSuccess(res, {
@@ -173,16 +210,15 @@ const server = http.createServer((req, res) => {
         // }
 
         // Get database
-        const accountPasswords = (await db.get(`accountPasswords`)) || {};
+        const { account, password, username } = data;
 
         // Validate data
-        const { account, password, username } = data;
         Func.validate.account(account.trim());
         Func.validate.password(password.trim());
         Func.validate.nickname(username.trim());
 
-        const exists = accountPasswords[account];
-        if (exists) {
+        const accountData = await DB.get.account(account);
+        if (accountData) {
           throw new StandardizedError(
             '帳號已存在',
             'ValidationError',
@@ -194,13 +230,18 @@ const server = http.createServer((req, res) => {
 
         // Create user data
         const userId = uuidv4();
-        await Set.user(userId, {
+        await DB.set.user(userId, {
           name: username,
+          avatar: userId,
+          avatarUrl: `data:image/png;base64,${SERVER_URL}/images/userAvatars/`,
+          createdAt: Date.now(),
         });
 
         // Create account password list
-        await db.set(`accountPasswords.${account}`, password);
-        await db.set(`accountUserIds.${account}`, userId);
+        await DB.set.account(account, {
+          password,
+          userId: userId,
+        });
 
         sendSuccess(res, {
           message: '註冊成功',
@@ -229,11 +270,11 @@ const server = http.createServer((req, res) => {
 
   // Refresh
   if (req.method == 'POST' && req.url.startsWith('/refresh')) {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
     if (req.url == '/refresh/user') {
-      let body = '';
-      req.on('data', (chunk) => {
-        body += chunk.toString();
-      });
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
@@ -248,7 +289,7 @@ const server = http.createServer((req, res) => {
           }
           sendSuccess(res, {
             message: 'success',
-            data: await Get.user(userId),
+            data: await DB.get.user(userId),
           });
         } catch (error) {
           if (!(error instanceof StandardizedError)) {
@@ -267,11 +308,146 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    if (req.url == '/refresh/server') {
-      let body = '';
-      req.on('data', (chunk) => {
-        body += chunk.toString();
+    if (req.url == '/refresh/userFriends') {
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { userId } = data;
+          if (!userId) {
+            throw new StandardizedError(
+              '無效的資料',
+              'ValidationError',
+              'REFRESHUSERFRIENDS',
+              'DATA_INVALID',
+            );
+          }
+          sendSuccess(res, {
+            message: 'success',
+            data: await DB.get.userFriends(userId),
+          });
+        } catch (error) {
+          if (!(error instanceof StandardizedError)) {
+            error = new StandardizedError(
+              `刷新資料時發生預期外的錯誤: ${error.message}`,
+              'ServerError',
+              'REFRESHUSERFRIENDS',
+              'EXCEPTION_ERROR',
+              500,
+            );
+          }
+          sendError(res, error.status_code, error.error_message);
+          new Logger('Server').error(`Refresh error: ${error.error_message}`);
+        }
       });
+      return;
+    }
+
+    if (req.url == '/refresh/userFriendGroups') {
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { userId } = data;
+          if (!userId) {
+            throw new StandardizedError(
+              '無效的資料',
+              'ValidationError',
+              'REFRESHUSERFRIENDGROUPS',
+              'DATA_INVALID',
+              400,
+            );
+          }
+          sendSuccess(res, {
+            message: 'success',
+            data: await DB.get.userFriendGroups(userId),
+          });
+        } catch (error) {
+          if (!(error instanceof StandardizedError)) {
+            error = new StandardizedError(
+              `刷新資料時發生預期外的錯誤: ${error.message}`,
+              'ServerError',
+              'REFRESHUSERFRIENDGROUPS',
+              'EXCEPTION_ERROR',
+              500,
+            );
+          }
+          sendError(res, error.status_code, error.error_message);
+          new Logger('Server').error(`Refresh error: ${error.error_message}`);
+        }
+      });
+      return;
+    }
+
+    if (req.url == '/refresh/userFriendApplications') {
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { userId } = data;
+          if (!userId) {
+            throw new StandardizedError(
+              '無效的資料',
+              'ValidationError',
+              'REFRESHUSERFRIENDAPPLICATIONS',
+              'DATA_INVALID',
+              400,
+            );
+          }
+          sendSuccess(res, {
+            message: 'success',
+            data: await DB.get.userFriendApplications(userId),
+          });
+        } catch (error) {
+          if (!(error instanceof StandardizedError)) {
+            error = new StandardizedError(
+              `刷新資料時發生預期外的錯誤: ${error.message}`,
+              'ServerError',
+              'REFRESHUSERFRIENDAPPLICATIONS',
+              'EXCEPTION_ERROR',
+              500,
+            );
+          }
+          sendError(res, error.status_code, error.error_message);
+          new Logger('Server').error(`Refresh error: ${error.error_message}`);
+        }
+      });
+      return;
+    }
+
+    if (req.url == '/refresh/userServers') {
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { userId } = data;
+          if (!userId) {
+            throw new StandardizedError(
+              '無效的資料',
+              'ValidationError',
+              'REFRESHUSERSERVERS',
+              'DATA_INVALID',
+              400,
+            );
+          }
+          sendSuccess(res, {
+            message: 'success',
+            data: await DB.get.userServers(userId),
+          });
+        } catch (error) {
+          if (!(error instanceof StandardizedError)) {
+            error = new StandardizedError(
+              `刷新資料時發生預期外的錯誤: ${error.message}`,
+              'ServerError',
+              'REFRESHUSERSERVERS',
+              'EXCEPTION_ERROR',
+              500,
+            );
+          }
+          sendError(res, error.status_code, error.error_message);
+          new Logger('Server').error(`Refresh error: ${error.error_message}`);
+        }
+      });
+      return;
+    }
+
+    if (req.url == '/refresh/server') {
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
@@ -286,7 +462,7 @@ const server = http.createServer((req, res) => {
           }
           sendSuccess(res, {
             message: 'success',
-            data: await Get.server(serverId),
+            data: await DB.get.server(serverId),
           });
         } catch (error) {
           if (!(error instanceof StandardizedError)) {
@@ -305,11 +481,147 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    if (req.url == '/refresh/channel') {
-      let body = '';
-      req.on('data', (chunk) => {
-        body += chunk.toString();
+    if (req.url == '/refresh/serverChannels') {
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { serverId } = data;
+          if (!serverId) {
+            throw new StandardizedError(
+              '無效的資料',
+              'ValidationError',
+              'REFRESHSERVERCHANNELS',
+              'DATA_INVALID',
+              400,
+            );
+          }
+          sendSuccess(res, {
+            message: 'success',
+            data: await DB.get.serverChannels(serverId),
+          });
+        } catch (error) {
+          if (!(error instanceof StandardizedError)) {
+            error = new StandardizedError(
+              `刷新資料時發生預期外的錯誤: ${error.message}`,
+              'ServerError',
+              'REFRESHSERVERCHANNELS',
+              'EXCEPTION_ERROR',
+              500,
+            );
+          }
+          sendError(res, error.status_code, error.error_message);
+          new Logger('Server').error(`Refresh error: ${error.error_message}`);
+        }
       });
+      return;
+    }
+
+    if (req.url == '/refresh/serverActiveMembers') {
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { serverId } = data;
+          if (!serverId) {
+            throw new StandardizedError(
+              '無效的資料',
+              'ValidationError',
+              'REFRESHSERVERACTIVEMEMBERS',
+              'DATA_INVALID',
+              400,
+            );
+          }
+          sendSuccess(res, {
+            message: 'success',
+            data: await DB.get.serverUsers(serverId),
+          });
+        } catch (error) {
+          if (!(error instanceof StandardizedError)) {
+            error = new StandardizedError(
+              `刷新資料時發生預期外的錯誤: ${error.message}`,
+              'ServerError',
+              'REFRESHSERVERACTIVEMEMBERS',
+              'EXCEPTION_ERROR',
+              500,
+            );
+          }
+          sendError(res, error.status_code, error.error_message);
+          new Logger('Server').error(`Refresh error: ${error.error_message}`);
+        }
+      });
+      return;
+    }
+
+    if (req.url == '/refresh/serverMembers') {
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { serverId } = data;
+          if (!serverId) {
+            throw new StandardizedError(
+              '無效的資料',
+              'ValidationError',
+              'REFRESHSERVERMEMBERS',
+              'DATA_INVALID',
+              400,
+            );
+          }
+          sendSuccess(res, {
+            message: 'success',
+            data: await DB.get.serverMembers(serverId),
+          });
+        } catch (error) {
+          if (!(error instanceof StandardizedError)) {
+            error = new StandardizedError(
+              `刷新資料時發生預期外的錯誤: ${error.message}`,
+              'ServerError',
+              'REFRESHSERVERMEMBERS',
+              'EXCEPTION_ERROR',
+              500,
+            );
+          }
+          sendError(res, error.status_code, error.error_message);
+          new Logger('Server').error(`Refresh error: ${error.error_message}`);
+        }
+      });
+      return;
+    }
+
+    if (req.url == '/refresh/serverMemberApplications') {
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { serverId } = data;
+          if (!serverId) {
+            throw new StandardizedError(
+              '無效的資料',
+              'ValidationError',
+              'REFRESHSERVERMEMBERAPPLICATIONS',
+              'DATA_INVALID',
+              400,
+            );
+          }
+          sendSuccess(res, {
+            message: 'success',
+            data: await DB.get.serverMemberApplications(serverId),
+          });
+        } catch (error) {
+          if (!(error instanceof StandardizedError)) {
+            error = new StandardizedError(
+              `刷新資料時發生預期外的錯誤: ${error.message}`,
+              'ServerError',
+              'REFRESHSERVERMEMBERAPPLICATIONS',
+              'EXCEPTION_ERROR',
+              500,
+            );
+          }
+          sendError(res, error.status_code, error.error_message);
+          new Logger('Server').error(`Refresh error: ${error.error_message}`);
+        }
+      });
+      return;
+    }
+
+    if (req.url == '/refresh/channel') {
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
@@ -324,7 +636,7 @@ const server = http.createServer((req, res) => {
           }
           sendSuccess(res, {
             message: 'success',
-            data: await Get.channel(channelId),
+            data: await DB.get.channel(channelId),
           });
         } catch (error) {
           if (!(error instanceof StandardizedError)) {
@@ -343,11 +655,42 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    if (req.url == '/refresh/member') {
-      let body = '';
-      req.on('data', (chunk) => {
-        body += chunk.toString();
+    if (req.url == '/refresh/friendGroup') {
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body);
+          const { friendGroupId } = data;
+          if (!friendGroupId) {
+            throw new StandardizedError(
+              '無效的資料',
+              'ValidationError',
+              'REFRESHFRIENDGROUP',
+              'DATA_INVALID',
+              400,
+            );
+          }
+          sendSuccess(res, {
+            message: 'success',
+            data: await DB.get.friendGroup(friendGroupId),
+          });
+        } catch (error) {
+          if (!(error instanceof StandardizedError)) {
+            error = new StandardizedError(
+              `刷新資料時發生預期外的錯誤: ${error.message}`,
+              'ServerError',
+              'REFRESHFRIENDGROUP',
+              'EXCEPTION_ERROR',
+              500,
+            );
+          }
+          sendError(res, error.status_code, error.error_message);
+          new Logger('Server').error(`Refresh error: ${error.error_message}`);
+        }
       });
+      return;
+    }
+
+    if (req.url == '/refresh/member') {
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
@@ -362,7 +705,7 @@ const server = http.createServer((req, res) => {
           }
           sendSuccess(res, {
             message: 'success',
-            data: await Get.member(userId, serverId),
+            data: await DB.get.member(userId, serverId),
           });
         } catch (error) {
           if (!(error instanceof StandardizedError)) {
@@ -382,10 +725,6 @@ const server = http.createServer((req, res) => {
     }
 
     if (req.url == '/refresh/memberApplication') {
-      let body = '';
-      req.on('data', (chunk) => {
-        body += chunk.toString();
-      });
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
@@ -400,7 +739,7 @@ const server = http.createServer((req, res) => {
           }
           sendSuccess(res, {
             message: 'success',
-            data: await Get.memberApplication(userId, serverId),
+            data: await DB.get.memberApplication(userId, serverId),
           });
         } catch (error) {
           if (!(error instanceof StandardizedError)) {
@@ -420,10 +759,6 @@ const server = http.createServer((req, res) => {
     }
 
     if (req.url == '/refresh/friend') {
-      let body = '';
-      req.on('data', (chunk) => {
-        body += chunk.toString();
-      });
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
@@ -438,7 +773,7 @@ const server = http.createServer((req, res) => {
           }
           sendSuccess(res, {
             message: 'success',
-            data: await Get.friend(userId, targetId),
+            data: await DB.get.friend(userId, targetId),
           });
         } catch (error) {
           if (!(error instanceof StandardizedError)) {
@@ -458,10 +793,6 @@ const server = http.createServer((req, res) => {
     }
 
     if (req.url == '/refresh/friendApplication') {
-      let body = '';
-      req.on('data', (chunk) => {
-        body += chunk.toString();
-      });
       req.on('end', async () => {
         try {
           const data = JSON.parse(body);
@@ -476,7 +807,7 @@ const server = http.createServer((req, res) => {
           }
           sendSuccess(res, {
             message: 'success',
-            data: await Get.friendApplication(senderId, receiverId),
+            data: await DB.get.friendApplication(senderId, receiverId),
           });
         } catch (error) {
           if (!(error instanceof StandardizedError)) {
@@ -701,7 +1032,7 @@ const server = http.createServer((req, res) => {
           message: 'success',
           data: {
             avatar: fileName,
-            avatarUrl: `http://localhost:4500/images/${Path()}/${fullFileName}`,
+            avatarUrl: `${SERVER_URL}/images/${Path()}/${fullFileName}`,
           },
         });
       } catch (error) {
@@ -735,7 +1066,7 @@ const io = new Server(server, {
   },
 });
 
-require('./socket/index')(io, db);
+require('./socket/index')(io);
 
 // Error Handling
 server.on('error', (error) => {
@@ -780,5 +1111,6 @@ process.on('unhandledRejection', (error) => {
 // Start Server
 server.listen(PORT, () => {
   new Logger('Server').success(`Server is running on port ${PORT}`);
-  Clean.setup();
+  // Clean.setup();
+  Xp.setup();
 });

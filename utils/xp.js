@@ -1,188 +1,215 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 // Constants
 const { XP_SYSTEM } = require('../constant');
+
 // Utils
 const Logger = require('./logger');
-const MapModule = require('./map');
-const Get = require('./get');
-const Set = require('./set');
+
+// Database
+const DB = require('../db');
+
+// StandardizedError
+const StandardizedError = require('../standardizedError');
 
 const xpSystem = {
-  contributionInterval: new Map(),
-  elapsedTime: new Map(),
-  timeFlag: new Map(),
+  timeFlag: new Map(), // socket -> timeFlag
+  elapsedTime: new Map(), // userId -> elapsedTime
 
-  createMap: (socketId, intervalId) => {
-    xpSystem.contributionInterval.set(socketId, intervalId);
+  create: async (userId) => {
+    try {
+      // Validate data
+      if (!userId) {
+        throw new StandardizedError(
+          '無效的資料',
+          'ValidationError',
+          'XP_SYSTEM',
+          'DATA_INVALID',
+          400,
+        );
+      }
+
+      xpSystem.timeFlag.set(userId, Date.now());
+
+      new Logger('XPSystem').info(
+        `User(${userId}) XP system created with ${xpSystem.elapsedTime.get(
+          userId,
+        )}ms elapsed time`,
+      );
+    } catch (error) {
+      new Logger('XPSystem').error(
+        `Error creating XP system for user(${userId}): ${error.message}`,
+      );
+    }
   },
 
-  deleteMap: (socketId = null) => {
-    if (!socketId) return;
-    if (!xpSystem.contributionInterval.has(socketId)) return;
-    xpSystem.contributionInterval.delete(socketId);
+  delete: async (userId) => {
+    try {
+      // Validate data
+      if (!userId) {
+        throw new StandardizedError(
+          '無效的資料',
+          'ValidationError',
+          'XP_SYSTEM',
+          'DATA_INVALID',
+          400,
+        );
+      }
+
+      const timeFlag = xpSystem.timeFlag.get(userId);
+
+      if (timeFlag) {
+        const now = Date.now();
+        const elapsedTime = xpSystem.elapsedTime.get(userId) || 0;
+        let newElapsedTime = elapsedTime + (now - timeFlag);
+        while (newElapsedTime >= XP_SYSTEM.INTERVAL_MS) {
+          await xpSystem.obtainXp(userId);
+          newElapsedTime -= XP_SYSTEM.INTERVAL_MS;
+        }
+        xpSystem.elapsedTime.set(userId, newElapsedTime);
+      }
+
+      xpSystem.timeFlag.delete(userId);
+
+      new Logger('XPSystem').info(
+        `User(${userId}) XP system deleted with ${xpSystem.elapsedTime.get(
+          userId,
+        )}ms elapsed time`,
+      );
+    } catch (error) {
+      new Logger('XPSystem').error(
+        `Error deleting XP system for user(${userId}): ${error.message}`,
+      );
+    }
+  },
+
+  setup: () => {
+    try {
+      // Set up XP interval
+      setInterval(
+        () =>
+          xpSystem.refreshAllUsers().catch((error) => {
+            new Logger('XPSystem').error(
+              `Error refreshing XP interval: ${error.message}`,
+            );
+          }),
+        600000,
+      );
+
+      new Logger('XPSystem').info(`XP system setup complete`);
+    } catch (error) {
+      new Logger('XPSystem').error(
+        `Error setting up XP system: ${error.message}`,
+      );
+    }
+  },
+
+  refreshAllUsers: async () => {
+    const refreshTasks = Array.from(xpSystem.timeFlag.entries()).map(
+      async ([userId, timeFlag]) => {
+        try {
+          const now = Date.now();
+          const elapsedTime = xpSystem.elapsedTime.get(userId) || 0;
+          let newElapsedTime = elapsedTime + now - timeFlag;
+          while (newElapsedTime >= XP_SYSTEM.INTERVAL_MS) {
+            const success = await xpSystem.obtainXp(userId);
+            if (success) newElapsedTime -= XP_SYSTEM.INTERVAL_MS;
+            else break;
+          }
+          xpSystem.elapsedTime.set(userId, newElapsedTime);
+          xpSystem.timeFlag.set(userId, now); // Reset timeFlag
+          new Logger('XPSystem').info(
+            `XP interval refreshed for user(${userId})`,
+          );
+        } catch (error) {
+          new Logger('XPSystem').error(
+            `Error refreshing XP interval for user(${userId}): ${error.message}`,
+          );
+        }
+      },
+    );
+    await Promise.all(refreshTasks);
+    new Logger('XPSystem').info(
+      `XP interval refreshed complete, ${xpSystem.timeFlag.size} users updated`,
+    );
   },
 
   getRequiredXP: (level) => {
     return Math.ceil(
-      XP_SYSTEM.BASE_XP * Math.pow(XP_SYSTEM.GROWTH_RATE, level),
+      XP_SYSTEM.BASE_REQUIRE_XP * Math.pow(XP_SYSTEM.GROWTH_RATE, level),
     );
   },
 
-  setElapseTime: (userId) => {
-    if (!userId) return 0;
-    const elapsedTime = xpSystem.elapsedTime.get(userId) || 0;
-    const joinTime = xpSystem.timeFlag.get(userId) || Date.now();
-    const leftTime = Date.now();
-    const newElapsedTime =
-      (elapsedTime + leftTime - joinTime) % XP_SYSTEM.INTERVAL_MS;
-    xpSystem.elapsedTime.set(userId, newElapsedTime);
-    return newElapsedTime;
-  },
-
-  getElapseTime: (userId) => {
-    if (!userId) return 0;
-    const elapsedTime = xpSystem.elapsedTime.get(userId) || 0;
-    const joinTime = Date.now();
-    xpSystem.timeFlag.set(userId, joinTime);
-    return elapsedTime;
-  },
-
-  setup: async (socket) => {
+  obtainXp: async (userId) => {
     try {
-      // Validate inputs
-      if (!socket) {
-        throw new Error('Socket not provided');
-      }
-      const userId = MapModule.socketToUser.get(socket.id);
-      if (!userId) {
-        throw new Error(`UserId not found for socket(${socket.id})`);
-      }
-
-      // Restore elapsed time than calculate left time
-      const elapsedTime = xpSystem.getElapseTime(userId);
-      const leftTime = XP_SYSTEM.INTERVAL_MS - elapsedTime;
-
-      // Run interval every XP_SYSTEM.INTERVAL_MS
-      const timeout = setTimeout(async () => {
-        await xpSystem.obtainXp(socket, userId);
-        xpSystem.deleteMap(socket.id);
-        xpSystem.setup(socket);
-      }, leftTime);
-
-      // Create map
-      xpSystem.createMap(socket.id, timeout);
-
-      new Logger('XPSystem').info(
-        `Obtain XP interval set up for user(${userId}) with left time: ${leftTime}`,
-      );
-    } catch (error) {
-      new Logger('XPSystem').error(
-        `Error setting up contribution interval: ${error.message}`,
-      );
-    }
-  },
-
-  clear: (socket) => {
-    try {
-      if (!socket) {
-        throw new Error('Socket not provided');
-      }
-      const userId = MapModule.socketToUser.get(socket.id);
-      if (!userId) {
-        throw new Error(`UserId not found for socket(${socket.id})`);
-      }
-      const interval = xpSystem.contributionInterval.get(socket.id);
-      if (!interval) {
-        throw new Error(`Interval not found for socket(${socket.id})`);
-      }
-
-      // Set elapsed time to map
-      const elapsedTime = xpSystem.setElapseTime(userId);
-
-      // Clear interval
-      clearTimeout(interval);
-
-      // Delete map
-      xpSystem.deleteMap(socket.id);
-
-      new Logger('XPSystem').info(
-        `Obtain XP interval cleared for user(${userId}) with elapsed time: ${elapsedTime}`,
-      );
-    } catch (error) {
-      new Logger('XPSystem').error(
-        `Error clearing contribution interval: ${error.message}`,
-      );
-    }
-  },
-
-  obtainXp: async (socket, userId) => {
-    try {
-      const user = await Get.user(userId);
+      const user = await DB.get.user(userId);
       if (!user) {
         new Logger('XPSystem').warn(
           `User(${userId}) not found, cannot obtain XP`,
         );
-        return;
+        return false;
       }
+      const server = await DB.get.server(user.currentServerId);
+      if (!server) {
+        new Logger('XPSystem').warn(
+          `Server(${user.currentServerId}) not found, cannot obtain XP`,
+        );
+        return false;
+      }
+      const member = await DB.get.member(user.userId, server.serverId);
+      if (!member) {
+        new Logger('XPSystem').warn(
+          `User(${user.userId}) not found in server(${server.serverId}), cannot update contribution`,
+        );
+        return false;
+      }
+      const vipBoost = user.vip ? 1 + user.vip * 0.2 : 1;
 
       // Process XP and level
-      user.xp += XP_SYSTEM.XP_PER_HOUR;
+      user.xp += XP_SYSTEM.BASE_XP * vipBoost;
 
       let requiredXp = 0;
       while (true) {
-        requiredXp = xpSystem.getRequiredXP(user.level);
+        requiredXp = xpSystem.getRequiredXP(user.level - 1);
         if (user.xp < requiredXp) break;
         user.level += 1;
         user.xp -= requiredXp;
       }
 
       // Update user
-      const userUpdate = {
+      const updatedUser = {
         level: user.level,
         xp: user.xp,
         requiredXp: requiredXp,
         progress: user.xp / requiredXp,
       };
-      await Set.user(user.id, userUpdate);
+      await DB.set.user(user.userId, updatedUser);
 
       // Update member contribution if in a server
-      if (user.currentServerId) {
-        const member = await Get.member(user.id, user.currentServerId);
-        if (!member) {
-          new Logger('XPSystem').warn(
-            `User(${user.id}) not found in server(${user.currentServerId}), cannot update contribution`,
-          );
-          return;
-        }
+      const updatedMember = {
+        contribution:
+          Math.round(
+            (member.contribution + XP_SYSTEM.BASE_XP * vipBoost) * 100,
+          ) / 100,
+      };
+      await DB.set.member(user.userId, server.serverId, updatedMember);
 
-        // Process member contribution
-        member.contribution += XP_SYSTEM.XP_PER_HOUR;
-        server.wealth += XP_SYSTEM.XP_PER_HOUR;
-
-        // Update member
-        const memberUpdate = {
-          contribution: member.contribution,
-        };
-        const serverUpdate = {
-          wealth: server.wealth,
-        };
-        await Set.member(member.id, memberUpdate);
-        await Set.server(server.id, serverUpdate);
-      }
-
-      // Reset elapsed time
-      xpSystem.elapsedTime.set(userId, 0);
-
-      // Emit update to client
-      socket.emit('userUpdate', userUpdate);
+      // Update server wealth
+      const updatedServer = {
+        wealth:
+          Math.round((server.wealth + XP_SYSTEM.BASE_XP * vipBoost) * 100) /
+          100,
+      };
+      await DB.set.server(server.serverId, updatedServer);
 
       new Logger('XPSystem').info(
-        `User(${user.id}) obtained XP. Level: ${user.level}`,
+        `User(${userId}) obtained ${XP_SYSTEM.BASE_XP * vipBoost} XP`,
       );
+      return true;
     } catch (error) {
       new Logger('XPSystem').error(
         `Error obtaining user(${userId}) XP: ${error.message}`,
       );
+      return false;
     }
   },
 };

@@ -1,24 +1,21 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { QuickDB } = require('quick.db');
-const db = new QuickDB();
 // Utils
 const utils = require('../utils');
-const {
-  standardizedError: StandardizedError,
-  logger: Logger,
-  map: Map,
-  get: Get,
-  set: Set,
-  func: Func,
-} = utils;
+const { Logger, Session, Func, Xp } = utils;
+
+// Database
+const DB = require('../db');
+
+// StandardizedError
+const StandardizedError = require('../standardizedError');
+
 // Handlers
+const rtcHandler = require('./rtc');
 const serverHandler = require('./server');
 const channelHandler = require('./channel');
 
 const userHandler = {
   searchUser: async (io, socket, data) => {
-    // const users = (await db.get('users')) || {};
-
     try {
       // data = {
       //   query:
@@ -36,12 +33,11 @@ const userHandler = {
         );
       }
 
-      // Validate operation
+      // Validate socket
       await Func.validate.socket(socket);
-      // TODO: implement search results
 
-      // Emit data (only to the user)
-      io.to(socket.id).emit('userSearch', await Get.searchUser(query));
+      // Emit data (to the operator)
+      io.to(socket.id).emit('userSearch', await DB.get.searchUser(query));
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
         error = new StandardizedError(
@@ -53,35 +49,62 @@ const userHandler = {
         );
       }
 
-      // Emit data (only to the user)
+      // Emit data (to the operator)
       io.to(socket.id).emit('error', error);
 
       new Logger('WebSocket').error(
-        `Error searching user: ${error.error_message}`,
+        `Error searching user: ${error.error_message} (${socket.id})`,
       );
     }
   },
 
   connectUser: async (io, socket) => {
-    const users = (await db.get('users')) || {};
-
     try {
-      // Validate data
-      const userId = await Func.validate.socket(socket);
-      const user = await Func.validate.user(users[userId]);
+      // Validate socket
+      const operatorId = await Func.validate.socket(socket);
+
+      // Get data
+      const operator = await DB.get.user(operatorId);
 
       // Check if user is already connected
       io.sockets.sockets.forEach((_socket) => {
         if (_socket.userId === socket.userId && _socket.id !== socket.id) {
+          io.to(_socket.id).emit('openPopup', {
+            type: 'dialogAlert',
+            initialData: {
+              title: '另一個設備已登入',
+              content: '請重新登入',
+              submitTo: 'dialogAlert',
+            },
+          });
           _socket.disconnect();
+
+          new Logger('WebSocket').warn(
+            `User(${socket.userId}) is already connected to another device, force logout`,
+          );
         }
       });
 
-      // Emit data (only to the user)
-      io.to(socket.id).emit('userUpdate', await Get.user(user.id));
+      // Check if user is already connected to a server
+      if (operator.currentServerId) {
+        await serverHandler.connectServer(io, socket, {
+          serverId: operator.currentServerId,
+          userId: operator.userId,
+        });
+      }
+      if (operator.currentChannelId) {
+        await channelHandler.connectChannel(io, socket, {
+          channelId: operator.currentChannelId,
+          serverId: operator.currentServerId,
+          userId: operator.userId,
+        });
+      }
+
+      // Emit data (to the operator)
+      io.to(socket.id).emit('userUpdate', operator);
 
       new Logger('WebSocket').success(
-        `User(${user.id}) connected with socket(${socket.id})`,
+        `User(${operatorId}) connected with socket(${socket.id})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
@@ -94,52 +117,82 @@ const userHandler = {
         );
       }
 
-      // Emit data (only to the user)
+      // Emit data (to the operator)
       io.to(socket.id).emit('userUpdate', null);
       io.to(socket.id).emit('error', error);
 
       new Logger('WebSocket').error(
-        `Error connecting user: ${error.error_message}`,
+        `Error connecting user: ${error.error_message} (${socket.id})`,
       );
     }
   },
 
   disconnectUser: async (io, socket) => {
-    // Get database
-    const users = (await db.get('users')) || {};
-
     try {
-      // Validate data
-      const userId = await Func.validate.socket(socket);
-      const user = await Func.validate.user(users[userId]);
+      // Validate socket
+      const operatorId = await Func.validate.socket(socket);
 
-      // Disconnect server or channel
-      if (user.currentServerId) {
-        await serverHandler.disconnectServer(io, socket, {
-          serverId: user.currentServerId,
-          userId: user.id,
+      // Get data
+      const operator = await DB.get.user(operatorId);
+      const channelId = operator.currentChannelId;
+      const serverId = operator.currentServerId;
+
+      // Disconnect channel
+      if (channelId) {
+        // Update user
+        const updatedUser = {
+          currentChannelId: null,
+          lastActiveAt: Date.now(),
+        };
+        await DB.set.user(operatorId, updatedUser);
+
+        // Clear user contribution interval
+        Xp.delete(operatorId);
+
+        // Leave RTC channel
+        await rtcHandler.leave(io, socket, {
+          channelId: channelId,
         });
-      } else if (user.currentChannelId) {
-        await channelHandler.disconnectChannel(io, socket, {
-          channelId: user.currentChannelId,
-          userId: user.id,
-        });
+
+        // Leave channel
+        socket.leave(`channel_${channelId}`);
+
+        // Play sound
+        io.to(`channel_${channelId}`).emit('playSound', 'leave');
+
+        // Emit updated data (to all users in the server)
+        io.to(`server_${serverId}`).emit(
+          'serverActiveMembersUpdate',
+          await DB.get.serverUsers(serverId),
+        );
+      }
+
+      // Disconnect server
+      if (serverId) {
+        // Update user
+        const updatedUser = {
+          currentServerId: null,
+          lastActiveAt: Date.now(),
+        };
+        await DB.set.user(operatorId, updatedUser);
+
+        // Leave the server
+        socket.leave(`server_${serverId}`);
       }
 
       // Remove maps
-      Map.deleteUserIdSessionIdMap(userId, socket.sessionId);
-      Map.deleteUserIdSocketIdMap(userId, socket.id);
+      Session.deleteUserIdSessionIdMap(operator.id, socket.sessionId);
 
       // Update user
-      const update = {
+      const updatedUser = {
         lastActiveAt: Date.now(),
       };
-      await Set.user(userId, update);
+      await DB.set.user(operatorId, updatedUser);
 
-      // Emit data (only to the user)
-      io.to(socket.id).emit('userUpdate', null);
+      // Emit data (to the operator)
+      io.to(socket.id).emit('userUpdate', updatedUser);
 
-      new Logger('WebSocket').success(`User(${userId}) disconnected`);
+      new Logger('WebSocket').success(`User(${operatorId}) disconnected`);
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
         error = new StandardizedError(
@@ -151,20 +204,17 @@ const userHandler = {
         );
       }
 
-      // Emit data (only to the user)
+      // Emit data (to the operator)
       io.to(socket.id).emit('userUpdate', null);
       io.to(socket.id).emit('error', error);
 
       new Logger('WebSocket').error(
-        `Error disconnecting user: ${error.error_message}`,
+        `Error disconnecting user: ${error.error_message} (${socket.id})`,
       );
     }
   },
 
   updateUser: async (io, socket, data) => {
-    // Get database
-    const users = (await db.get('users')) || {};
-
     try {
       // Validate data
       const { user: _editedUser, userId } = data;
@@ -177,38 +227,65 @@ const userHandler = {
           401,
         );
       }
-      const user = await Func.validate.user(users[userId]);
       const editedUser = await Func.validate.user(_editedUser);
 
-      // Validate operation
+      // Validate socket
       const operatorId = await Func.validate.socket(socket);
-      const operator = await Func.validate.user(users[operatorId]);
 
-      // Handle favorite servers
-      if (editedUser.favoriteServerId) {
-        const userServer = await Get.server(editedUser.favoriteServerId);
-        if (userServer) {
-          const userServerId = `us_${userId}_${editedUser.favoriteServerId}`;
-          const userFavoriteServers = await Get.userFavServers(userId);
-          await Set.userServer(userServerId, {
-            favorite: !userFavoriteServers.some(
-              (server) => server.id === editedUser.favoriteServerId,
-            ),
-            userId: userId,
-            serverId: editedUser.favoriteServerId,
-            timestamp: Date.now(),
-          });
+      // Get data
+      let userSocket;
+      io.sockets.sockets.forEach((_socket) => {
+        if (_socket.userId === userId) {
+          userSocket = _socket;
         }
+      });
+
+      // Validate operation
+      if (operatorId !== userId) {
+        throw new StandardizedError(
+          '無法更新其他使用者的資料',
+          'ValidationError',
+          'UPDATEUSER',
+          'PERMISSION_DENIED',
+          403,
+        );
+      }
+      if (editedUser.vip) {
+        throw new StandardizedError(
+          '無法更新自己的 VIP 資料',
+          'ValidationError',
+          'UPDATEUSER',
+          'PERMISSION_DENIED',
+          403,
+        );
+      }
+      if (editedUser.level > 1) {
+        throw new StandardizedError(
+          '無法更新自己的等級資料',
+          'ValidationError',
+          'UPDATEUSER',
+          'PERMISSION_DENIED',
+          403,
+        );
+      }
+      if (editedUser.xp) {
+        throw new StandardizedError(
+          '無法更新自己的經驗值資料',
+          'ValidationError',
+          'UPDATEUSER',
+          'PERMISSION_DENIED',
+          403,
+        );
       }
 
       // Update user data
-      await Set.user(user.id, editedUser);
+      await DB.set.user(userId, editedUser);
 
-      // Emit data (only to the user)
-      io.to(socket.id).emit('userUpdate', editedUser);
+      // Emit data (to the operator)
+      io.to(userSocket.id).emit('userUpdate', editedUser);
 
       new Logger('WebSocket').success(
-        `User(${user.id}) updated by User(${operator.id})`,
+        `User(${userId}) updated by User(${operatorId})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
@@ -221,11 +298,11 @@ const userHandler = {
         );
       }
 
-      // Emit data (only to the user)
+      // Emit data (to the operator)
       io.to(socket.id).emit('error', error);
 
       new Logger('WebSocket').error(
-        `Error updating user: ${error.error_message}`,
+        `Error updating user: ${error.error_message} (${socket.id})`,
       );
     }
   },

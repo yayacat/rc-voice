@@ -1,25 +1,21 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { v4: uuidv4 } = require('uuid');
-const { QuickDB } = require('quick.db');
-const db = new QuickDB();
 // Utils
 const utils = require('../utils');
-const {
-  standardizedError: StandardizedError,
-  logger: Logger,
-  get: Get,
-  set: Set,
-  func: Func,
-} = utils;
+const { Logger, Func } = utils;
+
+// Database
+const DB = require('../db');
+
+// StandardizedError
+const StandardizedError = require('../standardizedError');
 
 const messageHandler = {
   sendMessage: async (io, socket, data) => {
-    // Get database
-    const users = (await db.get('users')) || {};
-    const channels = (await db.get('channels')) || {};
-
     try {
       // data = {
+      //   userId: string,
+      //   serverId: string,
       //   channelId: string,
       //   message: {
       //     ...
@@ -27,8 +23,8 @@ const messageHandler = {
       // };
 
       // Validate data
-      const { message: _newMessage, channelId } = data;
-      if (!_newMessage || !channelId) {
+      const { message: _newMessage, userId, serverId, channelId } = data;
+      if (!_newMessage || !userId || !serverId || !channelId) {
         throw new StandardizedError(
           '無效的資料',
           'SENDMESSAGE',
@@ -37,33 +33,59 @@ const messageHandler = {
           401,
         );
       }
-      const channel = await Func.validate.channel(channels[channelId]);
       const newMessage = await Func.validate.message(_newMessage);
 
       // Validate operation
       const operatorId = await Func.validate.socket(socket);
-      const operator = await Func.validate.user(users[operatorId]);
-      // TODO: Add validation for operator
+
+      // Get data
+      const channel = await DB.get.channel(channelId);
+      const operatorMember = await DB.get.member(operatorId, serverId);
+
+      // Validate operation
+      if (operatorId !== userId) {
+        throw new StandardizedError(
+          '無法傳送非自己的訊息',
+          'SENDMESSAGE',
+          'PERMISSION_DENIED',
+          403,
+        );
+      }
+      if (channel.forbidGuestUrl && operatorMember.permissionLevel === 1) {
+        newMessage.content = newMessage.content.replace(
+          /https?:\/\/[^\s]+/g,
+          '{{GUEST_SEND_AN_EXTERNAL_LINK}}',
+        );
+      }
 
       // Create new message
-      const messageId = uuidv4();
-      await Set.message(messageId, {
+      const message = {
         ...newMessage,
-        senderId: operator.id,
-        channelId: channel.id,
+        ...(await DB.get.member(userId, serverId)),
+        ...(await DB.get.user(userId)),
+        senderId: userId,
+        serverId: serverId,
+        channelId: channelId,
         timestamp: Date.now().valueOf(),
-      });
+      };
+
+      // Update member
+      const updatedMember = {
+        lastMessageTime: Date.now().valueOf(),
+      };
+      await DB.set.member(operatorId, serverId, updatedMember);
+
+      // Play sound
+      io.to(`channel_${channelId}`).emit('playSound', 'recieveChannelMessage');
+
+      // Emit updated data (to the operator)
+      io.to(socket.id).emit('memberUpdate', updatedMember);
 
       // Emit updated data (to all users in the channel)
-      io.to(`channel_${channel.id}`).emit('channelUpdate', {
-        messages: [
-          ...(await Get.channelMessages(channel.id)),
-          ...(await Get.channelInfoMessages(channel.id)),
-        ],
-      });
+      io.to(`channel_${channelId}`).emit('onMessage', message);
 
-      new Logger('WebSocket').success(
-        `User(${operator.id}) sent ${newMessage.content} to channel(${channel.id})`,
+      new Logger('Message').success(
+        `User(${operatorId}) sent ${newMessage.content} to channel(${channelId})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
@@ -76,31 +98,28 @@ const messageHandler = {
         );
       }
 
-      // Emit error data (only to the user)
+      // Emit error data (to the operator)
       io.to(socket.id).emit('error', error);
 
-      new Logger('WebSocket').error(
-        'Error sending message: ' + error.error_message,
+      new Logger('Message').error(
+        `Error sending message: ${error.error_message} (${socket.id})`,
       );
     }
   },
 
   sendDirectMessage: async (io, socket, data) => {
-    // Get database
-    const users = (await db.get('users')) || {};
-    const friends = (await db.get('friends')) || {};
-
     try {
       // data = {
-      //   friendId: string,
-      //   message: {
+      //   userId: string,
+      //   targetId: string,
+      //   directMessage: {
       //     ...
       //   }
       // };
 
       // Validate data
-      const { directMessage: _newDirectMessage, friendId } = data;
-      if (!_newDirectMessage || !friendId) {
+      const { directMessage: _newDirectMessage, userId, targetId } = data;
+      if (!_newDirectMessage || !userId || !targetId) {
         throw new StandardizedError(
           '無效的資料',
           'SENDDIRECTMESSAGE',
@@ -109,30 +128,53 @@ const messageHandler = {
           401,
         );
       }
-      const friend = await Func.validate.friend(friends[friendId]);
       const newDirectMessage = await Func.validate.message(_newDirectMessage);
 
       // Validate operation
       const operatorId = await Func.validate.socket(socket);
-      const operator = await Func.validate.user(users[operatorId]);
-      // TODO: Add validation for operator
+
+      // Get data
+      let userSocket;
+      io.sockets.sockets.forEach((_socket) => {
+        if (_socket.userId === userId) {
+          userSocket = _socket;
+        }
+      });
+      let targetSocket;
+      io.sockets.sockets.forEach((_socket) => {
+        if (_socket.userId === targetId) {
+          targetSocket = _socket;
+        }
+      });
+
+      // Validate operation
+      if (operatorId !== userId) {
+        throw new StandardizedError(
+          '無法傳送非自己的私訊',
+          'SENDDIRECTMESSAGE',
+          'PERMISSION_DENIED',
+          403,
+        );
+      }
 
       // Create new message
-      const directMessageId = uuidv4();
-      await Set.directMessage(directMessageId, {
+      const directMessage = {
         ...newDirectMessage,
-        senderId: operator.id,
-        friendId: friend.id,
+        ...(await DB.get.user(userId)),
+        senderId: userId,
+        user1Id: userId.localeCompare(targetId) < 0 ? userId : targetId,
+        user2Id: userId.localeCompare(targetId) < 0 ? targetId : userId,
         timestamp: Date.now().valueOf(),
-      });
+      };
 
-      // Emit updated data (to all users in the friend)
-      io.to(`friend_${friend.id}`).emit('friendUpdate', {
-        directMessages: await Get.friendDirectMessages(friend.id),
-      });
+      // Emit updated data (to user and target *if online*)
+      io.to(userSocket.id).emit('onDirectMessage', directMessage);
+      if (targetSocket) {
+        io.to(targetSocket.id).emit('onDirectMessage', directMessage);
+      }
 
-      new Logger('WebSocket').success(
-        `User(${operator.id}) sent ${newDirectMessage.content} to User(${friend.id})`,
+      new Logger('Message').success(
+        `User(${userId}) sent ${newDirectMessage.content} to User(${targetId})`,
       );
     } catch (error) {
       if (!(error instanceof StandardizedError)) {
@@ -145,11 +187,11 @@ const messageHandler = {
         );
       }
 
-      // Emit error data (only to the user)
+      // Emit error data (to the operator)
       io.to(socket.id).emit('error', error);
 
-      new Logger('WebSocket').error(
-        'Error sending direct message: ' + error.error_message,
+      new Logger('Message').error(
+        `Error sending direct message: ${error.error_message} (${socket.id})`,
       );
     }
   },

@@ -1,11 +1,15 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { QuickDB } = require('quick.db');
-const db = new QuickDB();
 const sharp = require('sharp');
+
 // Utils
-const StandardizedError = require('./standardizedError');
-const Map = require('./map');
+const Session = require('./session');
 const JWT = require('./jwt');
+
+// Database
+const DB = require('../db');
+
+// StandardizedError
+const StandardizedError = require('../standardizedError');
 
 const func = {
   calculateSimilarity: (str1, str2) => {
@@ -40,8 +44,9 @@ const func = {
   },
 
   generateUniqueDisplayId: async (baseId = 20000000) => {
-    const servers = (await db.get('servers')) || {};
+    const servers = (await DB.get.all('servers')) || {};
     let displayId = baseId + Object.keys(servers).length;
+    console.log(servers);
     // Ensure displayId is unique
     while (
       Object.values(servers).some((server) => server.displayId === displayId)
@@ -90,28 +95,28 @@ const func = {
   },
 
   validate: {
-    account: async (account) => {
+    account: (account) => {
       if (!account) {
         throw new StandardizedError(
           '帳號不可為空',
           'ValidationError',
           'ACCOUNT',
           'ACCOUNT_MISSING',
-          401,
+          400,
         );
       }
-      if (account.length < 3) {
+      if (account.length < 4) {
         throw new StandardizedError(
-          '帳號長度不能小於3個字符',
+          '帳號長度不能小於4個字符',
           'ValidationError',
           'ACCOUNT',
           'ACCOUNT_TOO_SHORT',
           400,
         );
       }
-      if (account.length > 32) {
+      if (account.length > 16) {
         throw new StandardizedError(
-          '帳號長度不能超過32個字符',
+          '帳號長度不能超過16個字符',
           'ValidationError',
           'ACCOUNT',
           'ACCOUNT_TOO_LONG',
@@ -127,40 +132,59 @@ const func = {
           400,
         );
       }
+      if (/\./.test(account)) {
+        throw new StandardizedError(
+          '帳號不能包含點號',
+          'ValidationError',
+          'ACCOUNT',
+          'ACCOUNT_INVALID',
+          400,
+        );
+      }
       return account;
     },
 
-    password: async (password) => {
+    password: (password) => {
       if (!password) {
         throw new StandardizedError(
           '密碼不可為空',
           'ValidationError',
           'PASSWORD',
           'PASSWORD_MISSING',
-          401,
+          400,
         );
       }
-      if (password.length < 6) {
+      if (password.length < 8) {
         throw new StandardizedError(
-          '密碼長度不能小於6個字符',
+          '密碼長度不能小於8個字符',
           'ValidationError',
           'PASSWORD',
           'PASSWORD_TOO_SHORT',
           400,
         );
       }
-      if (password.length > 32) {
+      if (password.length > 20) {
         throw new StandardizedError(
-          '密碼長度不能超過32個字符',
+          '密碼長度不能超過20個字符',
           'ValidationError',
           'PASSWORD',
           'PASSWORD_TOO_LONG',
           400,
         );
       }
-      if (!/^[a-zA-Z0-9]+$/.test(password)) {
+      // FIXME: Password is base64 encoded, use another method to validate
+      // if (!/^[a-zA-Z0-9@$!%*#?&]+$/.test(password)) {
+      //   throw new StandardizedError(
+      //     '密碼只能包含英文字母、數字和特殊字符(@$!%*#?&)',
+      //     'ValidationError',
+      //     'PASSWORD',
+      //     'PASSWORD_INVALID',
+      //     400,
+      //   );
+      // }
+      if (/\./.test(password)) {
         throw new StandardizedError(
-          '密碼只能包含英文字母和數字',
+          '密碼不能包含點號',
           'ValidationError',
           'PASSWORD',
           'PASSWORD_INVALID',
@@ -170,14 +194,14 @@ const func = {
       return password;
     },
 
-    nickname: async (nickname) => {
+    nickname: (nickname) => {
       if (!nickname) {
         throw new StandardizedError(
           '暱稱不可為空',
           'ValidationError',
           'NICKNAME',
           'NICKNAME_MISSING',
-          401,
+          400,
         );
       }
       if (nickname.length > 32) {
@@ -189,7 +213,7 @@ const func = {
           400,
         );
       }
-      if (!/^[a-zA-Z0-9\u4e00-\u9fa5]+$/.test(nickname)) {
+      if (!/^[A-Za-z0-9\u4e00-\u9fa5]+$/.test(nickname)) {
         throw new StandardizedError(
           '暱稱只能包含英文字母、數字和中文',
           'ValidationError',
@@ -201,7 +225,7 @@ const func = {
       return nickname;
     },
 
-    socket: async (socket) => {
+    socket: (socket) => {
       if (!socket) {
         throw new StandardizedError(
           '無可用的 socket',
@@ -217,6 +241,7 @@ const func = {
           'ValidationError',
           'SOCKET',
           'JWT_MISSING',
+          401,
         );
       }
       if (!socket.sessionId) {
@@ -228,12 +253,13 @@ const func = {
           401,
         );
       }
-      if (!Map.sessionToUser.get(socket.sessionId)) {
+      if (!Session.sessionToUser.get(socket.sessionId)) {
         throw new StandardizedError(
           `無效的 session ID(${socket.sessionId})`,
           'ValidationError',
           'SOCKET',
           'SESSION_INVALID',
+          401,
         );
       }
       const result = JWT.verifyToken(socket.jwt);
@@ -243,6 +269,7 @@ const func = {
           'ValidationError',
           'SOCKET',
           'JWT_INVALID',
+          401,
         );
       }
       const valid = result.valid;
@@ -252,6 +279,7 @@ const func = {
           'ValidationError',
           'SOCKET',
           'JWT_INVALID',
+          401,
         );
       }
       const userId = result.userId;
@@ -261,27 +289,74 @@ const func = {
           'ValidationError',
           'SOCKET',
           'JWT_INVALID',
+          401,
         );
       }
       return userId;
     },
 
-    user: async (user) => {
+    user: (user) => {
       if (!user) {
         throw new StandardizedError(
           '使用者不存在',
           'ValidationError',
           'USER',
           'USER_NOT_FOUND',
-          401,
+          404,
         );
       }
       if (user.name && user.name.length > 32) {
         throw new StandardizedError(
-          '顯示名稱不能超過32個字符',
+          '暱稱不能超過32個字符',
           'ValidationError',
           'USER',
           'USERNAME_TOO_LONG',
+          400,
+        );
+      }
+      if (user.birthYear && user.birthYear < 1900) {
+        throw new StandardizedError(
+          '出生年份不能小於1900',
+          'ValidationError',
+          'USER',
+          'BIRTH_YEAR_INVALID',
+          400,
+        );
+      }
+      if (user.birthMonth && user.birthMonth < 1) {
+        throw new StandardizedError(
+          '出生月份不能小於1',
+          'ValidationError',
+          'USER',
+          'BIRTH_MONTH_INVALID',
+          400,
+        );
+      }
+      if (user.birthMonth && user.birthMonth > 12) {
+        throw new StandardizedError(
+          '出生月份不能大於12',
+          'ValidationError',
+          'USER',
+          'BIRTH_MONTH_INVALID',
+          400,
+        );
+      }
+      if (user.birthDay && user.birthDay < 1) {
+        throw new StandardizedError(
+          '出生日不能小於1',
+          'ValidationError',
+          'USER',
+          'BIRTH_DAY_INVALID',
+          400,
+        );
+      }
+      if (user.birthDay && user.birthDay > 31) {
+        throw new StandardizedError(
+          '出生日不能大於31',
+          'ValidationError',
+          'USER',
+          'BIRTH_DAY_INVALID',
+          400,
         );
       }
       if (user.signature && user.signature.length > 200) {
@@ -290,6 +365,7 @@ const func = {
           'ValidationError',
           'USER',
           'SIGNATURE_TOO_LONG',
+          400,
         );
       }
       if (
@@ -301,6 +377,7 @@ const func = {
           'ValidationError',
           'USER',
           'STATUS_INVALID',
+          400,
         );
       }
       if (user.gender && !['Male', 'Female'].includes(user.gender)) {
@@ -309,6 +386,7 @@ const func = {
           'ValidationError',
           'USER',
           'GENDER_INVALID',
+          400,
         );
       }
       if (user.level && user.level < 0) {
@@ -317,6 +395,7 @@ const func = {
           'ValidationError',
           'USER',
           'LEVEL_INVALID',
+          400,
         );
       }
       if (user.xp && user.xp < 0) {
@@ -325,6 +404,7 @@ const func = {
           'ValidationError',
           'USER',
           'XP_INVALID',
+          400,
         );
       }
       if (user.requiredXp && user.requiredXp < 0) {
@@ -341,6 +421,7 @@ const func = {
           'ValidationError',
           'USER',
           'PROGRESS_INVALID',
+          400,
         );
       }
       return user;
@@ -353,7 +434,7 @@ const func = {
           'ValidationError',
           'SERVER',
           'SERVER_NOT_FOUND',
-          401,
+          404,
         );
       }
       if (server.name && server.name.length > 30) {
@@ -362,6 +443,7 @@ const func = {
           'ValidationError',
           'SERVER',
           'NAME_TOO_LONG',
+          400,
         );
       }
       if (server.announcement && server.announcement.length > 500) {
@@ -370,6 +452,7 @@ const func = {
           'ValidationError',
           'SERVER',
           'ANNOUNCEMENT_TOO_LONG',
+          400,
         );
       }
       if (server.description && server.description.length > 200) {
@@ -378,6 +461,7 @@ const func = {
           'ValidationError',
           'SERVER',
           'DESCRIPTION_TOO_LONG',
+          400,
         );
       }
       if (
@@ -389,6 +473,7 @@ const func = {
           'ValidationError',
           'SERVER',
           'TYPE_INVALID',
+          400,
         );
       }
       if (server.displayId && server.displayId.length > 10) {
@@ -406,6 +491,7 @@ const func = {
           'ValidationError',
           'SERVER',
           'SLOGAN_TOO_LONG',
+          400,
         );
       }
       if (server.level && server.level < 0) {
@@ -414,6 +500,7 @@ const func = {
           'ValidationError',
           'SERVER',
           'LEVEL_INVALID',
+          400,
         );
       }
       if (server.wealth && server.wealth < 0) {
@@ -422,6 +509,7 @@ const func = {
           'ValidationError',
           'SERVER',
           'WEALTH_INVALID',
+          400,
         );
       }
       if (
@@ -433,6 +521,7 @@ const func = {
           'ValidationError',
           'SERVER',
           'VISIBILITY_INVALID',
+          400,
         );
       }
       return server;
@@ -445,7 +534,7 @@ const func = {
           'ValidationError',
           'CHANNEL',
           'CHANNEL_NOT_FOUND',
-          401,
+          404,
         );
       }
       if (channel.name && channel.name.length > 30) {
@@ -454,6 +543,7 @@ const func = {
           'ValidationError',
           'CHANNEL',
           'NAME_TOO_LONG',
+          400,
         );
       }
       if (
@@ -465,17 +555,7 @@ const func = {
           'ValidationError',
           'CHANNEL',
           'VOICE_MODE_INVALID',
-        );
-      }
-      if (
-        channel.chatMode &&
-        !['free', 'forbidden'].includes(channel.chatMode)
-      ) {
-        throw new StandardizedError(
-          '無效的聊天模式',
-          'ValidationError',
-          'CHANNEL',
-          'CHAT_MODE_INVALID',
+          400,
         );
       }
       if (channel.bitrate && channel.bitrate < 1000) {
@@ -484,6 +564,7 @@ const func = {
           'ValidationError',
           'CHANNEL',
           'BITRATE_INVALID',
+          400,
         );
       }
       if (channel.userLimit) {
@@ -493,6 +574,7 @@ const func = {
             'ValidationError',
             'CHANNEL',
             'USER_LIMIT_INVALID',
+            400,
           );
         if (channel.isLobby)
           throw new StandardizedError(
@@ -500,6 +582,7 @@ const func = {
             'ValidationError',
             'CHANNEL',
             'USER_LIMIT_INVALID',
+            400,
           );
       }
       if (
@@ -513,6 +596,19 @@ const func = {
           'ValidationError',
           'CHANNEL',
           'VISIBILITY_INVALID',
+          400,
+        );
+      }
+      if (
+        channel.password &&
+        (channel.password.length < 1 || channel.password.length > 4)
+      ) {
+        throw new StandardizedError(
+          '密碼長度必須在1-4個字符之間',
+          'ValidationError',
+          'CHANNEL',
+          'PASSWORD_INVALID',
+          400,
         );
       }
       return channel;
@@ -525,7 +621,7 @@ const func = {
           'ValidationError',
           'CATEGORY',
           'CATEGORY_NOT_FOUND',
-          401,
+          404,
         );
       }
       if (category.name && category.name.length > 30) {
@@ -534,6 +630,7 @@ const func = {
           'ValidationError',
           'CATEGORY',
           'NAME_TOO_LONG',
+          400,
         );
       }
       return category;
@@ -546,7 +643,7 @@ const func = {
           'ValidationError',
           'MEMBER',
           'MEMBER_NOT_FOUND',
-          401,
+          404,
         );
       }
       if (member.nickname && member.nickname.length > 32) {
@@ -555,6 +652,7 @@ const func = {
           'ValidationError',
           'MEMBER',
           'NICKNAME_TOO_LONG',
+          400,
         );
       }
       if (
@@ -566,6 +664,7 @@ const func = {
           'ValidationError',
           'MEMBER',
           'PERMISSION_LEVEL_INVALID',
+          400,
         );
       }
       return member;
@@ -578,7 +677,7 @@ const func = {
           'ValidationError',
           'MEMBER_APPLICATION',
           'MEMBER_APPLICATION_NOT_FOUND',
-          401,
+          404,
         );
       }
       if (
@@ -615,7 +714,7 @@ const func = {
           'ValidationError',
           'FRIEND',
           'FRIEND_NOT_FOUND',
-          401,
+          404,
         );
       }
       return friend;
@@ -628,7 +727,7 @@ const func = {
           'ValidationError',
           'FRIEND_APPLICATION',
           'FRIEND_APPLICATION_NOT_FOUND',
-          401,
+          404,
         );
       }
       if (
@@ -658,6 +757,28 @@ const func = {
       return friendApplication;
     },
 
+    friendGroup: (friendGroup) => {
+      if (!friendGroup) {
+        throw new StandardizedError(
+          '好友群組不存在',
+          'ValidationError',
+          'FRIEND_GROUP',
+          'FRIEND_GROUP_NOT_FOUND',
+          404,
+        );
+      }
+      if (friendGroup.name && friendGroup.name.length > 20) {
+        throw new StandardizedError(
+          '好友群組名稱不能超過20個字符',
+          'ValidationError',
+          'FRIEND_GROUP',
+          'NAME_TOO_LONG',
+          400,
+        );
+      }
+      return friendGroup;
+    },
+
     message: (message) => {
       if (!message) {
         throw new StandardizedError(
@@ -665,7 +786,7 @@ const func = {
           'ValidationError',
           'MESSAGE',
           'MESSAGE_NOT_FOUND',
-          401,
+          404,
         );
       }
       if (message.content && message.content.length > 2000) {
@@ -674,6 +795,7 @@ const func = {
           'ValidationError',
           'MESSAGE',
           'CONTENT_TOO_LONG',
+          400,
         );
       }
       return message;
@@ -686,7 +808,7 @@ const func = {
           'ValidationError',
           'DIRECT_MESSAGE',
           'DIRECT_MESSAGE_NOT_FOUND',
-          401,
+          404,
         );
       }
       if (directMessage.content && directMessage.content.length > 2000) {
@@ -695,6 +817,7 @@ const func = {
           'ValidationError',
           'DIRECT_MESSAGE',
           'CONTENT_TOO_LONG',
+          400,
         );
       }
       return directMessage;
