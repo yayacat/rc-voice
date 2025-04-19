@@ -73,6 +73,8 @@ jobs:
 
       - name: Run the Docker Hub image
         run: |
+          docker stop rc-server
+          docker rm rc-server
           docker run -d -p 4500:4500 --name rc-server-hub ${{ secrets.DOCKERHUB_USERNAME }}/rc-server:latest
           docker ps -a
 
