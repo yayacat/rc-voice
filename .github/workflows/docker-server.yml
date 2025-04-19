@@ -73,12 +73,12 @@ jobs:
 
       - name: Run the Docker Hub image
         run: |
-          docker run -d -p 4500:4500 --name rc-server ${{ secrets.DOCKERHUB_USERNAME }}/rc-server:latest
+          docker run -d -p 4500:4500 --name rc-server-hub ${{ secrets.DOCKERHUB_USERNAME }}/rc-server:latest
           docker ps -a
 
       - name: Check port mapping for Docker Hub image
         run: |
-          docker port rc-server
+          docker port rc-server-hub
           sleep 5
-          docker logs rc-server
+          docker logs rc-server-hub
           curl http://localhost:4500
