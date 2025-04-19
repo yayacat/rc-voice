@@ -26,7 +26,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./test-server
+          context: ./
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/rc-server:latest
 
@@ -34,7 +34,7 @@ jobs:
       - name: Export image as tar
         uses: docker/build-push-action@v5
         with:
-          context: ./test-server
+          context: ./
           tags: rc-server:latest
           outputs: type=docker,dest=/tmp/rc-server.tar
 
