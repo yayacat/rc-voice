@@ -1,0 +1,17 @@
+.badgeViewerWrapper {
+  display: flex;
+  gap: 5px;
+}
+
+.badgeImage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  min-height: 16px;
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+  background-size: contain;
+}

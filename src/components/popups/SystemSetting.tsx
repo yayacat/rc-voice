@@ -3,9 +3,8 @@ import packageJson from '../../../package.json';
 const version = packageJson.version;
 
 // CSS
-import setting from '@/styles/popups/editServer.module.css';
-import popup from '@/styles/common/popup.module.css';
-import styles from '@/styles/popups/systemSetting.module.css';
+import setting from '@/styles/popups/setting.module.css';
+import popup from '@/styles/popup.module.css';
 
 // Providers
 import { useLanguage } from '@/providers/Language';
@@ -16,6 +15,50 @@ import ipcService from '@/services/ipc.service';
 const SystemSettingPopup: React.FC = React.memo(() => {
   // Hooks
   const lang = useLanguage();
+
+  // Constants
+  const DEVELOPERS_INFO = [
+    {
+      name: '🤓 JoshHuang9508',
+      role: lang.tr.mainDeveloper,
+      github: 'https://github.com/JoshHuang9508',
+    },
+    {
+      name: '🤓 yeci226',
+      role: lang.tr.mainDeveloper,
+      github: 'https://github.com/yeci226',
+    },
+    {
+      name: 'lekoOwO',
+      role: lang.tr.backendDeveloper,
+      github: 'https://github.com/lekoOwO',
+    },
+    {
+      name: 'cablate',
+      role: lang.tr.frontendDeveloper,
+      github: 'https://github.com/cablate',
+    },
+    {
+      name: 'cstrikeasia',
+      role: lang.tr.frontendDeveloper,
+      github: 'https://github.com/cstrikeasia',
+    },
+    {
+      name: 'rytlebsk',
+      role: lang.tr.frontendDeveloper,
+      github: 'https://github.com/rytlebsk',
+    },
+    {
+      name: 'Cooookie16',
+      role: lang.tr.serverMaintainer,
+      github: 'https://github.com/Cooookie16',
+    },
+    {
+      name: 'yayacat',
+      role: lang.tr.serverMaintainer,
+      github: 'https://github.com/yayacat',
+    },
+  ];
 
   // States
   const [activeTabIndex, setActiveTabIndex] = useState<number>(0);
@@ -230,7 +273,7 @@ const SystemSettingPopup: React.FC = React.memo(() => {
                             'https://discord.gg/adCWzv6wwS',
                           )
                         }
-                        className={styles.link}
+                        className={setting['linkText']}
                       >
                         {lang.tr.discord}
                       </div>
@@ -249,7 +292,7 @@ const SystemSettingPopup: React.FC = React.memo(() => {
                           'https://github.com/NerdyHomeReOpen/RiceCall',
                         )
                       }
-                      className={styles.link}
+                      className={setting['linkText']}
                     >
                       RiceCall
                     </div>
@@ -261,59 +304,21 @@ const SystemSettingPopup: React.FC = React.memo(() => {
                     {lang.tr.developmentTeam}
                   </div>
                   <div className={`${popup['row']}`}>
-                    <div className={styles.developerGrid}>
-                      {[
-                        {
-                          name: '🤓 JoshHuang9508',
-                          role: lang.tr.mainDeveloper,
-                          github: 'https://github.com/JoshHuang9508',
-                        },
-                        {
-                          name: '🤓 yeci226',
-                          role: lang.tr.mainDeveloper,
-                          github: 'https://github.com/yeci226',
-                        },
-                        {
-                          name: 'lekoOwO',
-                          role: lang.tr.backendDeveloper,
-                          github: 'https://github.com/lekoOwO',
-                        },
-                        {
-                          name: 'cablate',
-                          role: lang.tr.frontendDeveloper,
-                          github: 'https://github.com/cablate',
-                        },
-                        {
-                          name: 'cstrikeasia',
-                          role: lang.tr.frontendDeveloper,
-                          github: 'https://github.com/cstrikeasia',
-                        },
-                        {
-                          name: 'rytlebsk',
-                          role: lang.tr.frontendDeveloper,
-                          github: 'https://github.com/rytlebsk',
-                        },
-                        {
-                          name: 'Cooookie16',
-                          role: lang.tr.serverMaintainer,
-                          github: 'https://github.com/Cooookie16',
-                        },
-                        {
-                          name: 'yayacat',
-                          role: lang.tr.serverMaintainer,
-                          github: 'https://github.com/yayacat',
-                        },
-                      ].map((dev) => (
-                        <div key={dev.name} className={styles.developerCard}>
+                    <div className={setting['developerCardGrid']}>
+                      {DEVELOPERS_INFO.map((dev) => (
+                        <div
+                          key={dev.name}
+                          className={setting['developerCard']}
+                        >
                           <div
                             onClick={() =>
                               ipcService.window.openExternal(dev.github)
                             }
-                            className={styles.developerName}
+                            className={setting['nameText']}
                           >
                             {dev.name}
                           </div>
-                          <div className={styles.developerRole}>{dev.role}</div>
+                          <div className={setting['roleText']}>{dev.role}</div>
                         </div>
                       ))}
                     </div>

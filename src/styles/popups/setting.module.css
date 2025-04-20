@@ -13,9 +13,10 @@
   width: 100%;
   max-width: 145px;
   min-height: 0;
-  background: url('../../../public/setting_left_bg.png') no-repeat center center;
+  background-image: url('../../../public/setting_left_bg.png');
   background-size: cover;
   border-right: 1px solid #b4dbec;
+  background-repeat: no-repeat;
 }
 
 .tabs {
@@ -72,6 +73,17 @@
   padding-left: 20px;
 }
 
+.linkText {
+  color: #3b82f6;
+  transition: color 0.2s;
+}
+
+.linkText:hover {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* Basic Info Section */
 
 .avatarWrapper {
@@ -111,13 +123,13 @@
 }
 
 .wealthCoinIcon::after {
+  display: block;
   content: '';
   height: 16px;
   width: 16px;
-  display: block;
-  background: url('../../../public/golden_pea.png');
-  background-size: cover;
   margin-left: 3px;
+  background-image: url('../../../public/golden_pea.png');
+  background-size: cover;
 }
 
 .saperator {
@@ -152,12 +164,12 @@
 }
 
 .searchIcon {
-  height: 17px;
-  width: 17px;
-  background: url('../../../public/channel/channel_search.png');
+  min-height: 17px;
+  min-width: 17px;
+  margin-left: 5px;
+  background-image: url('../../../public/channel/channel_search.png');
   background-size: cover;
   background-position: 0 0;
-  margin-left: 5px;
 }
 
 .searchBorder:hover:not(:has(.searchPrev:hover, .searchNext:hover))
@@ -218,14 +230,14 @@
 }
 
 .blueBtn {
-  background: url(../../../public/im/btn-blue.png) no-repeat center center;
-  background-size: auto;
   color: #fff;
   border: 0;
-  background-position: 0 0;
   min-width: 80px;
   max-width: 80px;
   height: 28px;
+  background-image: url('../../../public/im/btn-blue.png');
+  background-size: auto;
+  background-position: 0 0;
 }
 
 .blueBtn:hover {
@@ -253,4 +265,42 @@
   height: 4rem;
   resize: none;
   overflow-y: scroll;
+}
+
+.developerCardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  width: 100%;
+}
+
+.developerCard {
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  transition: background-color 0.2s;
+}
+
+.developerCard:hover {
+  background-color: #f9fafb;
+}
+
+.developerCard .nameText {
+  color: #3b82f6;
+  transition: color 0.2s;
+  text-decoration: underline;
+  cursor: pointer;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.developerCard .nameText:hover {
+  color: #2563eb;
+}
+
+.developerCard .roleText {
+  color: #4b5563;
+  font-size: 0.9rem;
+  display: block;
 }

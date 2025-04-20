@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 
 // CSS
 import userInfoCard from '@/styles/userInfoCard.module.css';
-import grade from '@/styles/common/grade.module.css';
-import vip from '@/styles/common/vip.module.css';
-import permission from '@/styles/common/permission.module.css';
+import grade from '@/styles/grade.module.css';
+import vip from '@/styles/vip.module.css';
+import permission from '@/styles/permission.module.css';
 
 // Components
 import BadgeViewer from '@/components/viewers/Badge';
@@ -44,18 +44,18 @@ const UserInfoCard: React.FC<UserInfoCardProps> = React.memo(
         let newCardX = x;
         let newCardY = y;
 
-        if (x + cardWidth > windowWidth - 20) {
+        if (newCardX + cardWidth > windowWidth - 20) {
           newCardX = windowWidth - cardWidth - 20;
         }
 
-        if (y + cardHeight > windowHeight - 20) {
+        if (newCardY + cardHeight > windowHeight - 20) {
           newCardY = windowHeight - cardHeight - 20;
         }
 
         setCardX(newCardX);
         setCardY(newCardY);
       }
-    }, [x, y, cardRef]);
+    }, [x, y]);
 
     const {
       name: memberName,
@@ -64,7 +64,7 @@ const UserInfoCard: React.FC<UserInfoCardProps> = React.memo(
       level: memberLevel,
       xp: memberXp,
       requiredXp: memberRequiredXp,
-      badges: memberBadges = [],
+      badges: memberBadges,
       permissionLevel: memberPermission,
       contribution: memberContributions,
       nickname: memberNickname,
@@ -76,10 +76,13 @@ const UserInfoCard: React.FC<UserInfoCardProps> = React.memo(
     return (
       <div
         ref={cardRef}
-        className={`${userInfoCard['userInfoCard']} ${
+        className={`context-menu-container ${userInfoCard['userInfoCard']} ${
           userInfoCard[`vip-${memberVip}`]
         }`}
         style={{ top: cardY, left: cardX }}
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
       >
         <div className={userInfoCard['body']}>
           <div className={userInfoCard['top']}>

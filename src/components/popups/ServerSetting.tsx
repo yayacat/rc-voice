@@ -3,10 +3,10 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { marked } from 'marked';
 
 // CSS
-import setting from '@/styles/popups/editServer.module.css';
-import popup from '@/styles/common/popup.module.css';
-import permission from '@/styles/common/permission.module.css';
-import markdown from '@/styles/common/markdown.module.css';
+import setting from '@/styles/popups/setting.module.css';
+import popup from '@/styles/popup.module.css';
+import permission from '@/styles/permission.module.css';
+import markdown from '@/styles/viewers/markdown.module.css';
 
 // Types
 import {
@@ -129,14 +129,11 @@ const ServerSettingPopup: React.FC<ServerSettingPopupProps> = React.memo(
     const [serverApplications, setServerApplications] = useState<
       MemberApplication[]
     >([]);
-    const [serverBlockMembers, setServerBlockMembers] = useState<
-      ServerMember[]
-    >([]);
     const [permissionLevel, setPermissionLevel] = useState<number>(0);
 
     const [activeTabIndex, setActiveTabIndex] = useState<number>(0);
     const [sortState, setSortState] = useState<1 | -1>(-1);
-    const [sortField, setSortField] = useState<string>('name');
+    const [sortField, setSortField] = useState<string>('permissionLevel');
 
     const [searchText, setSearchText] = useState('');
 
@@ -148,8 +145,17 @@ const ServerSettingPopup: React.FC<ServerSettingPopupProps> = React.memo(
     const filteredMembers = serverMembers.filter((member) => {
       const searchLower = searchText.toLowerCase();
       return (
-        member.nickname?.toLowerCase().includes(searchLower) ||
-        member.name.toLowerCase().includes(searchLower)
+        member.permissionLevel > 1 &&
+        (member.nickname?.toLowerCase().includes(searchLower) ||
+          member.name.toLowerCase().includes(searchLower))
+      );
+    });
+    const filteredBlockMembers = serverMembers.filter((member) => {
+      const searchLower = searchText.toLowerCase();
+      return (
+        member.isBlocked &&
+        (member.nickname?.toLowerCase().includes(searchLower) ||
+          member.name.toLowerCase().includes(searchLower))
       );
     });
     const filteredApplications = serverApplications.filter((application) => {
@@ -157,13 +163,6 @@ const ServerSettingPopup: React.FC<ServerSettingPopupProps> = React.memo(
       return (
         application.name.toLowerCase().includes(searchLower) ||
         application.description.toLowerCase().includes(searchLower)
-      );
-    });
-    const filteredBlockMembers = serverBlockMembers.filter((member) => {
-      const searchLower = searchText.toLowerCase();
-      return (
-        member.nickname?.toLowerCase().includes(searchLower) ||
-        member.name.toLowerCase().includes(searchLower)
       );
     });
 
@@ -263,6 +262,17 @@ const ServerSettingPopup: React.FC<ServerSettingPopupProps> = React.memo(
       });
     };
 
+    const handleOpenUserInfo = (
+      userId: User['userId'],
+      targetId: User['userId'],
+    ) => {
+      ipcService.popup.open(PopupType.USER_INFO);
+      ipcService.initialData.onRequest(PopupType.USER_INFO, {
+        userId,
+        targetId,
+      });
+    };
+
     const handleOpenErrorDialog = (message: string) => {
       ipcService.popup.open(PopupType.DIALOG_ERROR);
       ipcService.initialData.onRequest(PopupType.DIALOG_ERROR, {
@@ -289,27 +299,22 @@ const ServerSettingPopup: React.FC<ServerSettingPopupProps> = React.memo(
 
     const handleMembersUpdate = (data: ServerMember[] | null) => {
       if (!data) data = [];
-      const sortedMembers = handleSort('name', [...data]);
-      setServerMembers(sortedMembers.filter((mb) => mb.permissionLevel > 1));
-      setServerBlockMembers(sortedMembers.filter((mb) => mb.isBlocked) || []);
+      const sorted = [...data].sort(
+        (a, b) => b.permissionLevel - a.permissionLevel,
+      );
+      setServerMembers(sorted);
     };
 
     const handleMemberApplicationsUpdate = (
       data: MemberApplication[] | null,
     ) => {
       if (!data) data = [];
-      const sortedApplications = handleSort('name', [...data]);
-      setServerApplications(sortedApplications);
+      setServerApplications(data);
     };
 
     const handleMemberUpdate = (data: Member | null) => {
       if (!data) data = createDefault.member();
       setPermissionLevel(data.permissionLevel);
-    };
-
-    const handleBlockMemberSort = (field: keyof ServerMember) => {
-      const sortedMembers = handleSort(field, [...serverBlockMembers]);
-      setServerBlockMembers(sortedMembers);
     };
 
     const handleMemberSort = (field: keyof ServerMember) => {
@@ -587,7 +592,7 @@ const ServerSettingPopup: React.FC<ServerSettingPopupProps> = React.memo(
                   className={`${popup['inputBox']} ${setting['headerBar']} ${popup['row']}`}
                 >
                   <div className={popup['label']}>
-                    {lang.tr.members}: {serverMembers.length}
+                    {lang.tr.members}: {filteredMembers.length}
                   </div>
                   <div className={setting['searchWrapper']}>
                     <div className={setting['searchBorder']}>
@@ -691,13 +696,6 @@ const ServerSettingPopup: React.FC<ServerSettingPopupProps> = React.memo(
                               const isCurrentUser = memberUserId === userId;
                               contextMenu.showContextMenu(e.pageX, e.pageY, [
                                 {
-                                  id: 'apply-friend',
-                                  label: lang.tr.addFriend,
-                                  onClick: () =>
-                                    handleOpenApplyFriend(userId, memberUserId),
-                                  show: !isCurrentUser,
-                                },
-                                {
                                   id: 'direct-message',
                                   label: lang.tr.directMessage,
                                   onClick: () =>
@@ -706,6 +704,19 @@ const ServerSettingPopup: React.FC<ServerSettingPopupProps> = React.memo(
                                       memberUserId,
                                       memberName,
                                     ),
+                                  show: !isCurrentUser,
+                                },
+                                {
+                                  id: 'view-profile',
+                                  label: lang.tr.viewProfile,
+                                  onClick: () =>
+                                    handleOpenUserInfo(userId, memberUserId),
+                                },
+                                {
+                                  id: 'apply-friend',
+                                  label: lang.tr.addFriend,
+                                  onClick: () =>
+                                    handleOpenApplyFriend(userId, memberUserId),
                                   show: !isCurrentUser,
                                 },
                                 {
@@ -908,7 +919,7 @@ const ServerSettingPopup: React.FC<ServerSettingPopupProps> = React.memo(
               <div className={popup['col']}>
                 <div className={`${popup['inputBox']} ${popup['row']}`}>
                   <div className={popup['label']}>
-                    {lang.tr.applicants}: {serverApplications.length}
+                    {lang.tr.applicants}: {filteredApplications.length}
                   </div>
                   <button
                     style={{ marginLeft: 'auto' }}
@@ -1025,7 +1036,7 @@ const ServerSettingPopup: React.FC<ServerSettingPopupProps> = React.memo(
                   className={`${popup['inputBox']} ${setting['headerBar']} ${popup['row']}`}
                 >
                   <div className={popup['label']}>
-                    {lang.tr.blacklist}: {serverBlockMembers.length}
+                    {lang.tr.blacklist}: {filteredBlockMembers.length}
                   </div>
                   <div className={setting['searchWrapper']}>
                     <div className={setting['searchBorder']}>
@@ -1050,7 +1061,7 @@ const ServerSettingPopup: React.FC<ServerSettingPopupProps> = React.memo(
                           <th
                             key={field.field}
                             onClick={() =>
-                              handleBlockMemberSort(
+                              handleMemberSort(
                                 field.field as keyof ServerMember,
                               )
                             }

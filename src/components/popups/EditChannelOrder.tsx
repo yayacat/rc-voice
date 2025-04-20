@@ -16,8 +16,8 @@ import { useLanguage } from '@/providers/Language';
 
 // CSS
 import editChannelOrder from '@/styles/popups/editChannelOrder.module.css';
-import serverPage from '@/styles/serverPage.module.css';
-import popup from '@/styles/common/popup.module.css';
+import serverPage from '@/styles/pages/server.module.css';
+import popup from '@/styles/popup.module.css';
 
 // Services
 import ipcService from '@/services/ipc.service';
@@ -121,14 +121,14 @@ const EditChannelOrderPopup: React.FC<EditChannelOrderPopupProps> = React.memo(
 
     const handleOpenCreateChannel = (
       userId: User['userId'],
-      categoryId: Category['categoryId'] | null,
+      channelId: Channel['channelId'] | null,
       serverId: Server['serverId'],
     ) => {
       ipcService.popup.open(PopupType.CREATE_CHANNEL);
       ipcService.initialData.onRequest(PopupType.CREATE_CHANNEL, {
         userId,
         serverId,
-        categoryId,
+        channelId,
       });
     };
 
@@ -295,16 +295,20 @@ const EditChannelOrderPopup: React.FC<EditChannelOrderPopupProps> = React.memo(
               </div>
             </div>
           </div>
-          <div className={serverPage['channelList']}>
-            {expanded[categoryId] &&
-              subChannels
-                .sort((a, b) =>
-                  a.order !== b.order
-                    ? a.order - b.order
-                    : a.createdAt - b.createdAt,
-                )
-                .filter((ch) => ch.type === 'channel')
-                .map((channel) => channelTab(channel))}
+          <div
+            className={serverPage['channelList']}
+            style={{
+              display: expanded[categoryId] ? 'block' : 'none',
+            }}
+          >
+            {subChannels
+              .sort((a, b) =>
+                a.order !== b.order
+                  ? a.order - b.order
+                  : a.createdAt - b.createdAt,
+              )
+              .filter((ch) => ch.type === 'channel')
+              .map((channel) => channelTab(channel))}
           </div>
         </div>
       );
@@ -378,7 +382,7 @@ const EditChannelOrderPopup: React.FC<EditChannelOrderPopupProps> = React.memo(
               if (!canAdd) return;
               handleOpenCreateChannel(
                 userId,
-                selectedChannelId ?? null,
+                selectedChannelId || null,
                 serverId,
               );
             }}

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 
 // CSS
-import styles from '@/styles/serverPage.module.css';
-import grade from '@/styles/common/grade.module.css';
-import vip from '@/styles/common/vip.module.css';
-import permission from '@/styles/common/permission.module.css';
+import styles from '@/styles/pages/server.module.css';
+import grade from '@/styles/grade.module.css';
+import vip from '@/styles/vip.module.css';
+import permission from '@/styles/permission.module.css';
 
 // Types
 import {
@@ -34,7 +34,7 @@ import ipcService from '@/services/ipc.service';
 
 interface CategoryTabProps {
   userId: User['userId'];
-  userCurrentChannelId: Channel['channelId'];
+  currentChannelId: Channel['channelId'];
   serverId: Server['serverId'];
   serverActiveMembers: ServerMember[];
   serverChannels: (Channel | Category)[];
@@ -47,7 +47,7 @@ interface CategoryTabProps {
 const CategoryTab: React.FC<CategoryTabProps> = React.memo(
   ({
     userId,
-    userCurrentChannelId,
+    currentChannelId,
     serverId,
     serverActiveMembers,
     serverChannels,
@@ -72,7 +72,7 @@ const CategoryTab: React.FC<CategoryTabProps> = React.memo(
       .filter((ch) => ch.type === 'channel')
       .filter((ch) => ch.categoryId === categoryId);
     const userInCategory = categoryChannels.some(
-      (ch) => ch.channelId === userCurrentChannelId,
+      (ch) => ch.channelId === currentChannelId,
     );
     const canCreateChannel = permissionLevel > 4;
     const canDeleteCategory = permissionLevel > 4;
@@ -205,25 +205,28 @@ const CategoryTab: React.FC<CategoryTabProps> = React.memo(
         </div>
 
         {/* Expanded Sections */}
-        {expanded[categoryId] && (
-          <div className={styles['channelList']}>
-            {categoryChannels
-              .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-              .map((channel) => (
-                <ChannelTab
-                  key={channel.channelId}
-                  userId={userId}
-                  userCurrentChannelId={userCurrentChannelId}
-                  serverId={serverId}
-                  serverActiveMembers={serverActiveMembers}
-                  channel={channel}
-                  permissionLevel={permissionLevel}
-                  expanded={expanded}
-                  setExpanded={setExpanded}
-                />
-              ))}
-          </div>
-        )}
+        <div
+          className={styles['channelList']}
+          style={{
+            display: expanded[categoryId] ? 'block' : 'none',
+          }}
+        >
+          {categoryChannels
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+            .map((channel) => (
+              <ChannelTab
+                key={channel.channelId}
+                userId={userId}
+                currentChannelId={currentChannelId}
+                serverId={serverId}
+                serverActiveMembers={serverActiveMembers}
+                channel={channel}
+                permissionLevel={permissionLevel}
+                expanded={expanded}
+                setExpanded={setExpanded}
+              />
+            ))}
+        </div>
       </>
     );
   },
@@ -233,7 +236,7 @@ CategoryTab.displayName = 'CategoryTab';
 
 interface ChannelTabProps {
   userId: User['userId'];
-  userCurrentChannelId: Channel['channelId'];
+  currentChannelId: Channel['channelId'];
   serverId: Server['serverId'];
   serverActiveMembers: ServerMember[];
   channel: Channel;
@@ -245,7 +248,7 @@ interface ChannelTabProps {
 const ChannelTab: React.FC<ChannelTabProps> = React.memo(
   ({
     userId,
-    userCurrentChannelId,
+    currentChannelId,
     serverId,
     serverActiveMembers,
     channel,
@@ -271,7 +274,7 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
     const channelMembers = serverActiveMembers.filter(
       (mb) => mb.currentChannelId === channelId,
     );
-    const userInChannel = userCurrentChannelId === channelId;
+    const userInChannel = currentChannelId === channelId;
     const canJoin =
       !userInChannel &&
       channelVisibility !== 'readonly' &&
@@ -299,13 +302,13 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
 
     const handleOpenCreateChannel = (
       serverId: Server['serverId'],
-      categoryId: Category['categoryId'],
+      channelId: Channel['channelId'] | null,
       userId: User['userId'],
     ) => {
       ipcService.popup.open(PopupType.CREATE_CHANNEL);
       ipcService.initialData.onRequest(PopupType.CREATE_CHANNEL, {
         serverId,
-        categoryId,
+        channelId,
         userId,
       });
     };
@@ -452,20 +455,23 @@ const ChannelTab: React.FC<ChannelTabProps> = React.memo(
         </div>
 
         {/* Expanded Sections */}
-        {expanded[channelId] && (
-          <div className={styles['userList']}>
-            {channelMembers
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((channelMember) => (
-                <UserTab
-                  key={channelMember.userId}
-                  userId={userId}
-                  channelMember={channelMember}
-                  permissionLevel={permissionLevel}
-                />
-              ))}
-          </div>
-        )}
+        <div
+          className={styles['userList']}
+          style={{
+            display: expanded[channelId] ? 'block' : 'none',
+          }}
+        >
+          {channelMembers
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((channelMember) => (
+              <UserTab
+                key={channelMember.userId}
+                userId={userId}
+                channelMember={channelMember}
+                permissionLevel={permissionLevel}
+              />
+            ))}
+        </div>
       </>
     );
   },
@@ -496,7 +502,7 @@ const UserTab: React.FC<UserTabProps> = React.memo(
       nickname: channelMemberNickname,
       level: channelMemberLevel,
       gender: channelMemberGender,
-      badges: channelMemberBadges = [],
+      badges: channelMemberBadges,
       vip: channelMemberVip,
     } = channelMember;
     const channelMemberGrade = Math.min(56, channelMemberLevel); // 56 is max leve
@@ -570,6 +576,17 @@ const UserTab: React.FC<UserTabProps> = React.memo(
       });
     };
 
+    const handleOpenUserInfo = (
+      userId: User['userId'],
+      targetId: User['userId'],
+    ) => {
+      ipcService.popup.open(PopupType.USER_INFO);
+      ipcService.initialData.onRequest(PopupType.USER_INFO, {
+        userId,
+        targetId,
+      });
+    };
+
     const handleUpdateMember = (
       member: Partial<Member>,
       userId: User['userId'],
@@ -607,17 +624,11 @@ const UserTab: React.FC<UserTabProps> = React.memo(
       <div
         key={channelMemberUserId}
         className={`${styles['userTab']}`}
-        onDoubleClick={(e) => {
+        onClick={(e) => {
           contextMenu.showUserInfoBlock(e.pageX, e.pageY, channelMember);
         }}
         onContextMenu={(e) => {
           contextMenu.showContextMenu(e.pageX, e.pageY, [
-            {
-              id: 'apply-friend',
-              label: lang.tr.addFriend,
-              onClick: () => handleOpenApplyFriend(userId, channelMemberUserId),
-              show: !isCurrentUser,
-            },
             {
               id: 'direct-message',
               label: lang.tr.directMessage,
@@ -627,6 +638,17 @@ const UserTab: React.FC<UserTabProps> = React.memo(
                   channelMemberUserId,
                   channelMemberName,
                 ),
+              show: !isCurrentUser,
+            },
+            {
+              id: 'view-profile',
+              label: lang.tr.viewProfile,
+              onClick: () => handleOpenUserInfo(userId, channelMemberUserId),
+            },
+            {
+              id: 'apply-friend',
+              label: lang.tr.addFriend,
+              onClick: () => handleOpenApplyFriend(userId, channelMemberUserId),
               show: !isCurrentUser,
             },
             {
@@ -708,18 +730,18 @@ const UserTab: React.FC<UserTabProps> = React.memo(
                     ),
                 },
                 removeLevelToMember(lang.tr.removeAdmin, 5),
+                {
+                  id: 'set-guest',
+                  label: lang.tr.setGuest,
+                  show: canChangeToGuest,
+                  onClick: () =>
+                    handleUpdateMember(
+                      { permissionLevel: 1 },
+                      channelMemberUserId,
+                      channelMemberServerId,
+                    ),
+                },
               ],
-            },
-            {
-              id: 'set-guest',
-              label: lang.tr.setGuest,
-              show: canChangeToGuest,
-              onClick: () =>
-                handleUpdateMember(
-                  { permissionLevel: 1 },
-                  channelMemberUserId,
-                  channelMemberServerId,
-                ),
             },
           ]);
         }}
@@ -761,7 +783,7 @@ const UserTab: React.FC<UserTabProps> = React.memo(
             ${grade[`lv-${channelMemberGrade}`]}
           `}
         />
-        <BadgeViewer badges={channelMemberBadges} maxDisplay={3} />
+        <BadgeViewer badges={channelMemberBadges} maxDisplay={5} />
         {isCurrentUser && <div className={styles['myLocationIcon']} />}
       </div>
     );
@@ -773,7 +795,7 @@ UserTab.displayName = 'UserTab';
 interface ChannelViewerProps {
   user: User;
   server: Server;
-  channel: Channel;
+  currentChannel: Channel;
   serverChannels: (Channel | Category)[];
   serverActiveMembers: ServerMember[];
   permissionLevel: Member['permissionLevel'];
@@ -783,7 +805,7 @@ const ChannelViewer: React.FC<ChannelViewerProps> = React.memo(
   ({
     user,
     server,
-    channel,
+    currentChannel,
     serverChannels,
     serverActiveMembers,
     permissionLevel,
@@ -811,10 +833,10 @@ const ChannelViewer: React.FC<ChannelViewerProps> = React.memo(
       receiveApply: serverReceiveApply,
     } = server;
     const {
-      channelId,
-      name: channelName,
-      voiceMode: channelVoiceMode,
-    } = channel;
+      channelId: currentChannelId,
+      name: currentChannelName,
+      voiceMode: currentChannelVoiceMode,
+    } = currentChannel;
     const canCreateChannel = permissionLevel > 4;
     const canEditNickname = permissionLevel > 1;
     const canApplyMember = permissionLevel < 2;
@@ -1020,11 +1042,13 @@ const ChannelViewer: React.FC<ChannelViewerProps> = React.memo(
               className={`${styles['currentChannelPing']}`}
             >{`${latency}ms`}</div>
           </div>
-          <div className={styles['currentChannelText']}>{channelName}</div>
+          <div className={styles['currentChannelText']}>
+            {currentChannelName}
+          </div>
         </div>
 
         {/* Mic Queue */}
-        {channelVoiceMode === 'queue' && (
+        {currentChannelVoiceMode === 'queue' && (
           <>
             <div className={styles['sectionTitle']}>{lang.tr.micOrder}</div>
             <div className={styles['micQueueBox']}>
@@ -1071,14 +1095,14 @@ const ChannelViewer: React.FC<ChannelViewerProps> = React.memo(
           <div className={styles['channelList']}>
             {view === 'current' ? (
               <ChannelTab
-                key={channelId}
+                key={currentChannelId}
                 userId={userId}
-                userCurrentChannelId={channelId}
+                currentChannelId={currentChannelId}
                 serverId={serverId}
                 serverActiveMembers={serverActiveMembers}
-                channel={channel}
+                channel={currentChannel}
                 permissionLevel={permissionLevel}
-                expanded={{ [channelId]: true }}
+                expanded={{ [currentChannelId]: true }}
                 setExpanded={() => {}}
               />
             ) : (
@@ -1094,7 +1118,7 @@ const ChannelViewer: React.FC<ChannelViewerProps> = React.memo(
                     <CategoryTab
                       key={item.channelId}
                       userId={userId}
-                      userCurrentChannelId={channelId}
+                      currentChannelId={currentChannelId}
                       serverId={serverId}
                       serverActiveMembers={serverActiveMembers}
                       serverChannels={serverChannels}
@@ -1107,7 +1131,7 @@ const ChannelViewer: React.FC<ChannelViewerProps> = React.memo(
                     <ChannelTab
                       key={item.channelId}
                       userId={userId}
-                      userCurrentChannelId={channelId}
+                      currentChannelId={currentChannelId}
                       serverId={serverId}
                       serverActiveMembers={serverActiveMembers}
                       channel={item}

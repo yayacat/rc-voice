@@ -1,9 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react';
 
 // CSS
-import styles from '@/styles/friendPage.module.css';
-import grade from '@/styles/common/grade.module.css';
-import vip from '@/styles/common/vip.module.css';
+import styles from '@/styles/pages/friend.module.css';
+import grade from '@/styles/grade.module.css';
+import vip from '@/styles/vip.module.css';
 // Types
 import {
   PopupType,
@@ -117,13 +117,16 @@ const FriendGroupTab: React.FC<FriendGroupTabProps> = React.memo(
         </div>
 
         {/* Expanded Sections */}
-        {expanded && friends && (
-          <div className={styles['tabContent']}>
-            {friendGroupFriends.map((friend) => (
-              <FriendCard key={friend.targetId} friend={friend} />
-            ))}
-          </div>
-        )}
+        <div
+          className={styles['tabContent']}
+          style={{
+            display: expanded ? 'block' : 'none',
+          }}
+        >
+          {friendGroupFriends.map((friend) => (
+            <FriendCard key={friend.targetId} friend={friend} userId={userId} />
+          ))}
+        </div>
       </div>
     );
   },
@@ -132,159 +135,183 @@ const FriendGroupTab: React.FC<FriendGroupTabProps> = React.memo(
 FriendGroupTab.displayName = 'FriendGroupTab';
 
 interface FriendCardProps {
+  userId: string;
   friend: UserFriend;
 }
 
-const FriendCard: React.FC<FriendCardProps> = React.memo(({ friend }) => {
-  // Hooks
-  const lang = useLanguage();
-  const contextMenu = useContextMenu();
+const FriendCard: React.FC<FriendCardProps> = React.memo(
+  ({ friend, userId }) => {
+    // Hooks
+    const lang = useLanguage();
+    const contextMenu = useContextMenu();
 
-  // Socket
-  const socket = useSocket();
+    // Socket
+    const socket = useSocket();
 
-  // Refs
-  const refreshed = useRef(false);
+    // Refs
+    const refreshed = useRef(false);
 
-  // States
-  const [friendServerName, setFriendServerName] = useState<Server['name']>(
-    createDefault.server().name,
-  );
+    // States
+    const [friendServerName, setFriendServerName] = useState<Server['name']>(
+      createDefault.server().name,
+    );
 
-  // Variables
-  const {
-    userId: friendUserId,
-    targetId: friendTargetId,
-    name: friendName,
-    avatarUrl: friendAvatarUrl,
-    signature: friendSignature,
-    vip: friendVip,
-    level: friendLevel,
-    badges: friendBadges = [],
-    currentServerId: friendCurrentServerId,
-  } = friend;
-  const friendGrade = Math.min(56, friendLevel); // 56 is max level
+    // Variables
+    const {
+      userId: friendUserId,
+      targetId: friendTargetId,
+      name: friendName,
+      avatarUrl: friendAvatarUrl,
+      signature: friendSignature,
+      vip: friendVip,
+      level: friendLevel,
+      badges: friendBadges,
+      currentServerId: friendCurrentServerId,
+    } = friend;
+    const friendGrade = Math.min(56, friendLevel); // 56 is max level
 
-  // Handlers
-  const handleOpenDirectMessage = (
-    userId: User['userId'],
-    targetId: User['userId'],
-    targetName: User['name'],
-  ) => {
-    ipcService.popup.open(PopupType.DIRECT_MESSAGE, { targetId });
-    ipcService.initialData.onRequest(PopupType.DIRECT_MESSAGE, {
-      userId,
-      targetId,
-      targetName,
-    });
-  };
+    // Handlers
+    const handleOpenDirectMessage = (
+      userId: User['userId'],
+      targetId: User['userId'],
+      targetName: User['name'],
+    ) => {
+      ipcService.popup.open(PopupType.DIRECT_MESSAGE, { targetId });
+      ipcService.initialData.onRequest(PopupType.DIRECT_MESSAGE, {
+        userId,
+        targetId,
+        targetName,
+      });
+    };
 
-  // Handlers
-  const handleServerUpdate = (data: Server | null) => {
-    if (!data) data = createDefault.server();
-    setFriendServerName(data.name);
-  };
+    // Handlers
+    const handleServerUpdate = (data: Server | null) => {
+      if (!data) data = createDefault.server();
+      setFriendServerName(data.name);
+    };
 
-  const handleOpenEditFriend = (
-    userId: User['userId'],
-    targetId: User['userId'],
-  ) => {
-    ipcService.popup.open(PopupType.EDIT_FRIEND);
-    ipcService.initialData.onRequest(PopupType.EDIT_FRIEND, {
-      userId,
-      targetId,
-    });
-  };
-
-  const handleDeleteFriend = (
-    userId: User['userId'],
-    targetId: User['userId'],
-  ) => {
-    ipcService.popup.open(PopupType.DIALOG_ALERT);
-    ipcService.initialData.onRequest(PopupType.DIALOG_ALERT, {
-      iconType: 'warning',
-      title: lang.tr.deleteFriendDialog.replace('{0}', friendName),
-      submitTo: PopupType.DIALOG_ALERT,
-    });
-    ipcService.popup.onSubmit(PopupType.DIALOG_ALERT, () => {
-      socket.send.deleteFriend({
+    const handleOpenUserInfo = (
+      userId: User['userId'],
+      targetId: User['userId'],
+    ) => {
+      ipcService.popup.open(PopupType.USER_INFO);
+      ipcService.initialData.onRequest(PopupType.USER_INFO, {
         userId,
         targetId,
       });
-    });
-  };
+    };
 
-  useEffect(() => {
-    if (!friendCurrentServerId || refreshed.current) return;
-    const refresh = async () => {
-      refreshed.current = true;
-      Promise.all([
-        refreshService.server({
-          serverId: friendCurrentServerId,
-        }),
-      ]).then(([server]) => {
-        handleServerUpdate(server);
+    const handleOpenEditFriend = (
+      userId: User['userId'],
+      targetId: User['userId'],
+    ) => {
+      ipcService.popup.open(PopupType.EDIT_FRIEND);
+      ipcService.initialData.onRequest(PopupType.EDIT_FRIEND, {
+        userId,
+        targetId,
       });
     };
-    refresh();
-  }, [friendCurrentServerId]);
 
-  return (
-    <div key={friendTargetId}>
-      {/* User View */}
-      <div
-        className={styles['friendCard']}
-        onContextMenu={(e) => {
-          contextMenu.showContextMenu(e.pageX, e.pageY, [
-            {
-              id: 'edit',
-              label: lang.tr.editFriendGroup,
-              onClick: () => handleOpenEditFriend(friendUserId, friendTargetId),
-            },
-            {
-              id: 'delete',
-              label: lang.tr.deleteFriend,
-              onClick: () => handleDeleteFriend(friendUserId, friendTargetId),
-            },
-          ]);
-        }}
-        onDoubleClick={() => {
-          handleOpenDirectMessage(friendUserId, friendTargetId, friendName);
-        }}
-      >
+    const handleDeleteFriend = (
+      userId: User['userId'],
+      targetId: User['userId'],
+    ) => {
+      ipcService.popup.open(PopupType.DIALOG_ALERT);
+      ipcService.initialData.onRequest(PopupType.DIALOG_ALERT, {
+        iconType: 'warning',
+        title: lang.tr.deleteFriendDialog.replace('{0}', friendName),
+        submitTo: PopupType.DIALOG_ALERT,
+      });
+      ipcService.popup.onSubmit(PopupType.DIALOG_ALERT, () => {
+        socket.send.deleteFriend({
+          userId,
+          targetId,
+        });
+      });
+    };
+
+    useEffect(() => {
+      if (!friendCurrentServerId || refreshed.current) return;
+      const refresh = async () => {
+        refreshed.current = true;
+        Promise.all([
+          refreshService.server({
+            serverId: friendCurrentServerId,
+          }),
+        ]).then(([server]) => {
+          handleServerUpdate(server);
+        });
+      };
+      refresh();
+    }, [friendCurrentServerId]);
+
+    return (
+      <div key={friendTargetId}>
+        {/* User View */}
         <div
-          className={styles['avatarPicture']}
-          style={{
-            backgroundImage: `url(${friendAvatarUrl})`,
-            filter: !friendServerName ? 'grayscale(100%)' : '',
+          className={styles['friendCard']}
+          onContextMenu={(e) => {
+            contextMenu.showContextMenu(e.pageX, e.pageY, [
+              {
+                id: 'info',
+                label: lang.tr.viewProfile,
+                onClick: () => {
+                  handleOpenUserInfo(userId, friendTargetId);
+                },
+              },
+              {
+                id: 'edit',
+                label: lang.tr.editFriendGroup,
+                onClick: () =>
+                  handleOpenEditFriend(friendUserId, friendTargetId),
+              },
+              {
+                id: 'delete',
+                label: lang.tr.deleteFriend,
+                onClick: () => handleDeleteFriend(friendUserId, friendTargetId),
+              },
+            ]);
           }}
-        />
-        <div className={styles['baseInfoBox']}>
-          <div className={styles['container']}>
-            {friendVip > 0 && (
-              <div
-                className={`${vip['vipIcon']} ${vip[`vip-small-${friendVip}`]}`}
-              />
-            )}
-            <div className={styles['name']}>{friendName}</div>
-            <div
-              className={`${grade['grade']} ${grade[`lv-${friendGrade}`]}`}
-            />
-            <BadgeViewer badges={friendBadges} />
-          </div>
-          {friendServerName ? (
+          onDoubleClick={() => {
+            handleOpenDirectMessage(friendUserId, friendTargetId, friendName);
+          }}
+        >
+          <div
+            className={styles['avatarPicture']}
+            style={{
+              backgroundImage: `url(${friendAvatarUrl})`,
+              filter: !friendServerName ? 'grayscale(100%)' : '',
+            }}
+          />
+          <div className={styles['baseInfoBox']}>
             <div className={styles['container']}>
-              <div className={styles['location']} />
-              <div className={styles['serverName']}>{friendServerName}</div>
+              {friendVip > 0 && (
+                <div
+                  className={`${vip['vipIcon']} ${
+                    vip[`vip-small-${friendVip}`]
+                  }`}
+                />
+              )}
+              <div className={styles['name']}>{friendName}</div>
+              <div
+                className={`${grade['grade']} ${grade[`lv-${friendGrade}`]}`}
+              />
+              <BadgeViewer badges={friendBadges} maxDisplay={5} />
             </div>
-          ) : (
-            <div className={styles['signature']}>{friendSignature}</div>
-          )}
+            {friendServerName ? (
+              <div className={styles['container']}>
+                <div className={styles['location']} />
+                <div className={styles['serverName']}>{friendServerName}</div>
+              </div>
+            ) : (
+              <div className={styles['signature']}>{friendSignature}</div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
-});
+    );
+  },
+);
 
 FriendCard.displayName = 'FriendCard';
 

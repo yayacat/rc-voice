@@ -4,8 +4,8 @@ import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback } from 'react';
 
 // CSS
-import styles from '@/styles/serverPage.module.css';
-import markdown from '@/styles/common/markdown.module.css';
+import styles from '@/styles/pages/server.module.css';
+import markdown from '@/styles/viewers/markdown.module.css';
 
 // Components
 import MarkdownViewer from '@/components/viewers/Markdown';
@@ -54,9 +54,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
 
     // States
     const [serverChannels, setServerChannels] = useState<Channel[]>([]);
-    const [serverActiveMembers, setServerActiveMembers] = useState<
-      ServerMember[]
-    >([]);
+    const [serverMembers, setServerMembers] = useState<ServerMember[]>([]);
     const [channelMessages, setChannelMessages] = useState<
       Record<Channel['channelId'], ChannelMessage[]>
     >({});
@@ -84,14 +82,14 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       guestTextWaitTime: channelGuestTextWaitTime,
       guestTextGapTime: channelGuestTextGapTime,
     } = channel;
-
-    member.lastJoinChannelTime =
-      member.lastJoinChannelTime > 0 ? member.lastJoinChannelTime : Date.now();
     const {
       permissionLevel: memberPermissionLevel,
       lastJoinChannelTime: memberLastJoinChannelTime,
       lastMessageTime: memberLastMessageTime,
     } = member;
+    const serverActiveMembers = serverMembers.filter(
+      (mb) => mb.currentServerId === serverId,
+    );
     const leftGapTime =
       channelGuestTextGapTime -
       Math.floor((currentTime - memberLastJoinChannelTime) / 1000);
@@ -140,11 +138,9 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       setServerChannels(data);
     };
 
-    const handleServerActiveMembersUpdate = (
-      data: ServerMember[] | null,
-    ): void => {
+    const handleServerMembersUpdate = (data: ServerMember[] | null): void => {
       if (!data) data = [];
-      setServerActiveMembers(data);
+      setServerMembers(data);
     };
 
     const handleOnMessagesUpdate = (data: ChannelMessage): void => {
@@ -214,8 +210,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
       const eventHandlers = {
         [SocketServerEvent.MEMBER_UPDATE]: handleMemberUpdate,
         [SocketServerEvent.SERVER_CHANNELS_UPDATE]: handleServerChannelsUpdate,
-        [SocketServerEvent.SERVER_ACTIVE_MEMBERS_UPDATE]:
-          handleServerActiveMembersUpdate,
+        [SocketServerEvent.SERVER_MEMBERS_UPDATE]: handleServerMembersUpdate,
         [SocketServerEvent.ON_MESSAGE]: handleOnMessagesUpdate,
       };
       const unsubscribe: (() => void)[] = [];
@@ -280,7 +275,7 @@ const ServerPageComponent: React.FC<ServerPageProps> = React.memo(
             <ChannelViewer
               user={user}
               server={server}
-              channel={channel}
+              currentChannel={channel}
               serverActiveMembers={serverActiveMembers}
               serverChannels={serverChannels}
               permissionLevel={memberPermissionLevel}

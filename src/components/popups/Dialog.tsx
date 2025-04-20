@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 
 // CSS
-import popup from '@/styles/common/popup.module.css';
-import setting from '@/styles/popups/editServer.module.css';
+import popup from '@/styles/popup.module.css';
+import setting from '@/styles/popups/setting.module.css';
 
 // Services
 import ipcService from '@/services/ipc.service';
@@ -76,6 +76,9 @@ const DialogPopup: React.FC<DialogPopupProps> = (
       <div className={popup['popupFooter']}>
         <button className={popup['button']} onClick={() => handleSubmit()}>
           {lang.tr.confirm}
+        </button>
+        <button className={popup['button']} onClick={() => handleClose()}>
+          {lang.tr.cancel}
         </button>
       </div>
     </form>

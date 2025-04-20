@@ -2,9 +2,9 @@ import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 // CSS
-import friendPage from '@/styles/friendPage.module.css';
-import grade from '@/styles/common/grade.module.css';
-import vip from '@/styles/common/vip.module.css';
+import friendPage from '@/styles/pages/friend.module.css';
+import grade from '@/styles/grade.module.css';
+import vip from '@/styles/vip.module.css';
 
 // Components
 import FriendListViewer from '@/components/viewers/FriendList';
@@ -191,8 +191,10 @@ const FriendPageComponent: React.FC<FriendPageProps> = React.memo(
                 />
               )}
             </div>
-            <div className={friendPage['container']}>
-              <BadgeViewer badges={userBadges || []} />
+            <div
+              className={`${friendPage['container']} ${friendPage['myBadges']}`}
+            >
+              <BadgeViewer badges={userBadges} maxDisplay={5} />
             </div>
           </div>
           <div className={friendPage['signatureBox']}>

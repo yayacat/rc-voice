@@ -2,7 +2,7 @@ import dynamic from 'next/dynamic';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 // CSS
-import homePage from '@/styles/homePage.module.css';
+import homePage from '@/styles/pages/home.module.css';
 
 // Components
 import ServerListViewer from '@/components/viewers/ServerList';
@@ -23,6 +23,7 @@ import { useLanguage } from '@/providers/Language';
 // Services
 import ipcService from '@/services/ipc.service';
 import refreshService from '@/services/refresh.service';
+import { useMainTab } from '@/providers/MainTab';
 
 export interface ServerListSectionProps {
   title: string;
@@ -102,6 +103,7 @@ const HomePageComponent: React.FC<HomePageProps> = React.memo(
     // Hooks
     const lang = useLanguage();
     const socket = useSocket();
+    const mainTab = useMainTab();
 
     // Refs
     const refreshed = useRef(false);
@@ -118,12 +120,14 @@ const HomePageComponent: React.FC<HomePageProps> = React.memo(
     const [loadingGroupID, setLoadingGroupID] = useState<string>();
 
     // Variables
-    const { userId, name: userName } = user;
+    const { userId, name: userName, currentServerId } = user;
     const hasResults =
       exactMatch || personalResults.length > 0 || relatedResults.length > 0;
-    const recentServers = userServers.filter((s) => s.recent);
+    const recentServers = userServers.filter((s) => s.recent).slice(0, 9);
     const favoriteServers = userServers.filter((s) => s.favorite);
-    const ownedServers = userServers.filter((s) => s.owned);
+    const personalServers = userServers
+      .filter((s) => s.permissionLevel > 1 && s.permissionLevel < 7)
+      .sort((a, b) => b.permissionLevel - a.permissionLevel);
 
     // Handlers
     const handleUserServersUpdate = (data: UserServer[] | null) => {
@@ -262,10 +266,13 @@ const HomePageComponent: React.FC<HomePageProps> = React.memo(
     }, [userId]);
 
     useEffect(() => {
-      if (!server) return;
-      setIsLoading(false);
-      setLoadingGroupID('');
-    }, [server, isLoading]);
+      if (mainTab.selectedTabId == 'server') {
+        if (!server) return;
+        setIsLoading(false);
+        setLoadingGroupID('');
+        localStorage.removeItem('trigger-handle-server-select');
+      }
+    }, [server, isLoading, mainTab]);
 
     useEffect(() => {
       if (!lang) return;
@@ -285,6 +292,18 @@ const HomePageComponent: React.FC<HomePageProps> = React.memo(
         ],
       });
     }, [lang, userName]);
+
+    useEffect(() => {
+      const handler = ({ key, newValue }: StorageEvent) => {
+        if (key !== 'trigger-handle-server-select' || !newValue) return;
+        const { serverDisplayId } = JSON.parse(newValue);
+        mainTab.setSelectedTabId('home');
+        setIsLoading(true);
+        setLoadingGroupID(serverDisplayId);
+      };
+      window.addEventListener('storage', handler);
+      return () => window.removeEventListener('storage', handler);
+    }, [mainTab]);
 
     return (
       <div
@@ -406,13 +425,17 @@ const HomePageComponent: React.FC<HomePageProps> = React.memo(
             servers={recentServers}
             userId={userId}
             onServerClick={(server) => {
-              setIsLoading(true);
-              setLoadingGroupID(server.displayId);
+              if (currentServerId == server.serverId) {
+                mainTab.setSelectedTabId('server');
+              } else {
+                setIsLoading(true);
+                setLoadingGroupID(server.displayId);
+              }
             }}
           />
           <ServerListSection
             title={lang.tr.myGroups}
-            servers={ownedServers}
+            servers={personalServers}
             userId={userId}
             onServerClick={(server) => {
               setIsLoading(true);
