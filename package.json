@@ -5,7 +5,7 @@
   "type": "module",
   "main": "main.js",
   "description": "Ricecall is a voice chat app that allows you to chat with your friends.",
-  "author": "null",
+  "author": "NerdyHomeReOpen <ricecall@ricecall.com.tw>",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
